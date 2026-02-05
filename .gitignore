@@ -1,21 +1,17 @@
-# Maven
+# ===== Java =====
+*.class
+
+# ===== Maven =====
 /target/
 !.mvn/wrapper/maven-wrapper.jar
 
-# Java
-*.class
-
-# Logs
+# ===== JavaFX =====
 *.log
 
-# VS Code
+# ===== VS Code =====
 .vscode/
 !.vscode/extensions.json
 
-# OS
+# ===== OS =====
 .DS_Store
 Thumbs.db
-
-# Node (nếu có frontend build)
-node_modules/
-dist/
