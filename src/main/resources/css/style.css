@@ -1,0 +1,11 @@
+.button{
+    -fx-cursor: hand;
+}
+
+.text{
+    -fx-font-smoothing-type: lcd;
+}
+
+.root{
+    -fx-background-color: black;
+}
