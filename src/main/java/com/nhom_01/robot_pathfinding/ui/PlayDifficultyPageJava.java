@@ -68,7 +68,8 @@ public final class PlayDifficultyPageJava {
                 "Guided mode with more forgiving routes.",
                 "Fewer dead ends and smoother learning curve.",
                 "Estimated clear time: 3-5 min",
-                Color.web("#00FF9C")
+                Color.web("#00FF9C"),
+                () -> AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene(), "EASY")
             ),
             createDifficultyCard(
                 "MEDIUM",
@@ -76,7 +77,8 @@ public final class PlayDifficultyPageJava {
                 "Balanced challenge with mixed path patterns.",
                 "Good for regular play and skill growth.",
                 "Estimated clear time: 5-8 min",
-                Color.web("#FFB800")
+                Color.web("#FFB800"),
+                () -> AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene(), "MEDIUM")
             ),
             createDifficultyCard(
                 "HARD",
@@ -84,7 +86,8 @@ public final class PlayDifficultyPageJava {
                 "Complex maze with misleading branches.",
                 "Best for players who want strategic pressure.",
                 "Estimated clear time: 8-12 min",
-                Color.web("#FF6B6B")
+                Color.web("#FF6B6B"),
+                () -> AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene(), "HARD")
             )
         );
 
@@ -147,7 +150,8 @@ public final class PlayDifficultyPageJava {
     }
 
     private static VBox createDifficultyCard(String level, String icon, String line1,
-                                             String line2, String duration, Color accent) {
+                                             String line2, String duration, Color accent,
+                                             Runnable onChoose) {
         VBox card = new VBox(12);
         card.setAlignment(Pos.TOP_LEFT);
         card.setPadding(new Insets(18));
@@ -192,6 +196,7 @@ public final class PlayDifficultyPageJava {
         choose.setOnAction(e -> {
             card.setStyle(hoverStyle);
             card.setTranslateY(-2);
+            onChoose.run();
         });
 
         card.setOnMouseEntered(e -> {

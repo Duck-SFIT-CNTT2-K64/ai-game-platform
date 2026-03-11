@@ -162,18 +162,16 @@ public class MainMenuJava extends Application {
 		Button play = neonButton("▶ PLAY", Color.web("#FFA500")); // Orange
 		// Button auto = neonButton("⚡ AI AUTO SOLVE", Color.web("#00FFFF"));
 		// Button hint = neonButton("🎯 HINT MODE", Color.web("#00FF00"));
-		Button algo = neonButton("⚙ SELECT ALGORITHM", Color.web("#FF00FF")); // Magenta
 		Button options = neonButton("⚙ OPTIONS", Color.web("#CCCCCC")); // Light gray
 		// Button credits = neonButton("👥 CREDITS", Color.web("#CCCCCC"));
 		Button quit = neonButton("✖ QUIT", Color.web("#FF4444")); // Red
 		play.setOnAction(e -> PlayDifficultyPageJava.showOnStage(stage, stage.getScene()));
-		algo.setOnAction(e -> AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene()));
 		options.setOnAction(e -> OptionsPageJava.showOptionsOnStage(stage, stage.getScene()));
 		quit.setOnAction(e -> showQuitConfirm());
 
 		play.setStyle(play.getStyle() + "-fx-font-size: 22px;");
 		
-		box.getChildren().addAll(play, algo, options, quit);
+		box.getChildren().addAll(play, options, quit);
 		return box;
 	}
 

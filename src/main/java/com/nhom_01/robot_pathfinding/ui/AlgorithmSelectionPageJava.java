@@ -27,16 +27,20 @@ public final class AlgorithmSelectionPageJava {
     }
 
     public static void showOnStage(Stage stage, Scene menuScene) {
-        stage.setScene(buildScene(stage, menuScene));
+        stage.setScene(buildScene(stage, menuScene, "MEDIUM"));
     }
 
-    private static Scene buildScene(Stage stage, Scene menuScene) {
+    public static void showOnStage(Stage stage, Scene previousScene, String difficulty) {
+        stage.setScene(buildScene(stage, previousScene, difficulty));
+    }
+
+    private static Scene buildScene(Stage stage, Scene previousScene, String difficulty) {
         StackPane root = new StackPane();
         root.setPrefSize(VIEW_WIDTH, VIEW_HEIGHT);
         root.getChildren().add(createFuturisticBackground());
 
-        VBox page = new VBox(26);
-        page.setPadding(new Insets(30, 70, 30, 70));
+        VBox page = new VBox(20);
+        page.setPadding(new Insets(24, 56, 24, 56));
         page.setAlignment(Pos.TOP_CENTER);
 
         Text title = new Text("SELECT ALGORITHM");
@@ -48,55 +52,61 @@ public final class AlgorithmSelectionPageJava {
         titleGlow.setRadius(28);
         title.setEffect(titleGlow);
 
-        Text subtitle = new Text("CHOOSE THE GAME STYLE THAT MATCHES YOUR SKILL LEVEL");
+        Text subtitle = new Text("DIFFICULTY: " + difficulty + "  |  CHOOSE HOW THE ROBOT WILL SEARCH");
         subtitle.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
         subtitle.setFill(Color.web("#B5C7D6"));
 
         VBox heading = new VBox(8, title, subtitle);
         heading.setAlignment(Pos.CENTER);
 
-        HBox cards = new HBox(26);
+        VBox content = new VBox(20);
+        content.setAlignment(Pos.TOP_CENTER);
+
+        HBox cards = new HBox(22);
         cards.setAlignment(Pos.TOP_CENTER);
 
-        VBox easyCard = createAlgorithmCard(
-            "EASY",
+        VBox bfsCard = createAlgorithmCard(
+            "BFS",
             "🟢",
             "BFS",
-            "Path is found quickly and stably.",
-            "Best for beginners and small maps.",
+            "Expands nodes level by level from the start point.",
+            "Guarantees shortest path on unweighted grids.",
             Color.web("#00FF9C")
         );
 
-        VBox mediumCard = createAlgorithmCard(
-            "MEDIUM",
+        VBox dfsCard = createAlgorithmCard(
+            "DFS",
             "🟠",
             "DFS",
-            "Explores deeper branches first.",
-            "Suitable for balanced challenge.",
+            "Follows one branch deeply before backtracking.",
+            "Fast to explore, but may return longer routes.",
             Color.web("#FFB800")
         );
 
-        VBox hardCard = createAlgorithmCard(
-            "HARD",
+        VBox aStarCard = createAlgorithmCard(
+            "A*",
             "🔴",
-            "ADVANCED",
-            "Longer and less predictable routes.",
-            "For players who want high difficulty.",
+            "A*",
+            "Combines path cost and heuristic distance.",
+            "Usually reaches the goal faster and smarter.",
             Color.web("#FF5B5B")
         );
 
-        cards.getChildren().addAll(easyCard, mediumCard, hardCard);
+        cards.getChildren().addAll(bfsCard, dfsCard, aStarCard);
+
+        HBox supportRow = createSupportRow();
+        content.getChildren().addAll(cards, supportRow);
 
         HBox actions = new HBox(16);
         actions.setAlignment(Pos.CENTER_RIGHT);
-        actions.setMaxWidth(1240);
+        actions.setMaxWidth(1288);
 
-        Button back = createActionButton("BACK TO MENU", Color.web("#CCCCCC"));
-        back.setOnAction(e -> stage.setScene(menuScene));
+        Button back = createActionButton("BACK TO DIFFICULTY", Color.web("#CCCCCC"));
+        back.setOnAction(e -> stage.setScene(previousScene));
 
         actions.getChildren().add(back);
 
-        page.getChildren().addAll(heading, cards, actions);
+        page.getChildren().addAll(heading, content, actions);
 
         Pane overlay = new Pane();
         overlay.setStyle("-fx-background-color: rgba(0,0,0,0.18);");
@@ -145,10 +155,11 @@ public final class AlgorithmSelectionPageJava {
 
     private static VBox createAlgorithmCard(String level, String icon, String algorithm,
                                             String descriptionA, String descriptionB, Color accent) {
-        VBox card = new VBox(14);
+        VBox card = new VBox(12);
         card.setAlignment(Pos.TOP_LEFT);
-        card.setPadding(new Insets(24));
-        card.setPrefSize(390, 390);
+        card.setPadding(new Insets(18));
+        card.setPrefSize(415, 330);
+        card.setMinSize(415, 330);
         card.setCursor(Cursor.HAND);
 
         String baseStyle =
@@ -173,23 +184,25 @@ public final class AlgorithmSelectionPageJava {
         card.setEffect(glow);
 
         Text iconText = new Text(icon + "  " + level);
-        iconText.setFont(Font.font("Orbitron", FontWeight.BOLD, 26));
+        iconText.setFont(Font.font("Orbitron", FontWeight.BOLD, 30));
         iconText.setFill(accent);
 
-        Text algorithmTitle = new Text(algorithm);
-        algorithmTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 34));
+        Text algorithmTitle = new Text("ALGORITHM: " + algorithm);
+        algorithmTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 22));
         algorithmTitle.setFill(Color.web("#E7F5FF"));
 
         Text lineA = new Text(descriptionA);
-        lineA.setFont(Font.font("Arial", FontWeight.NORMAL, 17));
+        lineA.setFont(Font.font("Arial", FontWeight.NORMAL, 15));
         lineA.setFill(Color.web("#C8DAE8"));
+        lineA.setWrappingWidth(372);
 
         Text lineB = new Text(descriptionB);
-        lineB.setFont(Font.font("Arial", FontWeight.NORMAL, 17));
+        lineB.setFont(Font.font("Arial", FontWeight.NORMAL, 15));
         lineB.setFill(Color.web("#C8DAE8"));
+        lineB.setWrappingWidth(372);
 
-        Button choose = createActionButton("CHOOSE " + level, accent);
-        choose.setMaxWidth(190);
+        Button choose = createActionButton("USE " + algorithm, accent);
+        choose.setPrefWidth(170);
         choose.setOnAction(e -> {
             card.setStyle(hoverStyle);
             card.setTranslateY(-2);
@@ -213,6 +226,62 @@ public final class AlgorithmSelectionPageJava {
         });
 
         return card;
+    }
+
+    private static HBox createSupportRow() {
+        HBox row = new HBox(22);
+        row.setAlignment(Pos.TOP_CENTER);
+
+        VBox guidance = createInfoPanel(
+            "HOW TO CHOOSE",
+            "BFS: stable and shortest routes.\n" +
+                "DFS: exploratory and sometimes surprising.\n" +
+                "A*: smart balance between speed and precision.",
+            Color.web("#8FE8F4")
+        );
+
+        VBox recommendation = createInfoPanel(
+            "RECOMMENDATION",
+            "For EASY, start with BFS.\n" +
+                "For MEDIUM, DFS gives a dynamic challenge.\n" +
+                "For HARD, A* keeps performance consistent.",
+            Color.web("#FFB800")
+        );
+
+        row.getChildren().addAll(guidance, recommendation);
+        return row;
+    }
+
+    private static VBox createInfoPanel(String headingText, String bodyText, Color headingColor) {
+        VBox panel = new VBox(12);
+        panel.setPadding(new Insets(16, 18, 16, 18));
+        panel.setPrefSize(632, 178);
+        panel.setMinSize(632, 178);
+        panel.setAlignment(Pos.TOP_LEFT);
+        panel.setStyle(
+            "-fx-background-color: rgba(10, 22, 34, 0.72);" +
+            "-fx-border-color: rgba(0, 255, 255, 0.30);" +
+            "-fx-border-width: 1.4;" +
+            "-fx-border-radius: 12;" +
+            "-fx-background-radius: 12;"
+        );
+
+        DropShadow glow = new DropShadow();
+        glow.setColor(Color.color(0, 1, 1, 0.20));
+        glow.setRadius(16);
+        panel.setEffect(glow);
+
+        Text heading = new Text(headingText);
+        heading.setFont(Font.font("Orbitron", FontWeight.BOLD, 22));
+        heading.setFill(headingColor);
+
+        Text body = new Text(bodyText);
+        body.setFont(Font.font("Arial", FontWeight.NORMAL, 15));
+        body.setFill(Color.web("#C9DCEA"));
+        body.setWrappingWidth(590);
+
+        panel.getChildren().addAll(heading, body);
+        return panel;
     }
 
     private static String toRgba(Color c, double alpha) {
