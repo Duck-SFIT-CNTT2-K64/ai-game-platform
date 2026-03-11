@@ -1,0 +1,255 @@
+package com.nhom_01.robot_pathfinding.ui;
+
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Cursor;
+import javafx.scene.Scene;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
+import javafx.stage.Stage;
+
+public final class AlgorithmSelectionPageJava {
+
+    private static final double VIEW_WIDTH = 1400;
+    private static final double VIEW_HEIGHT = 800;
+
+    private AlgorithmSelectionPageJava() {
+    }
+
+    public static void showOnStage(Stage stage, Scene menuScene) {
+        stage.setScene(buildScene(stage, menuScene));
+    }
+
+    private static Scene buildScene(Stage stage, Scene menuScene) {
+        StackPane root = new StackPane();
+        root.setPrefSize(VIEW_WIDTH, VIEW_HEIGHT);
+        root.getChildren().add(createFuturisticBackground());
+
+        VBox page = new VBox(26);
+        page.setPadding(new Insets(30, 70, 30, 70));
+        page.setAlignment(Pos.TOP_CENTER);
+
+        Text title = new Text("SELECT ALGORITHM");
+        title.setFont(Font.font("Orbitron", FontWeight.BOLD, 58));
+        title.setFill(Color.web("#FF55FF"));
+
+        DropShadow titleGlow = new DropShadow();
+        titleGlow.setColor(Color.web("#FF55FF"));
+        titleGlow.setRadius(28);
+        title.setEffect(titleGlow);
+
+        Text subtitle = new Text("CHOOSE THE GAME STYLE THAT MATCHES YOUR SKILL LEVEL");
+        subtitle.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
+        subtitle.setFill(Color.web("#B5C7D6"));
+
+        VBox heading = new VBox(8, title, subtitle);
+        heading.setAlignment(Pos.CENTER);
+
+        HBox cards = new HBox(26);
+        cards.setAlignment(Pos.TOP_CENTER);
+
+        VBox easyCard = createAlgorithmCard(
+            "EASY",
+            "🟢",
+            "BFS",
+            "Path is found quickly and stably.",
+            "Best for beginners and small maps.",
+            Color.web("#00FF9C")
+        );
+
+        VBox mediumCard = createAlgorithmCard(
+            "MEDIUM",
+            "🟠",
+            "DFS",
+            "Explores deeper branches first.",
+            "Suitable for balanced challenge.",
+            Color.web("#FFB800")
+        );
+
+        VBox hardCard = createAlgorithmCard(
+            "HARD",
+            "🔴",
+            "ADVANCED",
+            "Longer and less predictable routes.",
+            "For players who want high difficulty.",
+            Color.web("#FF5B5B")
+        );
+
+        cards.getChildren().addAll(easyCard, mediumCard, hardCard);
+
+        HBox actions = new HBox(16);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        actions.setMaxWidth(1240);
+
+        Button back = createActionButton("BACK TO MENU", Color.web("#CCCCCC"));
+        back.setOnAction(e -> stage.setScene(menuScene));
+
+        actions.getChildren().add(back);
+
+        page.getChildren().addAll(heading, cards, actions);
+
+        Pane overlay = new Pane();
+        overlay.setStyle("-fx-background-color: rgba(0,0,0,0.18);");
+        overlay.setMouseTransparent(true);
+
+        root.getChildren().addAll(page, overlay);
+        return new Scene(root, VIEW_WIDTH, VIEW_HEIGHT);
+    }
+
+    private static Pane createFuturisticBackground() {
+        Pane bgPane = new Pane();
+        bgPane.setPrefSize(VIEW_WIDTH, VIEW_HEIGHT);
+
+        Canvas canvas = new Canvas(VIEW_WIDTH, VIEW_HEIGHT);
+        GraphicsContext gc = canvas.getGraphicsContext2D();
+
+        for (int y = 0; y < (int) VIEW_HEIGHT; y++) {
+            double ratio = y / VIEW_HEIGHT;
+            int r = (int) (13 + (27 - 13) * ratio);
+            int g = (int) (17 + (51 - 17) * ratio);
+            int b = (int) (23 + (48 - 23) * ratio);
+            gc.setStroke(Color.rgb(r, g, b));
+            gc.strokeLine(0, y, VIEW_WIDTH, y);
+        }
+
+        gc.setStroke(Color.color(0, 0.5, 0.85, 0.14));
+        gc.setLineWidth(1);
+        int gridSize = 50;
+        for (int x = 0; x < VIEW_WIDTH; x += gridSize) {
+            gc.strokeLine(x, 0, x, VIEW_HEIGHT);
+        }
+        for (int y = 0; y < VIEW_HEIGHT; y += gridSize) {
+            gc.strokeLine(0, y, VIEW_WIDTH, y);
+        }
+
+        gc.setFill(Color.color(0, 1, 1, 0.22));
+        for (int x = 0; x < VIEW_WIDTH; x += gridSize) {
+            for (int y = 0; y < VIEW_HEIGHT; y += gridSize) {
+                gc.fillOval(x - 2, y - 2, 4, 4);
+            }
+        }
+
+        bgPane.getChildren().add(canvas);
+        return bgPane;
+    }
+
+    private static VBox createAlgorithmCard(String level, String icon, String algorithm,
+                                            String descriptionA, String descriptionB, Color accent) {
+        VBox card = new VBox(14);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.setPadding(new Insets(24));
+        card.setPrefSize(390, 390);
+        card.setCursor(Cursor.HAND);
+
+        String baseStyle =
+            "-fx-background-color: rgba(8, 17, 30, 0.78);" +
+            "-fx-border-color: rgba(0, 255, 255, 0.35);" +
+            "-fx-border-width: 1.6;" +
+            "-fx-border-radius: 12;" +
+            "-fx-background-radius: 12;";
+
+        String hoverStyle =
+            "-fx-background-color: rgba(12, 28, 44, 0.88);" +
+            "-fx-border-color: " + toRgba(accent, 0.9) + ";" +
+            "-fx-border-width: 2.1;" +
+            "-fx-border-radius: 12;" +
+            "-fx-background-radius: 12;";
+
+        card.setStyle(baseStyle);
+
+        DropShadow glow = new DropShadow();
+        glow.setColor(Color.color(accent.getRed(), accent.getGreen(), accent.getBlue(), 0.24));
+        glow.setRadius(16);
+        card.setEffect(glow);
+
+        Text iconText = new Text(icon + "  " + level);
+        iconText.setFont(Font.font("Orbitron", FontWeight.BOLD, 26));
+        iconText.setFill(accent);
+
+        Text algorithmTitle = new Text(algorithm);
+        algorithmTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 34));
+        algorithmTitle.setFill(Color.web("#E7F5FF"));
+
+        Text lineA = new Text(descriptionA);
+        lineA.setFont(Font.font("Arial", FontWeight.NORMAL, 17));
+        lineA.setFill(Color.web("#C8DAE8"));
+
+        Text lineB = new Text(descriptionB);
+        lineB.setFont(Font.font("Arial", FontWeight.NORMAL, 17));
+        lineB.setFill(Color.web("#C8DAE8"));
+
+        Button choose = createActionButton("CHOOSE " + level, accent);
+        choose.setMaxWidth(190);
+        choose.setOnAction(e -> {
+            card.setStyle(hoverStyle);
+            card.setTranslateY(-2);
+        });
+
+        card.getChildren().addAll(iconText, algorithmTitle, lineA, lineB, choose);
+
+        card.setOnMouseEntered(e -> {
+            card.setStyle(hoverStyle);
+            card.setTranslateY(-4);
+            DropShadow hoverGlow = new DropShadow();
+            hoverGlow.setColor(Color.color(accent.getRed(), accent.getGreen(), accent.getBlue(), 0.45));
+            hoverGlow.setRadius(22);
+            card.setEffect(hoverGlow);
+        });
+
+        card.setOnMouseExited(e -> {
+            card.setStyle(baseStyle);
+            card.setTranslateY(0);
+            card.setEffect(glow);
+        });
+
+        return card;
+    }
+
+    private static String toRgba(Color c, double alpha) {
+        return String.format("rgba(%d,%d,%d,%.2f)",
+            (int) (c.getRed() * 255),
+            (int) (c.getGreen() * 255),
+            (int) (c.getBlue() * 255),
+            alpha);
+    }
+
+    private static Button createActionButton(String text, Color color) {
+        Button btn = new Button(text);
+        String rgb = String.format("rgb(%d,%d,%d)",
+            (int) (color.getRed() * 255),
+            (int) (color.getGreen() * 255),
+            (int) (color.getBlue() * 255)
+        );
+
+        btn.setCursor(Cursor.HAND);
+        btn.setStyle(
+            "-fx-background-color: transparent;" +
+            "-fx-text-fill: " + rgb + ";" +
+            "-fx-font-size: 14px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-font-family: 'Arial';" +
+            "-fx-padding: 9 16 9 16;" +
+            "-fx-border-color: " + rgb + ";" +
+            "-fx-border-width: 1.7;" +
+            "-fx-border-radius: 7;"
+        );
+
+        DropShadow shadow = new DropShadow();
+        shadow.setColor(color);
+        shadow.setRadius(12);
+        shadow.setSpread(0.18);
+        btn.setEffect(shadow);
+
+        return btn;
+    }
+}
