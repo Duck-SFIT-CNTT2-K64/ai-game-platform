@@ -1,9 +1,17 @@
 package com.nhom_01.robot_pathfinding.ai;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+
 import com.nhom_01.robot_pathfinding.core.SearchResult;
 import com.nhom_01.robot_pathfinding.core.State;
-
-import java.util.*;
 
 public class BFS implements SearchAlgorithm {
 
@@ -13,6 +21,7 @@ public class BFS implements SearchAlgorithm {
         Queue<State> queue = new LinkedList<>();
         Set<State> visited = new HashSet<>();
         Map<State, State> parent = new HashMap<>();
+        List<State> explored = new ArrayList<>();
 
         queue.add(start);
         visited.add(start);
@@ -22,11 +31,11 @@ public class BFS implements SearchAlgorithm {
         while (!queue.isEmpty()) {
             State current = queue.poll();
             exploredNodes++;
-
+            explored.add(current);
 
             if (current.equals(goal)) {
                 List<State> path = reconstructPath(parent, current);
-                return new SearchResult(path, exploredNodes);
+                return new SearchResult(path, explored, exploredNodes);
             }
 
 
@@ -40,7 +49,7 @@ public class BFS implements SearchAlgorithm {
         }
 
 
-        return new SearchResult(Collections.emptyList(), exploredNodes);
+        return new SearchResult(Collections.emptyList(), explored, exploredNodes);
     }
 
     private List<State> reconstructPath(Map<State, State> parent, State goal) {
