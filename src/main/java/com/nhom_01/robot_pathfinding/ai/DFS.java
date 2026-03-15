@@ -1,8 +1,16 @@
 package com.nhom_01.robot_pathfinding.ai;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Stack;
+
 import com.nhom_01.robot_pathfinding.core.SearchResult;
 import com.nhom_01.robot_pathfinding.core.State;
-import java.util.*;
 
 public class DFS implements SearchAlgorithm {
 
@@ -12,7 +20,8 @@ public class DFS implements SearchAlgorithm {
         Stack<State> stack = new Stack<>();
         Set<State> visited = new HashSet<>();
         Map<State, State> parent = new HashMap<>();
-
+        List<State> explored = new ArrayList<>();
+        
         stack.push(start);
         visited.add(start);
 
@@ -20,11 +29,12 @@ public class DFS implements SearchAlgorithm {
 
         while (!stack.isEmpty()) {
             State current = stack.pop();
+            explored.add(current);
             exploredNodes++;
 
             if (current.equals(goal)) {
                 List<State> path = reconstructPath(parent, current);
-                return new SearchResult(path, exploredNodes);
+                return new SearchResult(path, explored,  exploredNodes);
             }
 
             for (State neighbor : getNeighbors(current, map)) {
@@ -36,7 +46,7 @@ public class DFS implements SearchAlgorithm {
             }
         }
 
-        return new SearchResult(Collections.emptyList(), exploredNodes);
+        return new SearchResult(Collections.emptyList(), explored, exploredNodes);
     }
 
     private List<State> reconstructPath(Map<State, State> parent, State goal) {
