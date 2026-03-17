@@ -1,94 +1,44 @@
 package com.nhom_01.robot_pathfinding.ai;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Stack;
-
-import com.nhom_01.robot_pathfinding.core.SearchResult;
-import com.nhom_01.robot_pathfinding.core.State;
+import com.nhom_01.robot_pathfinding.core.*;
+import java.util.*;
 
 public class DFS implements SearchAlgorithm {
-
     @Override
-    public SearchResult findPath(State start, State goal, int[][] map) {
+    public SearchResult findPath(Maze maze, State start, State goal) {
+        Stack<State> frontier = new Stack<>();
+        frontier.push(start);
 
-        Stack<State> stack = new Stack<>();
-        Set<State> visited = new HashSet<>();
-        Map<State, State> parent = new HashMap<>();
+        Map<State, State> cameFrom = new HashMap<>();
+        cameFrom.put(start, null);
         List<State> explored = new ArrayList<>();
-        
-        stack.push(start);
-        visited.add(start);
 
-        int exploredNodes = 0;
-
-        while (!stack.isEmpty()) {
-            State current = stack.pop();
+        while (!frontier.isEmpty()) {
+            State current = frontier.pop();
             explored.add(current);
-            exploredNodes++;
 
-            if (current.equals(goal)) {
-                List<State> path = reconstructPath(parent, current);
-                return new SearchResult(path, explored,  exploredNodes);
+            if (current.getX() == goal.getX() && current.getY() == goal.getY()) {
+                return new SearchResult(PathReconstructor.reconstruct(cameFrom, goal), explored, explored.size());
             }
 
-            for (State neighbor : getNeighbors(current, map)) {
-                if (!visited.contains(neighbor)) {
-                    visited.add(neighbor);
-                    parent.put(neighbor, current);
-                    stack.push(neighbor);
+            for (State next : getNeighbors(current, maze)) {
+                if (!cameFrom.containsKey(next)) {
+                    frontier.push(next);
+                    cameFrom.put(next, current);
                 }
             }
         }
-
-        return new SearchResult(Collections.emptyList(), explored, exploredNodes);
+        return new SearchResult(new ArrayList<>(), explored, explored.size());
     }
-
-    private List<State> reconstructPath(Map<State, State> parent, State goal) {
-        List<State> path = new ArrayList<>();
-        State current = goal;
-
-        while (current != null) {
-            path.add(current);
-            current = parent.get(current);
-        }
-
-        Collections.reverse(path);
-        return path;
-    }
-
-    private List<State> getNeighbors(State state, int[][] map) {
+    private List<State> getNeighbors(State s, Maze maze) {
         List<State> neighbors = new ArrayList<>();
-
-        int x = state.getX();
-        int y = state.getY();
-        int lives = state.getLives();
-
-        int[][] directions = {
-                {0, 1},  
-                {1, 0},  
-                {0, -1}, 
-                {-1, 0}  
-        };
-
-        for (int[] d : directions) {
-            int nx = x + d[0];
-            int ny = y + d[1];
-
-            if (isValid(nx, ny, map)) {
-                neighbors.add(new State(nx, ny, lives));
+        int[][] dirs = {{0, 1}, {1, 0}, {0, -1}, {-1, 1}};
+        for (int[] d : dirs) {
+            int nx = s.getX() + d[0], ny = s.getY() + d[1];
+            if (maze.getCell(nx, ny) != CellType.WALL) {
+                neighbors.add(new State(nx, ny, s.getLives()));
             }
         }
-
         return neighbors;
-    }
-
-    private boolean isValid(int x, int y, int[][] map) {
-        return x >= 0 && y >= 0 && x < map.length && y < map[0].length && map[x][y] != 1;
     }
 }
