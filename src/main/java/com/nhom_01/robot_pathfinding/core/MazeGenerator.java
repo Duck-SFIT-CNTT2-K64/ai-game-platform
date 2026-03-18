@@ -8,7 +8,16 @@ import java.util.Random;
 public class MazeGenerator {
     private static final Random random = new Random();
 
+    public enum GameMode {
+        PLAYER,
+        BOT
+    }
+
     public static Maze generate(String difficulty) {
+        return generate(difficulty, GameMode.PLAYER);
+    }
+
+    public static Maze generate(String difficulty, GameMode mode) {
         int width, height, bombCount, itemCount;
         int startingLives = 5; // Robot có 3 mạng
 
@@ -31,33 +40,27 @@ public class MazeGenerator {
         carvePassagesFrom(1, 1, maze);
 
         // 3. Đặt Start và Goal
-//        maze.setCell(1, 1, CellType.START);
-//        maze.setStart(new State(1, 1, startingLives));
-//
-//        int goalX = width - 2;
-//        int goalY = height - 2;
-//        maze.setCell(goalX, goalY, CellType.GOAL);
-//        maze.setGoal(new State(goalX, goalY, 0));
         placeStartAndGoal(maze, startingLives);
 
-        // 4. Rải vật phẩm và bom
-        placeEntities(maze, CellType.BOMB, bombCount);
-        placeEntities(maze, CellType.ITEM, itemCount);
+        // 4. Rải vật phẩm và bom chỉ khi mode là PLAYER
+        if (mode == GameMode.PLAYER) {
+            placeEntities(maze, CellType.BOMB, bombCount);
+            placeEntities(maze, CellType.ITEM, itemCount);
 
-        // 5. Thêm một số ô trống ngẫu nhiên (Đục bớt tường) để tạo ra nhiều đường đi phụ (Multiple paths)
-        // Nếu không đục bớt, maze chỉ có duy nhất 1 đường đúng (Perfect Maze).
-        openRandomWalls(maze, (width * height) / 15);
+            // 5. Thêm một số ô trống ngẫu nhiên (Đục bớt tường) để tạo ra nhiều đường đi phụ (Multiple paths)
+            // Nếu không đục bớt, maze chỉ có duy nhất 1 đường đúng (Perfect Maze).
+            openRandomWalls(maze, (width * height) / 15);
 
+            /* bom trên đường chính nhưng không giết người chơi */
+            placeBombsOnMainPath(maze, startingLives);
 
-        /* bom trên đường chính nhưng không giết người chơi */
-        placeBombsOnMainPath(maze, startingLives);
+            /* bom phụ */
+            placeBombInDeadEnds(maze, bombCount / 3);
+            placeEntities(maze, CellType.BOMB, bombCount / 3);
 
-        /* bom phụ */
-        placeBombInDeadEnds(maze, bombCount / 3);
-        placeEntities(maze, CellType.BOMB, bombCount / 3);
-
-        /* vật phẩm */
-        placeEntities(maze, CellType.ITEM, itemCount);
+            /* vật phẩm */
+            placeEntities(maze, CellType.ITEM, itemCount);
+        }
         return maze;
     }
     private static List<int[]> findPath(Maze maze, int sx, int sy, int gx, int gy) {

@@ -18,7 +18,7 @@ public class DFS implements SearchAlgorithm {
             explored.add(current);
 
             if (current.getX() == goal.getX() && current.getY() == goal.getY()) {
-                return new SearchResult(PathReconstructor.reconstruct(cameFrom, goal), explored, explored.size());
+                return new SearchResult(PathReconstructor.reconstruct(cameFrom, current), explored, explored.size());
             }
 
             for (State next : getNeighbors(current, maze)) {
@@ -32,7 +32,7 @@ public class DFS implements SearchAlgorithm {
     }
     private List<State> getNeighbors(State s, Maze maze) {
         List<State> neighbors = new ArrayList<>();
-        int[][] dirs = {{0, 1}, {1, 0}, {0, -1}, {-1, 1}};
+        int[][] dirs = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
         for (int[] d : dirs) {
             int nx = s.getX() + d[0], ny = s.getY() + d[1];
             if (maze.getCell(nx, ny) != CellType.WALL) {

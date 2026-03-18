@@ -1,8 +1,9 @@
-package com.nhom_01.robot_pathfinding.ui;
+package com.nhom_01.robot_pathfinding.ui.pages;
 
+import com.nhom_01.robot_pathfinding.ui.components.GameCard;
+import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -69,7 +70,7 @@ public final class PlayDifficultyPageJava {
                 "Fewer dead ends and smoother learning curve.",
                 "Estimated clear time: 3-5 min",
                 Color.web("#00FF9C"),
-                () -> AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene(), "EASY")
+                () -> PlayModeSelectionPageJava.showOnStage(stage, stage.getScene(), "EASY")
             ),
             createDifficultyCard(
                 "MEDIUM",
@@ -78,7 +79,7 @@ public final class PlayDifficultyPageJava {
                 "Good for regular play and skill growth.",
                 "Estimated clear time: 5-8 min",
                 Color.web("#FFB800"),
-                () -> AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene(), "MEDIUM")
+                () -> PlayModeSelectionPageJava.showOnStage(stage, stage.getScene(), "MEDIUM")
             ),
             createDifficultyCard(
                 "HARD",
@@ -87,7 +88,7 @@ public final class PlayDifficultyPageJava {
                 "Best for players who want strategic pressure.",
                 "Estimated clear time: 8-12 min",
                 Color.web("#FF6B6B"),
-                () -> AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene(), "HARD")
+                () -> PlayModeSelectionPageJava.showOnStage(stage, stage.getScene(), "HARD")
             )
         );
 
@@ -152,69 +153,20 @@ public final class PlayDifficultyPageJava {
     private static VBox createDifficultyCard(String level, String icon, String line1,
                                              String line2, String duration, Color accent,
                                              Runnable onChoose) {
-        VBox card = new VBox(12);
-        card.setAlignment(Pos.TOP_LEFT);
-        card.setPadding(new Insets(18));
-        card.setPrefSize(415, 330);
-        card.setMinSize(415, 330);
-        card.setCursor(Cursor.HAND);
+        GameCard card = new GameCard(level, icon, accent, 415, 330);
 
-        String baseStyle =
-            "-fx-background-color: rgba(8, 17, 30, 0.78);" +
-            "-fx-border-color: rgba(0, 255, 255, 0.35);" +
-            "-fx-border-width: 1.6;" +
-            "-fx-border-radius: 12;" +
-            "-fx-background-radius: 12;";
-
-        String hoverStyle =
-            "-fx-background-color: rgba(12, 28, 44, 0.90);" +
-            "-fx-border-color: " + toRgba(accent, 0.95) + ";" +
-            "-fx-border-width: 2.1;" +
-            "-fx-border-radius: 12;" +
-            "-fx-background-radius: 12;";
-
-        card.setStyle(baseStyle);
-
-        DropShadow normalGlow = new DropShadow();
-        normalGlow.setColor(Color.color(accent.getRed(), accent.getGreen(), accent.getBlue(), 0.24));
-        normalGlow.setRadius(16);
-        card.setEffect(normalGlow);
-
-        Text levelText = new Text(icon + "  " + level);
-        levelText.setFont(Font.font("Orbitron", FontWeight.BOLD, 30));
-        levelText.setFill(accent);
-
-        Text l1 = createBodyText(line1);
-        Text l2 = createBodyText(line2);
+        Text l1 = card.createBodyText(line1, 372);
+        Text l2 = card.createBodyText(line2, 372);
         Text eta = new Text(duration);
         eta.setFont(Font.font("Arial", FontWeight.BOLD, 15));
         eta.setFill(Color.web("#D9E9F6"));
 
-        Button choose = createActionButton("START " + level, accent);
-        choose.setPrefWidth(170);
+        Button choose = new NeonButton("START " + level, accent, 14, 8, 14, 8);
+        choose.setPrefWidth(220);
+        choose.setMinWidth(220);
+        choose.setOnAction(e -> onChoose.run());
 
-        choose.setOnAction(e -> {
-            card.setStyle(hoverStyle);
-            card.setTranslateY(-2);
-            onChoose.run();
-        });
-
-        card.setOnMouseEntered(e -> {
-            card.setStyle(hoverStyle);
-            card.setTranslateY(-4);
-            DropShadow hoverGlow = new DropShadow();
-            hoverGlow.setColor(Color.color(accent.getRed(), accent.getGreen(), accent.getBlue(), 0.45));
-            hoverGlow.setRadius(22);
-            card.setEffect(hoverGlow);
-        });
-
-        card.setOnMouseExited(e -> {
-            card.setStyle(baseStyle);
-            card.setTranslateY(0);
-            card.setEffect(normalGlow);
-        });
-
-        card.getChildren().addAll(levelText, l1, l2, eta, choose);
+        card.addBodyNodes(l1, l2, eta, choose);
         return card;
     }
 
@@ -274,50 +226,7 @@ public final class PlayDifficultyPageJava {
         return panel;
     }
 
-    private static Text createBodyText(String text) {
-        Text node = new Text(text);
-        node.setFont(Font.font("Arial", FontWeight.NORMAL, 15));
-        node.setFill(Color.web("#C9DCEA"));
-        node.setWrappingWidth(372);
-        return node;
-    }
-
-    private static String toRgba(Color c, double alpha) {
-        return String.format("rgba(%d,%d,%d,%.2f)",
-            (int) (c.getRed() * 255),
-            (int) (c.getGreen() * 255),
-            (int) (c.getBlue() * 255),
-            alpha
-        );
-    }
-
     private static Button createActionButton(String text, Color color) {
-        Button btn = new Button(text);
-        String rgb = String.format("rgb(%d,%d,%d)",
-            (int) (color.getRed() * 255),
-            (int) (color.getGreen() * 255),
-            (int) (color.getBlue() * 255)
-        );
-
-        btn.setCursor(Cursor.HAND);
-        btn.setStyle(
-            "-fx-background-color: transparent;" +
-            "-fx-text-fill: " + rgb + ";" +
-            "-fx-font-size: 14px;" +
-            "-fx-font-weight: bold;" +
-            "-fx-font-family: 'Arial';" +
-            "-fx-padding: 9 16 9 16;" +
-            "-fx-border-color: " + rgb + ";" +
-            "-fx-border-width: 1.7;" +
-            "-fx-border-radius: 7;"
-        );
-
-        DropShadow shadow = new DropShadow();
-        shadow.setColor(color);
-        shadow.setRadius(12);
-        shadow.setSpread(0.18);
-        btn.setEffect(shadow);
-
-        return btn;
+        return new NeonButton(text, color, 14, 8, 14, 8);
     }
 }

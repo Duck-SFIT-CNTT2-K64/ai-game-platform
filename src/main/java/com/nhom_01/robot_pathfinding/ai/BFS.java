@@ -19,7 +19,7 @@ public class BFS implements SearchAlgorithm {
             explored.add(current);
 
             if (current.getX() == goal.getX() && current.getY() == goal.getY()) {
-                return new SearchResult(PathReconstructor.reconstruct(cameFrom, goal), explored, explored.size());
+                return new SearchResult(PathReconstructor.reconstruct(cameFrom, current), explored, explored.size());
             }
 
             for (State next : getNeighbors(current, maze)) {

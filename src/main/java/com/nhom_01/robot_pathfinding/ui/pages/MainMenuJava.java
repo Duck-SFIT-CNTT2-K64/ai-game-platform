@@ -1,8 +1,6 @@
-package com.nhom_01.robot_pathfinding.ui;
+package com.nhom_01.robot_pathfinding.ui.pages;
 
-import javafx.animation.ScaleTransition;
 import javafx.animation.TranslateTransition;
-import javafx.animation.ParallelTransition;
 import javafx.animation.Animation;
 import javafx.application.Application;
 import javafx.geometry.Pos;
@@ -23,8 +21,12 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
-import javafx.animation.Interpolator;
 import javafx.util.Duration;
+
+import com.nhom_01.robot_pathfinding.ui.animation.ParticleSystem;
+import com.nhom_01.robot_pathfinding.ui.animation.RobotAnimation;
+import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
+import com.nhom_01.robot_pathfinding.ui.theme.UITheme;
 
 import java.net.URL;
 
@@ -50,10 +52,11 @@ public class MainMenuJava extends Application {
 
 		// Add semi-transparent overlay for readability
 		Pane overlay = new Pane();
-		overlay.setStyle("-fx-background-color: rgba(0,0,0,0.24);");
+		overlay.setStyle("-fx-background-color: rgba(0,0,0,0.12);");
 		overlay.setMouseTransparent(true);
+		Pane particles = ParticleSystem.createParticles(1400, 800, 42, UITheme.PRIMARY);
 		quitConfirmOverlay = createQuitConfirmOverlay(stage);
-		root.getChildren().addAll(mainContent, overlay, quitConfirmOverlay);
+		root.getChildren().addAll(mainContent, particles, overlay, quitConfirmOverlay);
 		StackPane.setAlignment(mainContent, Pos.CENTER_LEFT);
 
 		Scene scene = new Scene(root, 1400, 800);
@@ -159,12 +162,12 @@ public class MainMenuJava extends Application {
 		box.setAlignment(Pos.CENTER_LEFT);
 		box.setPadding(new javafx.geometry.Insets(0, 0, 0, 0));
 
-		Button play = neonButton("▶ PLAY", Color.web("#FFA500")); // Orange
+		Button play = neonButton("▶ PLAY", UITheme.SECONDARY); // Orange
 		// Button auto = neonButton("⚡ AI AUTO SOLVE", Color.web("#00FFFF"));
 		// Button hint = neonButton("🎯 HINT MODE", Color.web("#00FF00"));
 		Button options = neonButton("⚙ OPTIONS", Color.web("#CCCCCC")); // Light gray
 		// Button credits = neonButton("👥 CREDITS", Color.web("#CCCCCC"));
-		Button quit = neonButton("✖ QUIT", Color.web("#FF4444")); // Red
+		Button quit = neonButton("✖ QUIT", UITheme.DANGER); // Red
 		play.setOnAction(e -> PlayDifficultyPageJava.showOnStage(stage, stage.getScene()));
 		options.setOnAction(e -> OptionsPageJava.showOptionsOnStage(stage, stage.getScene()));
 		quit.setOnAction(e -> showQuitConfirm());
@@ -229,28 +232,8 @@ public class MainMenuJava extends Application {
 	}
 
 	private Button createDialogButton(String text, Color color) {
-		Button button = new Button(text);
-		String rgbColor = toRgbString(color);
-		button.setCursor(Cursor.HAND);
-		button.setStyle(
-			"-fx-background-color: transparent;" +
-			"-fx-text-fill: " + rgbColor + ";" +
-			"-fx-font-size: 15px;" +
-			"-fx-font-weight: bold;" +
-			"-fx-font-family: 'Arial';" +
-			"-fx-padding: 8 18 8 18;" +
-			"-fx-border-color: " + rgbColor + ";" +
-			"-fx-border-width: 1.6;" +
-			"-fx-border-radius: 8;" +
-			"-fx-background-radius: 8;"
-		);
-
-		DropShadow glow = new DropShadow();
-		glow.setColor(color);
-		glow.setRadius(12);
-		glow.setSpread(0.2);
-		button.setEffect(glow);
-
+		Button button = new NeonButton(text, color, 14, 8, 14, 8);
+		button.setMinWidth(120);
 		return button;
 	}
 
@@ -327,20 +310,7 @@ public class MainMenuJava extends Application {
 		robotGlow.setSpread(0.26);
 		robotNode.setEffect(robotGlow);
 
-		TranslateTransition run = new TranslateTransition(Duration.millis(3000), robotNode);
-		run.setFromX(0);
-		run.setToX(500);
-		run.setAutoReverse(true);
-		run.setCycleCount(Animation.INDEFINITE);
-
-		TranslateTransition bounce = new TranslateTransition(Duration.millis(360), robotNode);
-		bounce.setFromY(0);
-		bounce.setToY(-7);
-		bounce.setAutoReverse(true);
-		bounce.setCycleCount(Animation.INDEFINITE);
-
-		run.play();
-		bounce.play();
+		RobotAnimation.animate(robotNode, 500, 3000, -7, 360);
 
 		arena.getChildren().addAll(hint, track, robotNode);
 		panel.getChildren().add(arena);
@@ -392,102 +362,7 @@ public class MainMenuJava extends Application {
 	}
 
 	private Button neonButton(String text, Color color) {
-		Button btn = new Button(text);
-		String rgbColor = toRgbString(color);
-		String hexColor = colorToHex(color);
-
-		String baseStyle =
-			"-fx-background-color: transparent;" +
-			"-fx-text-fill: " + rgbColor + ";" +
-			"-fx-font-size: 18px;" +
-			"-fx-font-weight: bold;" +
-			"-fx-font-family: 'Arial';" +
-			"-fx-padding: 10 15 10 15;" +
-			"-fx-border-color: " + rgbColor + ";" +
-			"-fx-border-width: 2;" +
-			"-fx-border-radius: 4;" +
-			"-fx-cursor: hand;";
-
-		String hoverStyle =
-			"-fx-background-color: " + hexColor + "1A;" + // 10% opacity background on hover
-			"-fx-text-fill: " + rgbColor + ";" +
-			"-fx-font-size: 18px;" +
-			"-fx-font-weight: bold;" +
-			"-fx-font-family: 'Arial';" +
-			"-fx-padding: 10 15 10 15;" +
-			"-fx-border-color: " + rgbColor + ";" +
-			"-fx-border-width: 2;" +
-			"-fx-border-radius: 4;" +
-			"-fx-cursor: hand;";
-
-		btn.setStyle(baseStyle);
-		btn.setCursor(Cursor.HAND);
-
-		// Glow effect
-		DropShadow glow = new DropShadow();
-		glow.setColor(color);
-		glow.setRadius(15);
-		glow.setSpread(0.3);
-		btn.setEffect(glow);
-
-		// Animate both scale and position so hover intent is immediately noticeable.
-		ScaleTransition scaleTransition = new ScaleTransition(Duration.millis(160), btn);
-		scaleTransition.setInterpolator(Interpolator.EASE_BOTH);
-		TranslateTransition moveTransition = new TranslateTransition(Duration.millis(160), btn);
-		moveTransition.setInterpolator(Interpolator.EASE_BOTH);
-		ParallelTransition hoverTransition = new ParallelTransition(scaleTransition, moveTransition);
-
-		btn.setOnMouseEntered(e -> {
-			btn.setStyle(hoverStyle);
-			scaleTransition.setToX(1.06);
-			scaleTransition.setToY(1.06);
-			moveTransition.setToX(12);
-			moveTransition.setToY(0);
-			hoverTransition.playFromStart();
-
-			// Enhanced glow on hover
-			DropShadow hoverGlow = new DropShadow();
-			hoverGlow.setColor(color);
-			hoverGlow.setRadius(25);
-			hoverGlow.setSpread(0.5);
-			btn.setEffect(hoverGlow);
-		});
-
-		btn.setOnMouseExited(e -> {
-			btn.setStyle(baseStyle);
-			scaleTransition.setToX(1.0);
-			scaleTransition.setToY(1.0);
-			moveTransition.setToX(0);
-			moveTransition.setToY(0);
-			hoverTransition.playFromStart();
-
-			// Reset glow
-			DropShadow normalGlow = new DropShadow();
-			normalGlow.setColor(color);
-			normalGlow.setRadius(15);
-			normalGlow.setSpread(0.3);
-			btn.setEffect(normalGlow);
-		});
-
-		return btn;
-	}
-
-	private String toRgbString(Color c) {
-		return String.format(
-				"rgb(%d,%d,%d)",
-				(int) (c.getRed() * 255),
-				(int) (c.getGreen() * 255),
-				(int) (c.getBlue() * 255)
-		);
-	}
-
-	private String colorToHex(Color c) {
-		return String.format(
-			"#%02X%02X%02X",
-			(int) (c.getRed() * 255),
-			(int) (c.getGreen() * 255),
-			(int) (c.getBlue() * 255)
-		);
+		return new NeonButton(text, color);
 	}
 
 	public static void main(String[] args) {

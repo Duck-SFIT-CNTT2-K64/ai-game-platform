@@ -1,8 +1,10 @@
-package com.nhom_01.robot_pathfinding.ui;
+package com.nhom_01.robot_pathfinding.ui.pages;
 
+import com.nhom_01.robot_pathfinding.ui.PlayGamePage;
+import com.nhom_01.robot_pathfinding.ui.components.GameCard;
+import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Cursor;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -71,7 +73,8 @@ public final class AlgorithmSelectionPageJava {
             "BFS",
             "Expands nodes level by level from the start point.",
             "Guarantees shortest path on unweighted grids.",
-            Color.web("#00FF9C")
+            Color.web("#00FF9C"),
+            () -> PlayGamePage.showOnStage(stage, stage.getScene(), difficulty, "BFS")
         );
 
         VBox dfsCard = createAlgorithmCard(
@@ -80,7 +83,8 @@ public final class AlgorithmSelectionPageJava {
             "DFS",
             "Follows one branch deeply before backtracking.",
             "Fast to explore, but may return longer routes.",
-            Color.web("#FFB800")
+            Color.web("#FFB800"),
+            () -> PlayGamePage.showOnStage(stage, stage.getScene(), difficulty, "DFS")
         );
 
         VBox aStarCard = createAlgorithmCard(
@@ -89,7 +93,8 @@ public final class AlgorithmSelectionPageJava {
             "A*",
             "Combines path cost and heuristic distance.",
             "Usually reaches the goal faster and smarter.",
-            Color.web("#FF5B5B")
+            Color.web("#FF5B5B"),
+            () -> PlayGamePage.showOnStage(stage, stage.getScene(), difficulty, "A*")
         );
 
         cards.getChildren().addAll(bfsCard, dfsCard, aStarCard);
@@ -154,76 +159,23 @@ public final class AlgorithmSelectionPageJava {
     }
 
     private static VBox createAlgorithmCard(String level, String icon, String algorithm,
-                                            String descriptionA, String descriptionB, Color accent) {
-        VBox card = new VBox(12);
-        card.setAlignment(Pos.TOP_LEFT);
-        card.setPadding(new Insets(18));
-        card.setPrefSize(415, 330);
-        card.setMinSize(415, 330);
-        card.setCursor(Cursor.HAND);
-
-        String baseStyle =
-            "-fx-background-color: rgba(8, 17, 30, 0.78);" +
-            "-fx-border-color: rgba(0, 255, 255, 0.35);" +
-            "-fx-border-width: 1.6;" +
-            "-fx-border-radius: 12;" +
-            "-fx-background-radius: 12;";
-
-        String hoverStyle =
-            "-fx-background-color: rgba(12, 28, 44, 0.88);" +
-            "-fx-border-color: " + toRgba(accent, 0.9) + ";" +
-            "-fx-border-width: 2.1;" +
-            "-fx-border-radius: 12;" +
-            "-fx-background-radius: 12;";
-
-        card.setStyle(baseStyle);
-
-        DropShadow glow = new DropShadow();
-        glow.setColor(Color.color(accent.getRed(), accent.getGreen(), accent.getBlue(), 0.24));
-        glow.setRadius(16);
-        card.setEffect(glow);
-
-        Text iconText = new Text(icon + "  " + level);
-        iconText.setFont(Font.font("Orbitron", FontWeight.BOLD, 30));
-        iconText.setFill(accent);
+                                            String descriptionA, String descriptionB, Color accent,
+                                            Runnable onChoose) {
+        GameCard card = new GameCard(level, icon, accent, 415, 330);
 
         Text algorithmTitle = new Text("ALGORITHM: " + algorithm);
         algorithmTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 22));
         algorithmTitle.setFill(Color.web("#E7F5FF"));
 
-        Text lineA = new Text(descriptionA);
-        lineA.setFont(Font.font("Arial", FontWeight.NORMAL, 15));
-        lineA.setFill(Color.web("#C8DAE8"));
-        lineA.setWrappingWidth(372);
+        Text lineA = card.createBodyText(descriptionA, 372);
+        Text lineB = card.createBodyText(descriptionB, 372);
 
-        Text lineB = new Text(descriptionB);
-        lineB.setFont(Font.font("Arial", FontWeight.NORMAL, 15));
-        lineB.setFill(Color.web("#C8DAE8"));
-        lineB.setWrappingWidth(372);
+        Button choose = new NeonButton("USE " + algorithm, accent, 14, 8, 14, 8);
+        choose.setPrefWidth(180);
+        choose.setMinWidth(180);
+        choose.setOnAction(e -> onChoose.run());
 
-        Button choose = createActionButton("USE " + algorithm, accent);
-        choose.setPrefWidth(170);
-        choose.setOnAction(e -> {
-            card.setStyle(hoverStyle);
-            card.setTranslateY(-2);
-        });
-
-        card.getChildren().addAll(iconText, algorithmTitle, lineA, lineB, choose);
-
-        card.setOnMouseEntered(e -> {
-            card.setStyle(hoverStyle);
-            card.setTranslateY(-4);
-            DropShadow hoverGlow = new DropShadow();
-            hoverGlow.setColor(Color.color(accent.getRed(), accent.getGreen(), accent.getBlue(), 0.45));
-            hoverGlow.setRadius(22);
-            card.setEffect(hoverGlow);
-        });
-
-        card.setOnMouseExited(e -> {
-            card.setStyle(baseStyle);
-            card.setTranslateY(0);
-            card.setEffect(glow);
-        });
+        card.addBodyNodes(algorithmTitle, lineA, lineB, choose);
 
         return card;
     }
@@ -284,41 +236,7 @@ public final class AlgorithmSelectionPageJava {
         return panel;
     }
 
-    private static String toRgba(Color c, double alpha) {
-        return String.format("rgba(%d,%d,%d,%.2f)",
-            (int) (c.getRed() * 255),
-            (int) (c.getGreen() * 255),
-            (int) (c.getBlue() * 255),
-            alpha);
-    }
-
     private static Button createActionButton(String text, Color color) {
-        Button btn = new Button(text);
-        String rgb = String.format("rgb(%d,%d,%d)",
-            (int) (color.getRed() * 255),
-            (int) (color.getGreen() * 255),
-            (int) (color.getBlue() * 255)
-        );
-
-        btn.setCursor(Cursor.HAND);
-        btn.setStyle(
-            "-fx-background-color: transparent;" +
-            "-fx-text-fill: " + rgb + ";" +
-            "-fx-font-size: 14px;" +
-            "-fx-font-weight: bold;" +
-            "-fx-font-family: 'Arial';" +
-            "-fx-padding: 9 16 9 16;" +
-            "-fx-border-color: " + rgb + ";" +
-            "-fx-border-width: 1.7;" +
-            "-fx-border-radius: 7;"
-        );
-
-        DropShadow shadow = new DropShadow();
-        shadow.setColor(color);
-        shadow.setRadius(12);
-        shadow.setSpread(0.18);
-        btn.setEffect(shadow);
-
-        return btn;
+        return new NeonButton(text, color);
     }
 }

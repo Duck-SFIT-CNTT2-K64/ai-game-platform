@@ -20,7 +20,7 @@ public class AStar implements SearchAlgorithm {
             explored.add(current.state);
 
             if (current.state.getX() == goal.getX() && current.state.getY() == goal.getY()) {
-                return new SearchResult(PathReconstructor.reconstruct(cameFrom, goal), explored, explored.size());
+                return new SearchResult(PathReconstructor.reconstruct(cameFrom, current.state), explored, explored.size());
             }
 
             for (State next : getNeighbors(current.state, maze)) {
@@ -47,7 +47,7 @@ public class AStar implements SearchAlgorithm {
     }
     private List<State> getNeighbors(State s, Maze maze) {
         List<State> neighbors = new ArrayList<>();
-        int[][] dirs = {{0, 1}, {1, 0}, {0, -1}, {-1, 1}};
+        int[][] dirs = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
         for (int[] d : dirs) {
             int nx = s.getX() + d[0], ny = s.getY() + d[1];
             if (maze.getCell(nx, ny) != CellType.WALL) {

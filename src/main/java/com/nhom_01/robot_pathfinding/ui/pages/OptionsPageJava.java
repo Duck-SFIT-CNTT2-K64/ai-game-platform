@@ -1,5 +1,6 @@
-package com.nhom_01.robot_pathfinding.ui;
+package com.nhom_01.robot_pathfinding.ui.pages;
 
+import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
@@ -327,32 +328,8 @@ public final class OptionsPageJava {
     }
 
     private static Button createActionButton(String text, Color color) {
-        Button btn = new Button(text);
-        String rgb = String.format("rgb(%d,%d,%d)",
-            (int) (color.getRed() * 255),
-            (int) (color.getGreen() * 255),
-            (int) (color.getBlue() * 255)
-        );
-
-        btn.setCursor(Cursor.HAND);
-        btn.setStyle(
-            "-fx-background-color: transparent;" +
-            "-fx-text-fill: " + rgb + ";" +
-            "-fx-font-size: 14px;" +
-            "-fx-font-weight: bold;" +
-            "-fx-font-family: 'Arial';" +
-            "-fx-padding: 8 16 8 16;" +
-            "-fx-border-color: " + rgb + ";" +
-            "-fx-border-width: 1.7;" +
-            "-fx-border-radius: 7;"
-        );
-
-        DropShadow shadow = new DropShadow();
-        shadow.setColor(color);
-        shadow.setRadius(12);
-        shadow.setSpread(0.18);
-        btn.setEffect(shadow);
-
+        Button btn = new NeonButton(text, color, 14, 8, 14, 8);
+        btn.setMinWidth(140);
         return btn;
     }
 }
