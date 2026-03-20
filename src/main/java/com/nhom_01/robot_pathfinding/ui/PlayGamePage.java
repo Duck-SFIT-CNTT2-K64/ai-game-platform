@@ -91,6 +91,11 @@ public class PlayGamePage {
 		boolean[] highContrast = new boolean[] { false };
 		boolean[] reducedMotion = new boolean[] { false };
 		
+		// Ranking tracking
+		long[] gameStartTime = new long[] { System.currentTimeMillis() };
+		int[] stepCounter = new int[] { 0 };
+		boolean[] rankingRecorded = new boolean[] { false };
+		
 		// Inventory for player mode
 		InventoryPanel inventory = mode == PlayMode.PLAYER ? new InventoryPanel() : null;
 		Scene[] gameScene = new Scene[1];
@@ -194,6 +199,17 @@ public class PlayGamePage {
 			loop = new Timeline(new KeyFrame(Duration.millis(220), e -> {
 				if (botEngine.getState() == GameState.MOVING) {
 					botEngine.update();
+				}
+				if (!rankingRecorded[0] && (botEngine.getState() == GameState.FINISHED || botEngine.getState() == GameState.NO_PATH)) {
+					recordGameRanking(
+						difficulty,
+						safeSize(botEngine.getPath()),
+						gameStartTime[0],
+						algorithmName,
+						botEngine.getScore(),
+						botEngine.getState() == GameState.FINISHED
+					);
+					rankingRecorded[0] = true;
 				}
 				refreshBotStats(botEngine, stateText, scoreText, pathText, exploredText, statusText);
 				renderFrame.run();
@@ -304,7 +320,12 @@ public class PlayGamePage {
 					inventory,
 					scene,
 					selectingPowerUp,
-					renderFrame
+					renderFrame,
+					gameStartTime,
+					stepCounter,
+					rankingRecorded,
+					difficulty,
+					algorithmName
 				);
 
 				if (changed) {
@@ -381,7 +402,12 @@ public class PlayGamePage {
 		InventoryPanel inventory,
 		Scene gameScene,
 		boolean[] selectingPowerUp,
-		Runnable renderFrame
+		Runnable renderFrame,
+		long[] gameStartTime,
+		int[] stepCounter,
+		boolean[] rankingRecorded,
+		String difficulty,
+		String algorithmName
 	) {
 		if (playerFinished[0] || selectingPowerUp[0]) {
 			return false;
@@ -410,6 +436,7 @@ public class PlayGamePage {
 
 		CellType target = maze.getCell(nx, ny);
 		playerScore[0] = Math.max(0, playerScore[0] - 5);
+		stepCounter[0]++;
 
 		if (target == CellType.BOMB) {
 			playerLives[0]--;
@@ -421,6 +448,10 @@ public class PlayGamePage {
 				playerFinished[0] = true;
 				statusText.setFill(Color.web("#FF6B6B"));
 				statusText.setText("GAME OVER - OUT OF LIVES");
+				if (!rankingRecorded[0]) {
+					recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], false);
+					rankingRecorded[0] = true;
+				}
 			}
 		} else if (target == CellType.ITEM) {
 			playerScore[0] += 180;
@@ -448,6 +479,10 @@ public class PlayGamePage {
 			playerFinished[0] = true;
 			statusText.setFill(Color.web("#00FF9C"));
 			statusText.setText("YOU REACHED GOAL - FINAL SCORE: " + Math.max(0, playerScore[0]));
+			if (!rankingRecorded[0]) {
+				recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], true);
+				rankingRecorded[0] = true;
+			}
 		} else {
 			statusText.setFill(Color.web("#AEE8FF"));
 			statusText.setText("MOVE WITH ARROW KEYS - REACH THE GOAL FLAG");
@@ -717,5 +752,56 @@ public class PlayGamePage {
 			"-fx-faint-focus-color: transparent;"
 		);
 		return box;
+	}
+
+	private static void recordGameRanking(
+		String difficulty,
+		int steps,
+		long gameStartTimeMs,
+		String algorithmName,
+		int finalScore,
+		boolean won
+	) {
+		try {
+			long currentTimeMs = System.currentTimeMillis();
+			long elapsedTimeMs = currentTimeMs - gameStartTimeMs;
+			
+			// Calculate final score based on performance
+			int calculatedScore = calculateFinalScore(finalScore, steps, elapsedTimeMs, won);
+			
+			RankingEntry entry = new RankingEntry(
+				PlayerProfile.getCurrentPlayerName(),
+				difficulty,
+				steps,
+				elapsedTimeMs,
+				algorithmName != null ? algorithmName : "MANUAL",
+				calculatedScore
+			);
+			
+			RankingManager.getInstance().addRanking(entry);
+			System.out.println("Ranking recorded: " + entry);
+		} catch (Exception e) {
+			System.err.println("Error recording ranking: " + e.getMessage());
+			e.printStackTrace();
+		}
+	}
+
+	private static int calculateFinalScore(int baseScore, int steps, long timeMs, boolean won) {
+		int score = Math.max(0, baseScore);
+		
+		if (won) {
+			// Bonus for winning
+			score += 500;
+			// Time bonus: 1 point per 100ms (capped at 1000)
+			score += Math.min(1000, (int) (timeMs / 100));
+		} else {
+			// Penalty for losing
+			score = Math.max(0, score - 300);
+		}
+		
+		// Step penalty: 1 point per 10 steps
+		score = Math.max(0, score - (steps / 10));
+		
+		return Math.max(0, score);
 	}
 }

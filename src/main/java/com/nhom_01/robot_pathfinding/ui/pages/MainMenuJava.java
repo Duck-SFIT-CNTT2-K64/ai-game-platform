@@ -2,6 +2,12 @@ package com.nhom_01.robot_pathfinding.ui.pages;
 
 import javafx.animation.TranslateTransition;
 import javafx.animation.Animation;
+import javafx.animation.FadeTransition;
+import javafx.animation.ParallelTransition;
+import javafx.animation.ScaleTransition;
+import javafx.animation.Timeline;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
 import javafx.application.Application;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -17,6 +23,9 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.scene.shape.Polyline;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
@@ -24,7 +33,6 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 
 import com.nhom_01.robot_pathfinding.ui.animation.ParticleSystem;
-import com.nhom_01.robot_pathfinding.ui.animation.RobotAnimation;
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
 import com.nhom_01.robot_pathfinding.ui.theme.UITheme;
 
@@ -163,18 +171,20 @@ public class MainMenuJava extends Application {
 		box.setPadding(new javafx.geometry.Insets(0, 0, 0, 0));
 
 		Button play = neonButton("▶ PLAY", UITheme.SECONDARY); // Orange
-		// Button auto = neonButton("⚡ AI AUTO SOLVE", Color.web("#00FFFF"));
-		// Button hint = neonButton("🎯 HINT MODE", Color.web("#00FF00"));
+		Button tutorial = neonButton("📖 TUTORIAL", UITheme.PRIMARY); // Cyan
+		Button ranking = neonButton("🏆 RANKING", Color.web("#FFD700")); // Gold
 		Button options = neonButton("⚙ OPTIONS", Color.web("#CCCCCC")); // Light gray
-		// Button credits = neonButton("👥 CREDITS", Color.web("#CCCCCC"));
 		Button quit = neonButton("✖ QUIT", UITheme.DANGER); // Red
+		
 		play.setOnAction(e -> PlayDifficultyPageJava.showOnStage(stage, stage.getScene()));
+		tutorial.setOnAction(e -> TutorialPageJava.showOnStage(stage, stage.getScene()));
+		ranking.setOnAction(e -> RankingPageJava.showOnStage(stage, stage.getScene()));
 		options.setOnAction(e -> OptionsPageJava.showOptionsOnStage(stage, stage.getScene()));
 		quit.setOnAction(e -> showQuitConfirm());
 
 		play.setStyle(play.getStyle() + "-fx-font-size: 22px;");
 		
-		box.getChildren().addAll(play, options, quit);
+		box.getChildren().addAll(play, tutorial, ranking, options, quit);
 		return box;
 	}
 
@@ -269,6 +279,7 @@ public class MainMenuJava extends Application {
 
 		Pane arena = new Pane();
 		arena.setPrefSize(700, 500);
+		arena.setStyle("-fx-background-color: rgba(10,20,32,0.28);");
 
 		Text hint = new Text("RUNNING ROBOT PREVIEW");
 		hint.setFont(Font.font("Orbitron", FontWeight.BOLD, 20));
@@ -277,14 +288,86 @@ public class MainMenuJava extends Application {
 		hint.setLayoutX(200);
 		hint.setLayoutY(58);
 
+		Text stateText = new Text("MODE: PATROL  |  STATUS: ONLINE");
+		stateText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		stateText.setFill(Color.web("#87D8E7"));
+		stateText.setLayoutX(34);
+		stateText.setLayoutY(84);
+
+		Text interactHint = new Text("TIP: Click panel to drop beacon, click robot to boost speed");
+		interactHint.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+		interactHint.setFill(Color.web("#6CB4C4"));
+		interactHint.setLayoutX(34);
+		interactHint.setLayoutY(104);
+
 		Pane track = new Pane();
-		track.setPrefSize(620, 12);
+		track.setPrefSize(620, 130);
 		track.setLayoutX(40);
-		track.setLayoutY(350);
-		track.setStyle(
-			"-fx-background-color: rgba(135, 176, 191, 0.25);" +
-			"-fx-background-radius: 8;"
-		);
+		track.setLayoutY(300);
+
+		double waveStartX = 65;
+		double waveWidth = 500;
+		double waveCenterY = 50;
+		double waveAmplitude = 34;
+		double waveCount = 4;
+
+		Polyline waveGlow = new Polyline();
+		Polyline waveLine = new Polyline();
+		for (int i = 0; i <= 120; i++) {
+			double progress = i / 120.0;
+			double x = waveStartX + waveWidth * progress;
+			double y = waveCenterY + waveAmplitude * Math.sin(progress * waveCount * Math.PI * 2);
+			waveGlow.getPoints().addAll(x, y);
+			waveLine.getPoints().addAll(x, y);
+		}
+
+		waveGlow.setStroke(Color.color(0.53, 0.86, 1.0, 0.26));
+		waveGlow.setStrokeWidth(12);
+		waveGlow.setFill(null);
+
+		waveLine.setStroke(Color.color(0.7, 0.94, 1.0, 0.7));
+		waveLine.setStrokeWidth(4.2);
+		waveLine.setFill(null);
+
+		track.getChildren().addAll(waveGlow, waveLine);
+
+		Rectangle scanLine = new Rectangle(6, 110, Color.color(0, 1, 1, 0.26));
+		scanLine.setLayoutX(48);
+		scanLine.setLayoutY(270);
+		scanLine.setArcWidth(8);
+		scanLine.setArcHeight(8);
+
+		TranslateTransition scanAnim = new TranslateTransition(Duration.millis(2400), scanLine);
+		scanAnim.setFromX(0);
+		scanAnim.setToX(585);
+		scanAnim.setAutoReverse(true);
+		scanAnim.setCycleCount(Animation.INDEFINITE);
+		scanAnim.play();
+
+		double[] markerProgress = new double[] { 0.08, 0.28, 0.5, 0.72, 0.92 };
+		for (double progress : markerProgress) {
+			double markerX = waveStartX + waveWidth * progress;
+			double markerY = 300 + waveCenterY + waveAmplitude * Math.sin(progress * waveCount * Math.PI * 2);
+
+			Circle node = new Circle(4, Color.color(0.58, 0.9, 1.0, 0.65));
+			node.setLayoutX(markerX);
+			node.setLayoutY(markerY);
+
+			Circle ring = new Circle(7, Color.TRANSPARENT);
+			ring.setStroke(Color.color(0.58, 0.9, 1.0, 0.35));
+			ring.setLayoutX(markerX);
+			ring.setLayoutY(markerY);
+
+			node.setOnMouseEntered(e -> {
+				node.setRadius(5.4);
+				stateText.setText("MODE: PATROL  |  TARGET NODE: " + (int) markerX);
+			});
+			node.setOnMouseExited(e -> {
+				node.setRadius(4);
+				stateText.setText("MODE: PATROL  |  STATUS: ONLINE");
+			});
+			arena.getChildren().addAll(ring, node);
+		}
 
 		StackPane robotNode = new StackPane();
 		robotNode.setPrefSize(120, 150);
@@ -309,12 +392,138 @@ public class MainMenuJava extends Application {
 		robotGlow.setRadius(34);
 		robotGlow.setSpread(0.26);
 		robotNode.setEffect(robotGlow);
+		robotNode.setCursor(Cursor.HAND);
 
-		RobotAnimation.animate(robotNode, 500, 3000, -7, 360);
+		// Trạng thái tốc độ
+		boolean[] isBoost = { false };
+		Text speedIndicator = new Text("● NORMAL");
+		speedIndicator.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		speedIndicator.setFill(Color.web("#00FF9C"));
+		speedIndicator.setLayoutX(540);
+		speedIndicator.setLayoutY(84);
 
-		arena.getChildren().addAll(hint, track, robotNode);
+
+		// Container cho animation hiện tại
+		Timeline[] currentAnimation = { null };
+
+		// Tạo animation sóng uốn lượn
+		currentAnimation[0] = createWavyAnimation(robotNode);
+		currentAnimation[0].setRate(1.0);
+		robotNode.setOnMouseEntered(e -> {
+			robotGlow.setRadius(44);
+			ScaleTransition grow = new ScaleTransition(Duration.millis(170), robotNode);
+			grow.setToX(1.08);
+			grow.setToY(1.08);
+			grow.play();
+			String boostText = isBoost[0] ? "BOOST" : "NORMAL";
+			stateText.setText("MODE: PATROL  |  ROBOT: READY (" + boostText + ")");
+		});
+
+		robotNode.setOnMouseExited(e -> {
+			robotGlow.setRadius(34);
+			ScaleTransition shrink = new ScaleTransition(Duration.millis(170), robotNode);
+			shrink.setToX(1.0);
+			shrink.setToY(1.0);
+			shrink.play();
+			String boostText = isBoost[0] ? "BOOST" : "NORMAL";
+			stateText.setText("MODE: PATROL  |  SPEED: " + boostText);
+		});
+
+		robotNode.setOnMouseClicked(e -> {
+			isBoost[0] = !isBoost[0];
+			if (currentAnimation[0] != null) {
+				currentAnimation[0].setRate(isBoost[0] ? 1.8 : 1.0);
+			}
+
+			// Hiệu ứng flash khi boost
+			FadeTransition flash = new FadeTransition(Duration.millis(150), speedIndicator);
+			flash.setFromValue(0.5);
+			flash.setToValue(1.0);
+			flash.setCycleCount(2);
+			flash.setAutoReverse(true);
+			flash.play();
+			
+			String newState = isBoost[0] ? "⚡ BOOST: ACTIVATED" : "● NORMAL: ACTIVATED";
+			stateText.setText("MODE: PATROL  |  " + newState);
+			
+			if (isBoost[0]) {
+				speedIndicator.setText("⚡ BOOST");
+				speedIndicator.setFill(Color.web("#FF6B6B"));
+				robotGlow.setColor(Color.web("#FF7E7E"));
+				robotGlow.setRadius(44);
+			} else {
+				speedIndicator.setText("● NORMAL");
+				speedIndicator.setFill(Color.web("#00FF9C"));
+				robotGlow.setColor(Color.web("#7BE3FF"));
+				robotGlow.setRadius(34);
+			}
+			
+			e.consume();
+		});
+
+		arena.setOnMouseClicked(e -> {
+			if (e.getTarget() == robotNode) {
+				return;
+			}
+			Circle pulse = new Circle(6, Color.color(0, 1, 1, 0.72));
+			pulse.setLayoutX(e.getX());
+			pulse.setLayoutY(e.getY());
+			arena.getChildren().add(pulse);
+
+			ScaleTransition pulseScale = new ScaleTransition(Duration.millis(460), pulse);
+			pulseScale.setFromX(1);
+			pulseScale.setFromY(1);
+			pulseScale.setToX(7.4);
+			pulseScale.setToY(7.4);
+
+			FadeTransition pulseFade = new FadeTransition(Duration.millis(460), pulse);
+			pulseFade.setFromValue(0.8);
+			pulseFade.setToValue(0);
+
+			ParallelTransition beaconAnim = new ParallelTransition(pulseScale, pulseFade);
+			beaconAnim.setOnFinished(done -> arena.getChildren().remove(pulse));
+			beaconAnim.play();
+
+			stateText.setText(
+				"MODE: PATROL  |  BEACON: (" + (int) e.getX() + ", " + (int) e.getY() + ")"
+			);
+		});
+
+		arena.getChildren().addAll(hint, stateText, interactHint, speedIndicator, scanLine, track, robotNode);
 		panel.getChildren().add(arena);
 		return panel;
+	}
+
+	// Tạo animation sóng uốn lượn cho robot
+	private Timeline createWavyAnimation(StackPane robotNode) {
+		long duration = 3000;
+		
+		Timeline wavyTimeline = new Timeline();
+		wavyTimeline.setCycleCount(Animation.INDEFINITE);
+		wavyTimeline.setAutoReverse(true);
+		
+		int numPoints = 40;
+		double amplitude = 34;
+		double baseTranslateY = 50;
+		double waveCount = 4;
+		
+		for (int i = 0; i <= numPoints; i++) {
+			double progress = (double) i / numPoints;
+			double x = progress * 500;
+			double y = baseTranslateY + amplitude * Math.sin((progress * waveCount) * Math.PI * 2);
+			
+			long keyframeTime = (long) (progress * duration);
+			
+			KeyFrame kf = new KeyFrame(
+				Duration.millis(keyframeTime),
+				new KeyValue(robotNode.translateXProperty(), x),
+				new KeyValue(robotNode.translateYProperty(), y)
+			);
+			wavyTimeline.getKeyFrames().add(kf);
+		}
+		
+		wavyTimeline.play();
+		return wavyTimeline;
 	}
 
 	private StackPane createCenterRobot() {

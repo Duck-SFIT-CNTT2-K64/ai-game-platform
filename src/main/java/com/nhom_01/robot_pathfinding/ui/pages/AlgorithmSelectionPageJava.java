@@ -1,5 +1,6 @@
 package com.nhom_01.robot_pathfinding.ui.pages;
 
+import com.nhom_01.robot_pathfinding.core.PlayerProfile;
 import com.nhom_01.robot_pathfinding.ui.PlayGamePage;
 import com.nhom_01.robot_pathfinding.ui.components.GameCard;
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
@@ -74,7 +75,10 @@ public final class AlgorithmSelectionPageJava {
             "Expands nodes level by level from the start point.",
             "Guarantees shortest path on unweighted grids.",
             Color.web("#00FF9C"),
-            () -> PlayGamePage.showOnStage(stage, stage.getScene(), difficulty, "BFS")
+            () -> {
+                PlayerProfile.setCurrentPlayerName("BFS");
+                PlayGamePage.showOnStage(stage, stage.getScene(), difficulty, "BFS");
+            }
         );
 
         VBox dfsCard = createAlgorithmCard(
@@ -84,7 +88,10 @@ public final class AlgorithmSelectionPageJava {
             "Follows one branch deeply before backtracking.",
             "Fast to explore, but may return longer routes.",
             Color.web("#FFB800"),
-            () -> PlayGamePage.showOnStage(stage, stage.getScene(), difficulty, "DFS")
+            () -> {
+                PlayerProfile.setCurrentPlayerName("DFS");
+                PlayGamePage.showOnStage(stage, stage.getScene(), difficulty, "DFS");
+            }
         );
 
         VBox aStarCard = createAlgorithmCard(
@@ -94,7 +101,10 @@ public final class AlgorithmSelectionPageJava {
             "Combines path cost and heuristic distance.",
             "Usually reaches the goal faster and smarter.",
             Color.web("#FF5B5B"),
-            () -> PlayGamePage.showOnStage(stage, stage.getScene(), difficulty, "A*")
+            () -> {
+                PlayerProfile.setCurrentPlayerName("A*");
+                PlayGamePage.showOnStage(stage, stage.getScene(), difficulty, "A*");
+            }
         );
 
         cards.getChildren().addAll(bfsCard, dfsCard, aStarCard);

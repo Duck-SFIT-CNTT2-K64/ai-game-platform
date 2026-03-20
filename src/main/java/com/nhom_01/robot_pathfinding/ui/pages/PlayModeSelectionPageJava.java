@@ -1,5 +1,6 @@
 package com.nhom_01.robot_pathfinding.ui.pages;
 
+import com.nhom_01.robot_pathfinding.core.PlayerProfile;
 import com.nhom_01.robot_pathfinding.ui.PlayGamePage;
 import com.nhom_01.robot_pathfinding.ui.components.GameCard;
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
@@ -9,6 +10,7 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.TextField;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -67,7 +69,9 @@ public final class PlayModeSelectionPageJava {
             "Great for learning maze patterns and reacting to bombs.",
             "Use keyboard: UP / DOWN / LEFT / RIGHT",
             Color.web("#5EA5FF"),
-            () -> PlayGamePage.showPlayerOnStage(stage, stage.getScene(), difficulty)
+            () -> ensurePlayerName(stage, stage.getScene(), () ->
+                PlayGamePage.showPlayerOnStage(stage, stage.getScene(), difficulty)
+            )
         );
 
         VBox botCard = createModeCard(
@@ -146,5 +150,87 @@ public final class PlayModeSelectionPageJava {
 
         bgPane.getChildren().add(canvas);
         return bgPane;
+    }
+
+    private static void ensurePlayerName(Stage stage, Scene currentScene, Runnable onReady) {
+        if (PlayerProfile.hasPlayerName()) {
+            onReady.run();
+            return;
+        }
+
+        if (!(currentScene.getRoot() instanceof StackPane root)) {
+            onReady.run();
+            return;
+        }
+
+        if (root.lookup("#player-name-overlay") != null) {
+            return;
+        }
+
+        StackPane overlay = new StackPane();
+        overlay.setId("player-name-overlay");
+        overlay.setStyle("-fx-background-color: rgba(0,0,0,0.72);");
+
+        VBox dialog = new VBox(12);
+        dialog.setAlignment(Pos.CENTER_LEFT);
+        dialog.setPadding(new Insets(22));
+        dialog.setPrefWidth(520);
+        dialog.setStyle(
+            "-fx-background-color: rgba(12,20,32,0.96);" +
+            "-fx-border-color: rgba(0,255,255,0.42);" +
+            "-fx-border-width: 1.8;" +
+            "-fx-border-radius: 12;" +
+            "-fx-background-radius: 12;"
+        );
+
+        Text title = new Text("ENTER PLAYER NAME");
+        title.setFont(Font.font("Orbitron", FontWeight.BOLD, 26));
+        title.setFill(Color.web("#00FFFF"));
+
+        Text helper = new Text("Ranking requires a player name before game starts.");
+        helper.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
+        helper.setFill(Color.web("#C9DCEA"));
+
+        TextField nameField = new TextField();
+        nameField.setPromptText("Your name (max 24 chars)");
+        nameField.setStyle(
+            "-fx-background-color: rgba(6,12,20,0.96);" +
+            "-fx-text-fill: #DFF7FF;" +
+            "-fx-prompt-text-fill: #7EA2B8;" +
+            "-fx-font-size: 15px;" +
+            "-fx-font-family: 'Arial';" +
+            "-fx-border-color: rgba(0,255,255,0.32);" +
+            "-fx-border-width: 1.2;"
+        );
+
+        Text error = new Text("");
+        error.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+        error.setFill(Color.web("#FF8DA6"));
+
+        HBox actions = new HBox(10);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        Button cancel = new NeonButton("CANCEL", Color.web("#CCCCCC"), 13, 7, 12, 5);
+        Button save = new NeonButton("CONFIRM", Color.web("#00FF9C"), 13, 7, 12, 5);
+
+        cancel.setOnAction(e -> root.getChildren().remove(overlay));
+        save.setOnAction(e -> {
+            String rawName = nameField.getText() == null ? "" : nameField.getText().trim();
+            if (rawName.isEmpty()) {
+                error.setText("Name is required.");
+                return;
+            }
+            PlayerProfile.setCurrentPlayerName(rawName);
+            root.getChildren().remove(overlay);
+            onReady.run();
+        });
+
+        nameField.setOnAction(e -> save.fire());
+
+        actions.getChildren().addAll(cancel, save);
+        dialog.getChildren().addAll(title, helper, nameField, error, actions);
+        overlay.getChildren().add(dialog);
+
+        root.getChildren().add(overlay);
+        nameField.requestFocus();
     }
 }
