@@ -3,7 +3,9 @@ package com.nhom_01.robot_pathfinding.ui.pages;
 import com.nhom_01.robot_pathfinding.core.PlayerProfile;
 import com.nhom_01.robot_pathfinding.core.RankingEntry;
 import com.nhom_01.robot_pathfinding.core.RankingManager;
+import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
+import com.nhom_01.robot_pathfinding.ui.theme.PlayToneBackground;
 import com.nhom_01.robot_pathfinding.ui.theme.UITheme;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.geometry.Insets;
@@ -41,7 +43,10 @@ public final class RankingPageJava {
     }
 
     public static void showOnStage(Stage stage, Scene menuScene) {
-        stage.setScene(buildScene(stage, menuScene));
+        Scene scene = buildScene(stage, menuScene);
+        MenuAudioManager.wireScene(scene);
+        MenuAudioManager.startTheme();
+        stage.setScene(scene);
     }
 
     private static Scene buildScene(Stage stage, Scene menuScene) {
@@ -58,20 +63,20 @@ public final class RankingPageJava {
 
         Text title = new Text("RANKING BOARD");
         title.setFont(Font.font("Orbitron", FontWeight.BOLD, 48));
-        title.setFill(Color.web("#00FFFF"));
+        title.setFill(Color.web("#1F2D3A"));
         DropShadow glow = new DropShadow();
-        glow.setColor(Color.web("#00FFFF"));
-        glow.setRadius(28);
+        glow.setColor(Color.color(0.18, 0.50, 0.93, 0.24));
+        glow.setRadius(16);
         title.setEffect(glow);
 
         VBox heading = new VBox(4);
         Text subtitle = new Text("TOP SCORES BY DIFFICULTY AND TOTAL GLOBAL LEADERBOARD");
         subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 15));
-        subtitle.setFill(Color.web("#C9DCEA"));
+        subtitle.setFill(Color.web("#4F5B62"));
 
         Text currentPlayer = new Text("CURRENT PLAYER: " + PlayerProfile.getCurrentPlayerName());
         currentPlayer.setFont(Font.font("Arial", FontWeight.BOLD, 13));
-        currentPlayer.setFill(Color.web("#9FD9E9"));
+        currentPlayer.setFill(Color.web("#607D8B"));
         heading.getChildren().addAll(title, subtitle, currentPlayer);
 
         Button back = new NeonButton("BACK", UITheme.SECONDARY, 14, 8, 14, 8);
@@ -89,15 +94,15 @@ public final class RankingPageJava {
         VBox tablePanel = new VBox(10);
         tablePanel.setPadding(new Insets(16));
         tablePanel.setStyle(
-            "-fx-background-color: rgba(8,16,28,0.78);" +
-            "-fx-border-color: rgba(0,255,255,0.30);" +
+            "-fx-background-color: rgba(255,255,255,0.94);" +
+            "-fx-border-color: rgba(0,0,0,0.10);" +
             "-fx-border-width: 1.5;" +
             "-fx-border-radius: 12;" +
             "-fx-background-radius: 12;"
         );
         DropShadow panelGlow = new DropShadow();
-        panelGlow.setColor(Color.color(0, 1, 1, 0.20));
-        panelGlow.setRadius(20);
+        panelGlow.setColor(Color.color(0.12, 0.16, 0.20, 0.14));
+        panelGlow.setRadius(10);
         tablePanel.setEffect(panelGlow);
 
         String[] categories = {"Easy", "Medium", "Hard", "Total"};
@@ -121,7 +126,7 @@ public final class RankingPageJava {
         page.getChildren().addAll(header, tabs, tablePanel);
 
         Pane overlay = new Pane();
-        overlay.setStyle("-fx-background-color: rgba(0,0,0,0.12);");
+        overlay.setStyle("-fx-background-color: rgba(255,255,255,0.06);");
         overlay.setMouseTransparent(true);
 
         root.getChildren().addAll(page, overlay);
@@ -133,9 +138,9 @@ public final class RankingPageJava {
         tab.setFont(Font.font("Orbitron", FontWeight.BOLD, 14));
         tab.setMinWidth(138);
         tab.setStyle(
-            "-fx-background-color: rgba(10,18,30,0.86);" +
-            "-fx-text-fill: #95DFFF;" +
-            "-fx-border-color: rgba(0,255,255,0.24);" +
+            "-fx-background-color: rgba(255,255,255,0.93);" +
+            "-fx-text-fill: #455A64;" +
+            "-fx-border-color: rgba(0,0,0,0.12);" +
             "-fx-border-width: 1.2;" +
             "-fx-border-radius: 8;" +
             "-fx-background-radius: 8;" +
@@ -150,12 +155,12 @@ public final class RankingPageJava {
             Button tab = tabs[i];
             boolean active = i == activeIndex;
             tab.setStyle(
-                "-fx-background-color: " + (active ? "rgba(0,255,255,0.22);" : "rgba(10,18,30,0.86);") +
-                "-fx-text-fill: " + (active ? "#E8FBFF;" : "#95DFFF;") +
+                "-fx-background-color: " + (active ? "rgba(47,128,237,0.18);" : "rgba(255,255,255,0.93);") +
+                "-fx-text-fill: " + (active ? "#1F2D3A;" : "#455A64;") +
                 "-fx-font-family: 'Orbitron';" +
                 "-fx-font-weight: bold;" +
                 "-fx-font-size: 14px;" +
-                "-fx-border-color: " + (active ? "rgba(0,255,255,0.62);" : "rgba(0,255,255,0.24);") +
+                "-fx-border-color: " + (active ? "rgba(47,128,237,0.56);" : "rgba(0,0,0,0.12);") +
                 "-fx-border-width: 1.2;" +
                 "-fx-border-radius: 8;" +
                 "-fx-background-radius: 8;" +
@@ -170,7 +175,7 @@ public final class RankingPageJava {
 
         Text sectionTitle = new Text(("Total".equalsIgnoreCase(difficulty) ? "GLOBAL" : difficulty.toUpperCase()) + " RANKING");
         sectionTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 26));
-        sectionTitle.setFill(Color.web("#7DE9FF"));
+        sectionTitle.setFill(Color.web("#2D3E50"));
 
         List<RankingEntry> entries = fetchRankings(difficulty);
         if (entries.isEmpty()) {
@@ -178,10 +183,10 @@ public final class RankingPageJava {
             empty.setAlignment(Pos.CENTER);
             empty.setPrefHeight(550);
             Label icon = new Label("NO RANKING DATA");
-            icon.setTextFill(Color.web("#7BD7EF"));
+            icon.setTextFill(Color.web("#2D3E50"));
             icon.setFont(Font.font("Orbitron", FontWeight.BOLD, 28));
             Text hint = new Text("Play a game to generate the first score entry.");
-            hint.setFill(Color.web("#A6C5D7"));
+            hint.setFill(Color.web("#546E7A"));
             hint.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
             empty.getChildren().addAll(icon, hint);
             panel.getChildren().addAll(sectionTitle, empty);
@@ -207,9 +212,9 @@ public final class RankingPageJava {
         TableView<RankingEntry> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
         table.setStyle(
-            "-fx-background-color: rgba(5,12,22,0.86);" +
-            "-fx-control-inner-background: rgba(5,12,22,0.86);" +
-            "-fx-table-cell-border-color: rgba(0,255,255,0.10);" +
+            "-fx-background-color: rgba(255,255,255,0.95);" +
+            "-fx-control-inner-background: rgba(255,255,255,0.95);" +
+            "-fx-table-cell-border-color: rgba(0,0,0,0.08);" +
             "-fx-font-size: 13px;"
         );
 
@@ -248,7 +253,7 @@ public final class RankingPageJava {
         cols.add(dateCol);
 
         for (TableColumn<RankingEntry, ?> col : cols) {
-            col.setStyle("-fx-alignment: CENTER; -fx-font-family: 'Arial'; -fx-text-fill: #E6FAFF;");
+            col.setStyle("-fx-alignment: CENTER; -fx-font-family: 'Arial'; -fx-text-fill: #2D3E50;");
         }
 
         table.getColumns().addAll(rankCol, nameCol, diffCol, algoCol, stepsCol, timeCol, scoreCol, dateCol);
@@ -256,39 +261,6 @@ public final class RankingPageJava {
     }
 
     private static Pane createFuturisticBackground() {
-        Pane bgPane = new Pane();
-        bgPane.setPrefSize(VIEW_WIDTH, VIEW_HEIGHT);
-
-        Canvas bgCanvas = new Canvas(VIEW_WIDTH, VIEW_HEIGHT);
-        GraphicsContext gc = bgCanvas.getGraphicsContext2D();
-
-        for (int y = 0; y < VIEW_HEIGHT; y++) {
-            double ratio = y / VIEW_HEIGHT;
-            int r = (int) (13 + (27 - 13) * ratio);
-            int g = (int) (17 + (51 - 17) * ratio);
-            int b = (int) (23 + (48 - 23) * ratio);
-            gc.setStroke(Color.rgb(r, g, b));
-            gc.strokeLine(0, y, VIEW_WIDTH, y);
-        }
-
-        gc.setStroke(Color.color(0, 0.4, 0.8, 0.15));
-        gc.setLineWidth(1);
-        int gridSize = 50;
-        for (int x = 0; x < VIEW_WIDTH; x += gridSize) {
-            gc.strokeLine(x, 0, x, VIEW_HEIGHT);
-        }
-        for (int y = 0; y < VIEW_HEIGHT; y += gridSize) {
-            gc.strokeLine(0, y, VIEW_WIDTH, y);
-        }
-
-        gc.setFill(Color.color(0, 1, 1, 0.22));
-        for (int x = 0; x < VIEW_WIDTH; x += gridSize) {
-            for (int y = 0; y < VIEW_HEIGHT; y += gridSize) {
-                gc.fillOval(x - 2, y - 2, 4, 4);
-            }
-        }
-
-        bgPane.getChildren().add(bgCanvas);
-        return bgPane;
+        return PlayToneBackground.create(VIEW_WIDTH, VIEW_HEIGHT, RankingPageJava.class);
     }
 }

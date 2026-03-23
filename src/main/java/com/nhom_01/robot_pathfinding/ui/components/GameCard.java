@@ -24,25 +24,25 @@ public class GameCard extends VBox {
 		setMinSize(width, height);
 
 		String baseStyle =
-			"-fx-background-color: rgba(8, 17, 30, 0.78);" +
-			"-fx-border-color: rgba(0, 255, 255, 0.35);" +
-			"-fx-border-width: 1.6;" +
+			"-fx-background-color: rgba(255,255,255,0.94);" +
+			"-fx-border-color: rgba(0,0,0,0.10);" +
+			"-fx-border-width: 1.2;" +
 			"-fx-border-radius: 12;" +
 			"-fx-background-radius: 12;";
 
 		String hoverStyle =
-			"-fx-background-color: rgba(12, 28, 44, 0.90);" +
-			"-fx-border-color: " + UITheme.toRgba(accent, 0.95) + ";" +
-			"-fx-border-width: 2.1;" +
+			"-fx-background-color: rgba(255,255,255,0.99);" +
+			"-fx-border-color: " + UITheme.toRgba(accent, 0.70) + ";" +
+			"-fx-border-width: 1.8;" +
 			"-fx-border-radius: 12;" +
 			"-fx-background-radius: 12;";
 
 		setStyle(baseStyle);
 
 		DropShadow normalGlow = UIEffects.createGlow(
-			Color.color(accent.getRed(), accent.getGreen(), accent.getBlue(), 0.24),
-			16,
-			0.10
+			Color.color(0.12, 0.16, 0.20, 0.18),
+			10,
+			0.04
 		);
 		setEffect(normalGlow);
 
@@ -61,9 +61,9 @@ public class GameCard extends VBox {
 			transition.playFromStart();
 			setTranslateY(-4);
 			setEffect(UIEffects.createGlow(
-				Color.color(accent.getRed(), accent.getGreen(), accent.getBlue(), 0.45),
-				22,
-				0.16
+				Color.color(accent.getRed(), accent.getGreen(), accent.getBlue(), 0.22),
+				16,
+				0.08
 			));
 		});
 

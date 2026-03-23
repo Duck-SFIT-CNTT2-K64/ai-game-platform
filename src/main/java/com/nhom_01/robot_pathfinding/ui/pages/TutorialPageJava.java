@@ -1,6 +1,8 @@
 package com.nhom_01.robot_pathfinding.ui.pages;
 
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
+import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
+import com.nhom_01.robot_pathfinding.ui.theme.PlayToneBackground;
 import com.nhom_01.robot_pathfinding.ui.theme.UITheme;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -41,7 +43,10 @@ public final class TutorialPageJava {
     }
 
     public static void showOnStage(Stage stage, Scene menuScene) {
-        stage.setScene(buildScene(stage, menuScene));
+        Scene scene = buildScene(stage, menuScene);
+        MenuAudioManager.wireScene(scene);
+        MenuAudioManager.startTheme();
+        stage.setScene(scene);
     }
 
     private static Scene buildScene(Stage stage, Scene menuScene) {
@@ -57,16 +62,16 @@ public final class TutorialPageJava {
 
         Text title = new Text("TUTORIAL CENTER");
         title.setFont(Font.font("Orbitron", FontWeight.BOLD, 46));
-        title.setFill(Color.web("#00FFFF"));
+        title.setFill(Color.web("#1F2D3A"));
         DropShadow glow = new DropShadow();
-        glow.setColor(Color.web("#00FFFF"));
-        glow.setRadius(28);
+        glow.setColor(Color.color(0.18, 0.50, 0.93, 0.24));
+        glow.setRadius(16);
         title.setEffect(glow);
 
         VBox titleBox = new VBox(4);
         Text subtitle = new Text("LEARN MOVEMENT, BOMBS, ITEMS, SKILLS, AND ALGORITHM STRATEGY");
         subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 15));
-        subtitle.setFill(Color.web("#C9DCEA"));
+        subtitle.setFill(Color.web("#4F5B62"));
         titleBox.getChildren().addAll(title, subtitle);
 
         Button back = new NeonButton("BACK", UITheme.SECONDARY, 14, 8, 14, 8);
@@ -85,9 +90,9 @@ public final class TutorialPageJava {
         sectionList.getItems().addAll(sections);
         sectionList.setPrefWidth(320);
         sectionList.setStyle(
-            "-fx-background-color: rgba(8,16,28,0.86);" +
-            "-fx-control-inner-background: rgba(8,16,28,0.86);" +
-            "-fx-border-color: rgba(0,255,255,0.32);" +
+            "-fx-background-color: rgba(255,255,255,0.95);" +
+            "-fx-control-inner-background: rgba(255,255,255,0.95);" +
+            "-fx-border-color: rgba(0,0,0,0.10);" +
             "-fx-border-width: 1.4;" +
             "-fx-border-radius: 10;"
         );
@@ -103,8 +108,8 @@ public final class TutorialPageJava {
                 }
                 setText(item.title());
                 setFont(Font.font("Orbitron", FontWeight.BOLD, 16));
-                setTextFill(Color.web("#AAEEFF"));
-                String bg = isSelected() ? "rgba(0,255,255,0.20)" : "transparent";
+                setTextFill(Color.web("#2D3E50"));
+                String bg = isSelected() ? "rgba(47,128,237,0.18)" : "transparent";
                 setStyle("-fx-background-color: " + bg + "; -fx-padding: 10;");
             }
         });
@@ -112,26 +117,26 @@ public final class TutorialPageJava {
         VBox rightPane = new VBox(10);
         rightPane.setPadding(new Insets(12));
         rightPane.setStyle(
-            "-fx-background-color: rgba(8,16,28,0.80);" +
-            "-fx-border-color: rgba(0,255,255,0.30);" +
+            "-fx-background-color: rgba(255,255,255,0.94);" +
+            "-fx-border-color: rgba(0,0,0,0.10);" +
             "-fx-border-width: 1.5;" +
             "-fx-border-radius: 12;" +
             "-fx-background-radius: 12;"
         );
         DropShadow panelGlow = new DropShadow();
-        panelGlow.setColor(Color.color(0, 1, 1, 0.18));
-        panelGlow.setRadius(18);
+        panelGlow.setColor(Color.color(0.12, 0.16, 0.20, 0.14));
+        panelGlow.setRadius(10);
         rightPane.setEffect(panelGlow);
 
         Text sectionTitle = new Text();
         sectionTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 28));
-        sectionTitle.setFill(Color.web("#FFD166"));
+        sectionTitle.setFill(Color.web("#1F2D3A"));
 
         StackPane videoPane = new StackPane();
         videoPane.setPrefHeight(390);
         videoPane.setStyle(
-            "-fx-background-color: rgba(2,6,12,0.98);" +
-            "-fx-border-color: rgba(126,223,255,0.45);" +
+            "-fx-background-color: rgba(247,241,227,0.95);" +
+            "-fx-border-color: rgba(0,0,0,0.12);" +
             "-fx-border-width: 1.4;" +
             "-fx-border-radius: 8;" +
             "-fx-background-radius: 8;"
@@ -144,36 +149,36 @@ public final class TutorialPageJava {
 
         Text fallbackText = new Text("VIDEO NOT FOUND\nSet a valid file path in tutorial section config.");
         fallbackText.setFont(Font.font("Arial", FontWeight.BOLD, 18));
-        fallbackText.setFill(Color.web("#7BD7EF"));
+        fallbackText.setFill(Color.web("#607D8B"));
 
         videoPane.getChildren().add(fallbackText);
 
         HBox controls = new HBox(10);
         controls.setAlignment(Pos.CENTER_LEFT);
-        Button play = new NeonButton("PLAY", Color.web("#00FF9C"), 12, 6, 10, 5);
+        Button play = new NeonButton("PLAY", Color.web("#2E7D32"), 12, 6, 10, 5);
         Button pause = new NeonButton("PAUSE", Color.web("#FFB800"), 12, 6, 10, 5);
         Button stop = new NeonButton("STOP", Color.web("#FF6B6B"), 12, 6, 10, 5);
 
         Text sourcePath = new Text();
-        sourcePath.setFill(Color.web("#9FC8DE"));
+        sourcePath.setFill(Color.web("#607D8B"));
         sourcePath.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
 
         controls.getChildren().addAll(play, pause, stop, sourcePath);
 
         Text descriptionTitle = new Text("DETAILED GUIDE");
         descriptionTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 18));
-        descriptionTitle.setFill(Color.web("#8FE8F4"));
+        descriptionTitle.setFill(Color.web("#2D3E50"));
 
         TextArea descriptionArea = new TextArea();
         descriptionArea.setWrapText(true);
         descriptionArea.setEditable(false);
         descriptionArea.setPrefRowCount(8);
         descriptionArea.setStyle(
-            "-fx-control-inner-background: rgba(5,12,22,0.90);" +
-            "-fx-text-fill: #D8EEF8;" +
+            "-fx-control-inner-background: rgba(255,255,255,0.95);" +
+            "-fx-text-fill: #455A64;" +
             "-fx-font-family: 'Arial';" +
             "-fx-font-size: 14px;" +
-            "-fx-border-color: rgba(0,255,255,0.22);" +
+            "-fx-border-color: rgba(0,0,0,0.12);" +
             "-fx-border-width: 1.2;"
         );
 
@@ -243,7 +248,7 @@ public final class TutorialPageJava {
         page.getChildren().addAll(header, content);
 
         Pane overlay = new Pane();
-        overlay.setStyle("-fx-background-color: rgba(0,0,0,0.12);");
+        overlay.setStyle("-fx-background-color: rgba(255,255,255,0.06);");
         overlay.setMouseTransparent(true);
 
         root.getChildren().addAll(page, overlay);
@@ -343,40 +348,7 @@ public final class TutorialPageJava {
     }
 
     private static Pane createFuturisticBackground() {
-        Pane bgPane = new Pane();
-        bgPane.setPrefSize(VIEW_WIDTH, VIEW_HEIGHT);
-
-        Canvas bgCanvas = new Canvas(VIEW_WIDTH, VIEW_HEIGHT);
-        GraphicsContext gc = bgCanvas.getGraphicsContext2D();
-
-        for (int y = 0; y < VIEW_HEIGHT; y++) {
-            double ratio = y / VIEW_HEIGHT;
-            int r = (int) (13 + (27 - 13) * ratio);
-            int g = (int) (17 + (51 - 17) * ratio);
-            int b = (int) (23 + (48 - 23) * ratio);
-            gc.setStroke(Color.rgb(r, g, b));
-            gc.strokeLine(0, y, VIEW_WIDTH, y);
-        }
-
-        gc.setStroke(Color.color(0, 0.4, 0.8, 0.15));
-        gc.setLineWidth(1);
-        int gridSize = 50;
-        for (int x = 0; x < VIEW_WIDTH; x += gridSize) {
-            gc.strokeLine(x, 0, x, VIEW_HEIGHT);
-        }
-        for (int y = 0; y < VIEW_HEIGHT; y += gridSize) {
-            gc.strokeLine(0, y, VIEW_WIDTH, y);
-        }
-
-        gc.setFill(Color.color(0, 1, 1, 0.22));
-        for (int x = 0; x < VIEW_WIDTH; x += gridSize) {
-            for (int y = 0; y < VIEW_HEIGHT; y += gridSize) {
-                gc.fillOval(x - 2, y - 2, 4, 4);
-            }
-        }
-
-        bgPane.getChildren().add(bgCanvas);
-        return bgPane;
+        return PlayToneBackground.create(VIEW_WIDTH, VIEW_HEIGHT, TutorialPageJava.class);
     }
 
     private record TutorialSection(String title, String videoPath, String description) {

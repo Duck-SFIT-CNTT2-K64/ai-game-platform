@@ -4,22 +4,31 @@ import com.nhom_01.robot_pathfinding.core.CellType;
 import com.nhom_01.robot_pathfinding.core.Maze;
 import com.nhom_01.robot_pathfinding.core.State;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 
 import java.util.List;
 
 public class MazeRenderer {
 
-	private static final Color BG = Color.web("#08101A");
-	private static final Color WALL = Color.web("#25374A");
-	private static final Color EMPTY = Color.web("#142335");
+	private static final Color BG = Color.web("#88E3F3");
+	private static final Color WALL = Color.web("#BDE86E");
+	private static final Color EMPTY = Color.web("#88E3F3");
 	private static final Color ITEM = Color.web("#2BD99F");
-	private static final Color BOMB = Color.web("#EE5A7A");
+	private static final Color BOMB = Color.web("#FF6B6B");
 	private static final Color START = Color.web("#5EA5FF");
-	private static final Color GOAL = Color.web("#FFD166");
-	private static final Color EXPLORED = Color.color(0.56, 0.86, 1.0, 0.18);
-	private static final Color PATH = Color.color(0.94, 0.96, 1.0, 0.28);
-	private static final Color ROBOT = Color.web("#8BE9FD");
+	private static final Color GOAL = Color.web("#212121");
+	private static final Color EXPLORED = Color.color(0.43, 0.60, 1.0, 0.20);
+	private static final Color PATH = Color.color(0.62, 0.86, 0.64, 0.45);
+	private static final Color ROBOT = Color.web("#F9D648");
+
+	private static final Image DUCK_IMAGE = loadImage("/image/vit/Duck.png");
+	private static final Image GRASS_IMAGE = loadImage("/image/vit/Grass.png");
+	private static final Image WATER_IMAGE = loadImage("/image/vit/Water.png");
+	private static final Image GOAL_IMAGE = loadImage("/image/vit/FinishLine.png");
+	private static final Image STOP_IMAGE = loadImage("/image/vit/Stop.png");
+	private static final Image VIT_IMAGE = loadImage("/image/vit/Vit.png");
+	private static final Image FLAG_IMAGE = loadImage("/image/vit/Flag.png");
 
 	private MazeRenderer() {
 	}
@@ -30,6 +39,21 @@ public class MazeRenderer {
 		List<State> explored,
 		List<State> path,
 		State robotPosition,
+		double width,
+		double height
+	) {
+		double robotGridX = robotPosition == null ? Double.NaN : robotPosition.getX();
+		double robotGridY = robotPosition == null ? Double.NaN : robotPosition.getY();
+		render(gc, maze, explored, path, robotGridX, robotGridY, width, height);
+	}
+
+	public static void render(
+		GraphicsContext gc,
+		Maze maze,
+		List<State> explored,
+		List<State> path,
+		double robotGridX,
+		double robotGridY,
 		double width,
 		double height
 	) {
@@ -47,12 +71,30 @@ public class MazeRenderer {
 		for (int x = 0; x < mazeW; x++) {
 			for (int y = 0; y < mazeH; y++) {
 				CellType type = maze.getCell(x, y);
-				gc.setFill(colorFor(type));
-				gc.fillRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize);
+				double px = offsetX + x * cellSize;
+				double py = offsetY + y * cellSize;
+				if (type == CellType.WALL) {
+					if (GRASS_IMAGE != null && !GRASS_IMAGE.isError()) {
+						gc.drawImage(GRASS_IMAGE, px + cellSize * 0.06, py + cellSize * 0.06, cellSize * 0.88, cellSize * 0.88);
+					} else {
+						gc.setFill(WALL);
+						gc.fillRoundRect(px + cellSize * 0.06, py + cellSize * 0.06, cellSize * 0.88, cellSize * 0.88, cellSize * 0.24, cellSize * 0.24);
+					}
+					gc.setStroke(Color.web("#9BC157"));
+					gc.setLineWidth(Math.max(0.8, cellSize * 0.06));
+					gc.strokeRoundRect(px + cellSize * 0.06, py + cellSize * 0.06, cellSize * 0.88, cellSize * 0.88, cellSize * 0.24, cellSize * 0.24);
+				} else {
+					if (WATER_IMAGE != null && !WATER_IMAGE.isError()) {
+						gc.drawImage(WATER_IMAGE, px, py, cellSize, cellSize);
+					} else {
+						gc.setFill(colorFor(type));
+						gc.fillRect(px, py, cellSize, cellSize);
+					}
+				}
 			}
 		}
 
-		gc.setStroke(Color.color(0.5, 0.8, 1.0, 0.10));
+		gc.setStroke(Color.color(0.63, 0.91, 0.96, 0.18));
 		gc.setLineWidth(0.5);
 		for (int x = 0; x <= mazeW; x++) {
 			double gx = offsetX + x * cellSize;
@@ -66,7 +108,12 @@ public class MazeRenderer {
 		if (explored != null) {
 			gc.setFill(EXPLORED);
 			for (State s : explored) {
-				gc.fillRect(offsetX + s.getX() * cellSize, offsetY + s.getY() * cellSize, cellSize, cellSize);
+				double cellX = offsetX + s.getX() * cellSize;
+				double cellY = offsetY + s.getY() * cellSize;
+				gc.fillRect(cellX, cellY, cellSize, cellSize);
+				if (FLAG_IMAGE != null && !FLAG_IMAGE.isError() && maze.getCell(s.getX(), s.getY()) != CellType.WALL) {
+					gc.drawImage(FLAG_IMAGE, cellX + cellSize * 0.14, cellY + cellSize * 0.14, cellSize * 0.72, cellSize * 0.72);
+				}
 			}
 		}
 
@@ -88,8 +135,8 @@ public class MazeRenderer {
 			}
 		}
 
-		if (robotPosition != null) {
-			drawRobot(gc, offsetX + robotPosition.getX() * cellSize, offsetY + robotPosition.getY() * cellSize, cellSize);
+		if (!Double.isNaN(robotGridX) && !Double.isNaN(robotGridY)) {
+			drawRobot(gc, offsetX + robotGridX * cellSize, offsetY + robotGridY * cellSize, cellSize);
 		}
 	}
 
@@ -105,6 +152,11 @@ public class MazeRenderer {
 	}
 
 	private static void drawBomb(GraphicsContext gc, double x, double y, double size) {
+		if (STOP_IMAGE != null && !STOP_IMAGE.isError()) {
+			gc.drawImage(STOP_IMAGE, x + size * 0.15, y + size * 0.15, size * 0.70, size * 0.70);
+			return;
+		}
+
 		double cx = x + size * 0.5;
 		double cy = y + size * 0.52;
 		double r = size * 0.2;
@@ -119,6 +171,11 @@ public class MazeRenderer {
 	}
 
 	private static void drawItem(GraphicsContext gc, double x, double y, double size) {
+		if (VIT_IMAGE != null && !VIT_IMAGE.isError()) {
+			gc.drawImage(VIT_IMAGE, x + size * 0.06, y + size * 0.06, size * 0.88, size * 0.88);
+			return;
+		}
+
 		double pad = size * 0.24;
 		double[] xs = {
 			x + size * 0.5,
@@ -140,6 +197,11 @@ public class MazeRenderer {
 	}
 
 	private static void drawGoal(GraphicsContext gc, double x, double y, double size) {
+		if (GOAL_IMAGE != null && !GOAL_IMAGE.isError()) {
+			gc.drawImage(GOAL_IMAGE, x + size * 0.02, y + size * 0.02, size * 0.96, size * 0.96);
+			return;
+		}
+
 		double poleX = x + size * 0.36;
 		double poleY = y + size * 0.22;
 		double poleH = size * 0.56;
@@ -164,6 +226,11 @@ public class MazeRenderer {
 	}
 
 	private static void drawRobot(GraphicsContext gc, double x, double y, double size) {
+		if (DUCK_IMAGE != null && !DUCK_IMAGE.isError()) {
+			gc.drawImage(DUCK_IMAGE, x + size * 0.03, y + size * 0.03, size * 0.94, size * 0.94);
+			return;
+		}
+
 		double bodyPad = size * 0.18;
 		double bodyW = size - bodyPad * 2;
 		double bodyH = size * 0.55;
@@ -195,5 +262,17 @@ public class MazeRenderer {
 			case GOAL -> GOAL;
 			case EMPTY -> EMPTY;
 		};
+	}
+
+	private static Image loadImage(String resourcePath) {
+		try {
+			java.io.InputStream stream = MazeRenderer.class.getResourceAsStream(resourcePath);
+			if (stream == null) {
+				return null;
+			}
+			return new Image(stream);
+		} catch (Exception ex) {
+			return null;
+		}
 	}
 }

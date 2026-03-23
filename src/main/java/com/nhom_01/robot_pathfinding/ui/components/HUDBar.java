@@ -18,8 +18,8 @@ public final class HUDBar {
 		hud.setAlignment(Pos.CENTER);
 		hud.setPadding(new Insets(8, 16, 8, 16));
 		hud.setStyle(
-			"-fx-background-color: rgba(10, 22, 34, 0.72);" +
-			"-fx-border-color: rgba(0, 255, 255, 0.30);" +
+			"-fx-background-color: rgba(255,255,255,0.94);" +
+			"-fx-border-color: rgba(0,0,0,0.10);" +
 			"-fx-border-width: 1.2;" +
 			"-fx-border-radius: 10;" +
 			"-fx-background-radius: 10;"

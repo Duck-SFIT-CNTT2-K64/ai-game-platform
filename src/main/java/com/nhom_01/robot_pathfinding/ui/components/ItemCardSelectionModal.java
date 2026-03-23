@@ -43,16 +43,16 @@ public class ItemCardSelectionModal {
         StackPane overlayRoot = new StackPane();
         overlayRoot.setId(MODAL_OVERLAY_ID);
         overlayRoot.setPrefSize(gameScene.getWidth(), gameScene.getHeight());
-        overlayRoot.setStyle("-fx-background-color: rgba(0,0,0,0.72);");
+        overlayRoot.setStyle("-fx-background-color: rgba(35,30,20,0.42);");
         overlayRoot.setPickOnBounds(true);
 
         VBox modalContainer = new VBox(20);
         modalContainer.setAlignment(Pos.CENTER);
         modalContainer.setPrefWidth(1200);
         modalContainer.setStyle(
-            "-fx-background-color: rgba(22,34,52,0.95);" +
-            "-fx-border-color: rgba(0,255,255,0.8);" +
-            "-fx-border-width: 2;" +
+            "-fx-background-color: rgba(255,255,255,0.97);" +
+            "-fx-border-color: rgba(0,0,0,0.12);" +
+            "-fx-border-width: 1.5;" +
             "-fx-border-radius: 15;" +
             "-fx-background-radius: 15;"
         );
@@ -60,11 +60,11 @@ public class ItemCardSelectionModal {
 
         Text titleText = new Text("SELECT A POWER-UP");
         titleText.setFont(Font.font("Orbitron", FontWeight.BOLD, 40));
-        titleText.setFill(Color.web("#00FFFF"));
+        titleText.setFill(Color.web("#1F2D3A"));
 
         Text subtitleText = new Text("Choose 1 of 3 power-ups to boost your game");
         subtitleText.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
-        subtitleText.setFill(Color.web("#C9DCEA"));
+        subtitleText.setFill(Color.web("#4F5B62"));
 
         // Generate 3 random power-ups
         List<PowerUp> selectedPowerUps = generateRandomPowerUps(3);
@@ -129,9 +129,9 @@ public class ItemCardSelectionModal {
         card.setAlignment(Pos.TOP_CENTER);
         card.setPadding(new Insets(20));
         card.setStyle(
-            "-fx-background-color: rgba(30,50,80,0.8);" +
-            "-fx-border-color: rgba(100,200,255,0.6);" +
-            "-fx-border-width: 2;" +
+            "-fx-background-color: rgba(255,255,255,0.95);" +
+            "-fx-border-color: rgba(0,0,0,0.12);" +
+            "-fx-border-width: 1.5;" +
             "-fx-border-radius: 12;" +
             "-fx-background-radius: 12;" +
             "-fx-cursor: hand;"
@@ -154,21 +154,21 @@ public class ItemCardSelectionModal {
         // Power-up name
         Text nameText = new Text(powerUp.getDisplayName());
         nameText.setFont(Font.font("Orbitron", FontWeight.BOLD, 18));
-        nameText.setFill(Color.web("#00FFFF"));
+        nameText.setFill(Color.web("#1F2D3A"));
         nameText.setTextAlignment(TextAlignment.CENTER);
         nameText.setWrappingWidth(260);
 
         // English description
         Text descText = new Text(powerUp.getEnglishDescription());
         descText.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
-        descText.setFill(Color.web("#C9DCEA"));
+        descText.setFill(Color.web("#4F5B62"));
         descText.setTextAlignment(TextAlignment.CENTER);
         descText.setWrappingWidth(260);
 
         // Vietnamese description (effect)
         Text effectText = new Text("Hiệu ứng: " + powerUp.getVietnameseDescription());
         effectText.setFont(Font.font("Arial", 12));
-        effectText.setFill(Color.web("#9FFFD8"));
+        effectText.setFill(Color.web("#2E7D32"));
         effectText.setTextAlignment(TextAlignment.CENTER);
         effectText.setWrappingWidth(260);
 
@@ -183,9 +183,9 @@ public class ItemCardSelectionModal {
         // Hover effect
         card.setOnMouseEntered(e -> {
             card.setStyle(
-                "-fx-background-color: rgba(50,80,120,0.9);" +
-                "-fx-border-color: rgba(0,255,255,0.9);" +
-                "-fx-border-width: 2;" +
+                "-fx-background-color: rgba(255,255,255,1.0);" +
+                "-fx-border-color: rgba(47,128,237,0.55);" +
+                "-fx-border-width: 1.8;" +
                 "-fx-border-radius: 12;" +
                 "-fx-background-radius: 12;" +
                 "-fx-cursor: hand;"
@@ -193,9 +193,9 @@ public class ItemCardSelectionModal {
         });
         card.setOnMouseExited(e -> {
             card.setStyle(
-                "-fx-background-color: rgba(30,50,80,0.8);" +
-                "-fx-border-color: rgba(100,200,255,0.6);" +
-                "-fx-border-width: 2;" +
+                "-fx-background-color: rgba(255,255,255,0.95);" +
+                "-fx-border-color: rgba(0,0,0,0.12);" +
+                "-fx-border-width: 1.5;" +
                 "-fx-border-radius: 12;" +
                 "-fx-background-radius: 12;" +
                 "-fx-cursor: hand;"

@@ -26,48 +26,55 @@ public class NeonButton extends Button {
 		this.hoverTranslateX = hoverTranslateX;
 
 		String rgb = UITheme.toRgb(accent);
+		String textColor = UITheme.toRgb(Color.color(
+			accent.getRed() * 0.72,
+			accent.getGreen() * 0.72,
+			accent.getBlue() * 0.72
+		));
 		this.baseStyle =
-			"-fx-background-color: transparent;" +
-			"-fx-text-fill: " + rgb + ";" +
+			"-fx-background-color: rgba(255,255,255,0.92);" +
+			"-fx-text-fill: " + textColor + ";" +
 			"-fx-font-size: " + fontSize + "px;" +
 			"-fx-font-weight: bold;" +
 			"-fx-font-family: 'Arial';" +
 			"-fx-padding: " + padV + " " + padH + " " + padV + " " + padH + ";" +
 			"-fx-border-color: " + rgb + ";" +
-			"-fx-border-width: 2;" +
-			"-fx-border-radius: 4;" +
+			"-fx-border-width: 1.6;" +
+			"-fx-border-radius: 8;" +
+			"-fx-background-radius: 8;" +
 			"-fx-cursor: hand;";
 
 		this.hoverStyle =
-			"-fx-background-color: " + UITheme.toRgba(accent, 0.12) + ";" +
-			"-fx-text-fill: " + rgb + ";" +
+			"-fx-background-color: " + UITheme.toRgba(accent, 0.16) + ";" +
+			"-fx-text-fill: " + textColor + ";" +
 			"-fx-font-size: " + fontSize + "px;" +
 			"-fx-font-weight: bold;" +
 			"-fx-font-family: 'Arial';" +
 			"-fx-padding: " + padV + " " + padH + " " + padV + " " + padH + ";" +
 			"-fx-border-color: " + rgb + ";" +
-			"-fx-border-width: 2;" +
-			"-fx-border-radius: 4;" +
+			"-fx-border-width: 1.8;" +
+			"-fx-border-radius: 8;" +
+			"-fx-background-radius: 8;" +
 			"-fx-cursor: hand;";
 
 		setCursor(Cursor.HAND);
 		setTextOverrun(OverrunStyle.ELLIPSIS);
 		setWrapText(false);
 		setStyle(baseStyle);
-		setEffect(UIEffects.createGlow(accent, 15, 0.30));
+		setEffect(UIEffects.createGlow(accent, 10, 0.16));
 
 		setOnMouseEntered(e -> {
 			setStyle(hoverStyle);
 			ParallelTransition transition = UIEffects.createHoverTransition(this, 1.06, 1.06, hoverTranslateX);
 			transition.playFromStart();
-			setEffect(UIEffects.createGlow(accent, 25, 0.50));
+			setEffect(UIEffects.createGlow(accent, 16, 0.25));
 		});
 
 		setOnMouseExited(e -> {
 			setStyle(baseStyle);
 			ParallelTransition transition = UIEffects.createHoverTransition(this, 1.0, 1.0, 0);
 			transition.playFromStart();
-			setEffect(UIEffects.createGlow(accent, 15, 0.30));
+			setEffect(UIEffects.createGlow(accent, 10, 0.16));
 		});
 	}
 

@@ -2,8 +2,10 @@ package com.nhom_01.robot_pathfinding.ui.pages;
 
 import com.nhom_01.robot_pathfinding.core.PlayerProfile;
 import com.nhom_01.robot_pathfinding.ui.PlayGamePage;
+import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
 import com.nhom_01.robot_pathfinding.ui.components.GameCard;
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
+import com.nhom_01.robot_pathfinding.ui.theme.PlayToneBackground;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -30,11 +32,17 @@ public final class AlgorithmSelectionPageJava {
     }
 
     public static void showOnStage(Stage stage, Scene menuScene) {
-        stage.setScene(buildScene(stage, menuScene, "MEDIUM"));
+        Scene scene = buildScene(stage, menuScene, "MEDIUM");
+        MenuAudioManager.wireScene(scene);
+        MenuAudioManager.startTheme();
+        stage.setScene(scene);
     }
 
     public static void showOnStage(Stage stage, Scene previousScene, String difficulty) {
-        stage.setScene(buildScene(stage, previousScene, difficulty));
+        Scene scene = buildScene(stage, previousScene, difficulty);
+        MenuAudioManager.wireScene(scene);
+        MenuAudioManager.startTheme();
+        stage.setScene(scene);
     }
 
     private static Scene buildScene(Stage stage, Scene previousScene, String difficulty) {
@@ -48,16 +56,16 @@ public final class AlgorithmSelectionPageJava {
 
         Text title = new Text("SELECT ALGORITHM");
         title.setFont(Font.font("Orbitron", FontWeight.BOLD, 58));
-        title.setFill(Color.web("#FF55FF"));
+        title.setFill(Color.web("#1F2D3A"));
 
         DropShadow titleGlow = new DropShadow();
-        titleGlow.setColor(Color.web("#FF55FF"));
-        titleGlow.setRadius(28);
+        titleGlow.setColor(Color.color(0.18, 0.50, 0.93, 0.24));
+        titleGlow.setRadius(16);
         title.setEffect(titleGlow);
 
         Text subtitle = new Text("DIFFICULTY: " + difficulty + "  |  CHOOSE HOW THE ROBOT WILL SEARCH");
         subtitle.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
-        subtitle.setFill(Color.web("#B5C7D6"));
+        subtitle.setFill(Color.web("#4F5B62"));
 
         VBox heading = new VBox(8, title, subtitle);
         heading.setAlignment(Pos.CENTER);
@@ -116,7 +124,7 @@ public final class AlgorithmSelectionPageJava {
         actions.setAlignment(Pos.CENTER_RIGHT);
         actions.setMaxWidth(1288);
 
-        Button back = createActionButton("BACK TO DIFFICULTY", Color.web("#CCCCCC"));
+        Button back = createActionButton("BACK TO DIFFICULTY", Color.web("#607D8B"));
         back.setOnAction(e -> stage.setScene(previousScene));
 
         actions.getChildren().add(back);
@@ -124,7 +132,7 @@ public final class AlgorithmSelectionPageJava {
         page.getChildren().addAll(heading, content, actions);
 
         Pane overlay = new Pane();
-        overlay.setStyle("-fx-background-color: rgba(0,0,0,0.18);");
+        overlay.setStyle("-fx-background-color: rgba(255,255,255,0.06);");
         overlay.setMouseTransparent(true);
 
         root.getChildren().addAll(page, overlay);
@@ -132,40 +140,7 @@ public final class AlgorithmSelectionPageJava {
     }
 
     private static Pane createFuturisticBackground() {
-        Pane bgPane = new Pane();
-        bgPane.setPrefSize(VIEW_WIDTH, VIEW_HEIGHT);
-
-        Canvas canvas = new Canvas(VIEW_WIDTH, VIEW_HEIGHT);
-        GraphicsContext gc = canvas.getGraphicsContext2D();
-
-        for (int y = 0; y < (int) VIEW_HEIGHT; y++) {
-            double ratio = y / VIEW_HEIGHT;
-            int r = (int) (13 + (27 - 13) * ratio);
-            int g = (int) (17 + (51 - 17) * ratio);
-            int b = (int) (23 + (48 - 23) * ratio);
-            gc.setStroke(Color.rgb(r, g, b));
-            gc.strokeLine(0, y, VIEW_WIDTH, y);
-        }
-
-        gc.setStroke(Color.color(0, 0.5, 0.85, 0.14));
-        gc.setLineWidth(1);
-        int gridSize = 50;
-        for (int x = 0; x < VIEW_WIDTH; x += gridSize) {
-            gc.strokeLine(x, 0, x, VIEW_HEIGHT);
-        }
-        for (int y = 0; y < VIEW_HEIGHT; y += gridSize) {
-            gc.strokeLine(0, y, VIEW_WIDTH, y);
-        }
-
-        gc.setFill(Color.color(0, 1, 1, 0.22));
-        for (int x = 0; x < VIEW_WIDTH; x += gridSize) {
-            for (int y = 0; y < VIEW_HEIGHT; y += gridSize) {
-                gc.fillOval(x - 2, y - 2, 4, 4);
-            }
-        }
-
-        bgPane.getChildren().add(canvas);
-        return bgPane;
+        return PlayToneBackground.create(VIEW_WIDTH, VIEW_HEIGHT, AlgorithmSelectionPageJava.class);
     }
 
     private static VBox createAlgorithmCard(String level, String icon, String algorithm,
@@ -175,7 +150,7 @@ public final class AlgorithmSelectionPageJava {
 
         Text algorithmTitle = new Text("ALGORITHM: " + algorithm);
         algorithmTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 22));
-        algorithmTitle.setFill(Color.web("#E7F5FF"));
+        algorithmTitle.setFill(Color.web("#2D3E50"));
 
         Text lineA = card.createBodyText(descriptionA, 372);
         Text lineB = card.createBodyText(descriptionB, 372);
@@ -221,16 +196,16 @@ public final class AlgorithmSelectionPageJava {
         panel.setMinSize(632, 178);
         panel.setAlignment(Pos.TOP_LEFT);
         panel.setStyle(
-            "-fx-background-color: rgba(10, 22, 34, 0.72);" +
-            "-fx-border-color: rgba(0, 255, 255, 0.30);" +
+            "-fx-background-color: rgba(255,255,255,0.94);" +
+            "-fx-border-color: rgba(0,0,0,0.10);" +
             "-fx-border-width: 1.4;" +
             "-fx-border-radius: 12;" +
             "-fx-background-radius: 12;"
         );
 
         DropShadow glow = new DropShadow();
-        glow.setColor(Color.color(0, 1, 1, 0.20));
-        glow.setRadius(16);
+        glow.setColor(Color.color(0.12, 0.16, 0.20, 0.14));
+        glow.setRadius(10);
         panel.setEffect(glow);
 
         Text heading = new Text(headingText);
@@ -239,7 +214,7 @@ public final class AlgorithmSelectionPageJava {
 
         Text body = new Text(bodyText);
         body.setFont(Font.font("Arial", FontWeight.NORMAL, 15));
-        body.setFill(Color.web("#C9DCEA"));
+        body.setFill(Color.web("#4F5B62"));
         body.setWrappingWidth(590);
 
         panel.getChildren().addAll(heading, body);

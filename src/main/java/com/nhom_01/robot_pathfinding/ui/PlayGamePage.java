@@ -7,11 +7,11 @@ import com.nhom_01.robot_pathfinding.ai.SearchAlgorithm;
 import com.nhom_01.robot_pathfinding.core.*;
 import com.nhom_01.robot_pathfinding.game.GameEngine;
 import com.nhom_01.robot_pathfinding.game.GameState;
+import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
 import com.nhom_01.robot_pathfinding.ui.components.InventoryPanel;
 import com.nhom_01.robot_pathfinding.ui.components.ItemCardSelectionModal;
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
+import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -21,17 +21,19 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.media.AudioClip;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
-import javafx.util.Duration;
 
 public class PlayGamePage {
 
@@ -62,6 +64,9 @@ public class PlayGamePage {
 	}
 
 	private static Scene buildScene(Stage stage, Scene previousScene, String difficulty, String algorithmName, PlayMode mode) {
+		MenuAudioManager.stopTheme();
+		GameSettings settings = GameSettings.getInstance();
+
 		// Generate maze with mode-aware configuration (BOT mode excludes items/bombs)
 		MazeGenerator.GameMode generatorMode = mode == PlayMode.BOT 
 			? MazeGenerator.GameMode.BOT 
@@ -82,14 +87,16 @@ public class PlayGamePage {
 		boolean[] playerFinished = new boolean[] { false };
 		boolean[] selectingPowerUp = new boolean[] { false };
 		boolean[] optionsOpen = new boolean[] { false };
+		boolean[] playerAnimating = new boolean[] { false };
 		long[] lastMoveNanos = new long[] { 0L };
-		double[] masterVolume = new double[] { 80 };
-		double[] musicVolume = new double[] { 70 };
-		double[] sfxVolume = new double[] { 85 };
-		boolean[] pathHint = new boolean[] { false };
-		boolean[] aiSuggest = new boolean[] { false };
-		boolean[] highContrast = new boolean[] { false };
-		boolean[] reducedMotion = new boolean[] { false };
+		double[] masterVolume = new double[] { settings.getMasterVolume() };
+		double[] musicVolume = new double[] { settings.getMusicVolume() };
+		double[] sfxVolume = new double[] { settings.getSFXVolume() };
+		InGameAudio audio = InGameAudio.create();
+		boolean[] pathHint = new boolean[] { settings.isShowPathHint() };
+		boolean[] aiSuggest = new boolean[] { settings.isEnableAISuggestion() };
+		boolean[] highContrast = new boolean[] { settings.isHighContrastLabels() };
+		boolean[] reducedMotion = new boolean[] { settings.isReducedMotion() };
 		
 		// Ranking tracking
 		long[] gameStartTime = new long[] { System.currentTimeMillis() };
@@ -99,28 +106,31 @@ public class PlayGamePage {
 		// Inventory for player mode
 		InventoryPanel inventory = mode == PlayMode.PLAYER ? new InventoryPanel() : null;
 		Scene[] gameScene = new Scene[1];
+		double[] botRenderX = new double[] { maze.getStart().getX() };
+		double[] botRenderY = new double[] { maze.getStart().getY() };
+		double[] botFromX = new double[] { maze.getStart().getX() };
+		double[] botFromY = new double[] { maze.getStart().getY() };
+		double[] botToX = new double[] { maze.getStart().getX() };
+		double[] botToY = new double[] { maze.getStart().getY() };
+		long[] botAccumulatorNanos = new long[] { 0L };
+		long[] botLastFrameNanos = new long[] { 0L };
+		double[] playerRenderX = new double[] { maze.getStart().getX() };
+		double[] playerRenderY = new double[] { maze.getStart().getY() };
+		double[] playerFromX = new double[] { maze.getStart().getX() };
+		double[] playerFromY = new double[] { maze.getStart().getY() };
+		double[] playerToX = new double[] { maze.getStart().getX() };
+		double[] playerToY = new double[] { maze.getStart().getY() };
+		long[] playerAccumulatorNanos = new long[] { 0L };
+		long[] playerLastFrameNanos = new long[] { 0L };
+		long[] playerMovementDurationNanos = new long[] { 200_000_000L };
 
 		StackPane root = new StackPane();
 		root.setPrefSize(VIEW_WIDTH, VIEW_HEIGHT);
 		root.getChildren().add(createBackground());
 
-		VBox page = new VBox(10);
-		page.setPadding(new Insets(14, 34, 14, 34));
+		HBox page = new HBox(18);
+		page.setPadding(new Insets(16, 22, 16, 22));
 		page.setAlignment(Pos.TOP_CENTER);
-
-		Text title = new Text("LIVE PLAYGROUND");
-		title.setFont(Font.font("Orbitron", FontWeight.BOLD, 40));
-		title.setFill(Color.web("#00FFFF"));
-
-		String subtitleText = mode == PlayMode.BOT
-			? "MODE: BOT  |  DIFFICULTY: " + difficulty + "  |  ALGORITHM: " + algorithmName
-			: "MODE: PLAYER  |  DIFFICULTY: " + difficulty + "  |  USE ARROW KEYS TO MOVE";
-		Text subtitle = new Text(subtitleText);
-		subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 15));
-		subtitle.setFill(Color.web("#C9DCEA"));
-
-		HBox statsRow = new HBox(26);
-		statsRow.setAlignment(Pos.CENTER);
 
 		String initialState = mode == PlayMode.BOT ? String.valueOf(engine.getState()) : "READY";
 		Text stateText = createStatText("STATE: " + initialState, Color.web("#00FFFF"));
@@ -136,23 +146,37 @@ public class PlayGamePage {
 			mode == PlayMode.BOT ? "EXPLORED: " + safeSize(engine.getExplored()) : "GOAL: FIND EXIT",
 			Color.web("#C7D8E5")
 		);
-		statsRow.getChildren().addAll(stateText, scoreText, pathText, exploredText);
 
-		Canvas mazeCanvas = new Canvas(CANVAS_WITH_LEGEND, 480);
+		Canvas mazeCanvas = new Canvas(860, 720);
 		GraphicsContext gc = mazeCanvas.getGraphicsContext2D();
 
-		VBox legendPanel = createLegendPanel();
-		HBox arenaRow = new HBox(18, mazeCanvas, legendPanel);
-		arenaRow.setAlignment(Pos.CENTER);
+		StackPane mazeBoard = new StackPane(mazeCanvas);
+		mazeBoard.setPrefSize(880, 740);
+		mazeBoard.setMinSize(880, 740);
+		mazeBoard.setStyle(
+			"-fx-background-color: rgba(138, 236, 255, 0.48);" +
+			"-fx-border-color: rgba(130, 190, 140, 0.95);" +
+			"-fx-border-width: 3;" +
+			"-fx-border-radius: 8;" +
+			"-fx-background-radius: 8;"
+		);
 
 		// Inventory panel for PLAYER mode
 		VBox inventorySection = new VBox(8);
 		inventorySection.setAlignment(Pos.CENTER_LEFT);
-		inventorySection.setPrefHeight(72);
+		inventorySection.setPrefHeight(74);
+		inventorySection.setStyle(
+			"-fx-background-color: rgba(255,255,255,0.90);" +
+			"-fx-border-color: rgba(0,0,0,0.12);" +
+			"-fx-border-width: 1;" +
+			"-fx-border-radius: 10;" +
+			"-fx-background-radius: 10;" +
+			"-fx-padding: 8 10 8 10;"
+		);
 		if (mode == PlayMode.PLAYER) {
-			Text inventoryLabel = new Text("COLLECTED POWER-UPS");
-			inventoryLabel.setFont(Font.font("Orbitron", FontWeight.BOLD, 13));
-			inventoryLabel.setFill(Color.web("#00FFFF"));
+			Text inventoryLabel = new Text("Vat pham da nhat");
+			inventoryLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+			inventoryLabel.setFill(Color.web("#263238"));
 			inventorySection.getChildren().addAll(inventoryLabel, inventory.getContainer());
 		} else {
 			inventorySection.setVisible(false);
@@ -160,15 +184,104 @@ public class PlayGamePage {
 		}
 
 		Text statusText = new Text();
-		statusText.setFont(Font.font("Arial", FontWeight.BOLD, 17));
-		statusText.setFill(Color.web("#E3EFF9"));
+		statusText.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		statusText.setFill(Color.web("#34495E"));
+		statusText.setWrappingWidth(312);
+
+		Text currentPosText = new Text("Vi tri hien tai: -");
+		currentPosText.setFont(Font.font("Arial", FontWeight.BOLD, 15));
+		currentPosText.setFill(Color.web("#22303A"));
 
 		HBox actions = new HBox(12);
 		actions.setAlignment(Pos.CENTER_RIGHT);
 
-		Button replay = new NeonButton("REPLAY", Color.web("#00FF9C"), 14, 8, 14, 8);
-		Button optionsButton = new NeonButton("OPTIONS", Color.web("#CCCCCC"), 14, 8, 14, 8);
-		Button toggleLegend = new NeonButton("HIDE LEGEND", Color.web("#67D5FF"), 14, 8, 14, 8);
+		Button replay = new NeonButton("AP DUNG", Color.web("#4E54E8"), 14, 8, 14, 8);
+		Button optionsButton = new NeonButton("GOI Y", Color.web("#2F80ED"), 14, 8, 14, 8);
+		Button backMenu = new NeonButton("BACK MENU", Color.web("#BBBBBB"), 14, 8, 14, 8);
+
+		Text settingsTitle = new Text("Cai dat");
+		settingsTitle.setFont(Font.font("Arial", FontWeight.BOLD, 31));
+		settingsTitle.setFill(Color.web("#1F2D3A"));
+
+		Text subtitle = new Text(mode == PlayMode.BOT
+			? "BOT | " + difficulty + " | " + algorithmName
+			: "PLAYER | " + difficulty);
+		subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		subtitle.setFill(Color.web("#4F5B62"));
+
+		Slider delaySlider = new Slider(120, 520, 220);
+		delaySlider.setShowTickLabels(false);
+		delaySlider.setShowTickMarks(false);
+		delaySlider.setStyle("-fx-accent: #2f80ed;");
+		Text delayText = new Text("Do tre: 220ms");
+		delayText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		delayText.setFill(Color.web("#263238"));
+		delaySlider.valueProperty().addListener((obs, ov, nv) -> {
+			delayText.setText("Do tre: " + Math.round(nv.doubleValue()) + "ms");
+			botAccumulatorNanos[0] = 0L;
+		});
+
+		Text stateLabel = createStatText("STATE: " + initialState, Color.web("#1976D2"));
+		stateLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		Text scoreLabel = createStatText(
+			"SCORE: " + (mode == PlayMode.BOT ? engine.getScore() : playerScore[0]),
+			Color.web("#00897B")
+		);
+		scoreLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		Text pathLabel = createStatText(
+			mode == PlayMode.BOT ? "PATH: " + safeSize(engine.getPath()) : "LIVES: " + playerLives[0],
+			Color.web("#EF6C00")
+		);
+		pathLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		Text exploredLabel = createStatText(
+			mode == PlayMode.BOT ? "EXPLORED: " + safeSize(engine.getExplored()) : "GOAL: FIND EXIT",
+			Color.web("#455A64")
+		);
+		exploredLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+
+		VBox settingsCard = new VBox(10,
+			settingsTitle,
+			subtitle,
+			delayText,
+			delaySlider,
+			actions
+		);
+		settingsCard.setPadding(new Insets(16));
+		settingsCard.setStyle(
+			"-fx-background-color: rgba(255,255,255,0.94);" +
+			"-fx-border-color: rgba(0,0,0,0.08);" +
+			"-fx-border-width: 1;" +
+			"-fx-border-radius: 10;" +
+			"-fx-background-radius: 10;"
+		);
+
+		VBox infoCard = new VBox(8,
+			new Text("Thong tin"),
+			currentPosText,
+			stateLabel,
+			scoreLabel,
+			pathLabel,
+			exploredLabel,
+			statusText,
+			inventorySection
+		);
+		((Text) infoCard.getChildren().get(0)).setFont(Font.font("Arial", FontWeight.BOLD, 28));
+		((Text) infoCard.getChildren().get(0)).setFill(Color.web("#1F2D3A"));
+		infoCard.setPadding(new Insets(16));
+		infoCard.setStyle(
+			"-fx-background-color: rgba(255,255,255,0.94);" +
+			"-fx-border-color: rgba(0,0,0,0.08);" +
+			"-fx-border-width: 1;" +
+			"-fx-border-radius: 10;" +
+			"-fx-background-radius: 10;"
+		);
+
+		VBox legendPanel = createLegendPanel();
+
+		VBox sideColumn = new VBox(12, settingsCard, infoCard, legendPanel);
+		sideColumn.setPrefWidth(360);
+		sideColumn.setMinWidth(360);
+		sideColumn.setMaxWidth(360);
 
 		Runnable renderFrame = () -> {
 			if (mode == PlayMode.BOT) {
@@ -177,7 +290,8 @@ public class PlayGamePage {
 					maze,
 					botEngine.getExplored(),
 					botEngine.getPath(),
-					botEngine.getRobotPosition(),
+					botRenderX[0],
+					botRenderY[0],
 					mazeCanvas.getWidth(),
 					mazeCanvas.getHeight()
 				);
@@ -187,43 +301,157 @@ public class PlayGamePage {
 					maze,
 					null,
 					null,
-					playerPos[0],
+					playerRenderX[0],
+					playerRenderY[0],
 					mazeCanvas.getWidth(),
 					mazeCanvas.getHeight()
 				);
 			}
 		};
 
-		Timeline loop = null;
 		if (mode == PlayMode.BOT) {
-			loop = new Timeline(new KeyFrame(Duration.millis(220), e -> {
-				if (botEngine.getState() == GameState.MOVING) {
-					botEngine.update();
-				}
-				if (!rankingRecorded[0] && (botEngine.getState() == GameState.FINISHED || botEngine.getState() == GameState.NO_PATH)) {
-					recordGameRanking(
-						difficulty,
-						safeSize(botEngine.getPath()),
-						gameStartTime[0],
-						algorithmName,
-						botEngine.getScore(),
-						botEngine.getState() == GameState.FINISHED
-					);
-					rankingRecorded[0] = true;
-				}
-				refreshBotStats(botEngine, stateText, scoreText, pathText, exploredText, statusText);
-				renderFrame.run();
-			}));
-			loop.setCycleCount(Timeline.INDEFINITE);
-			loop.play();
-		} else {
-			refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateText, scoreText, pathText, exploredText);
-			statusText.setFill(Color.web("#AEE8FF"));
-			statusText.setText("MOVE WITH ARROW KEYS - REACH THE GOAL FLAG");
+			State initialBotPos = botEngine.getRobotPosition();
+			if (initialBotPos != null) {
+				botRenderX[0] = initialBotPos.getX();
+				botRenderY[0] = initialBotPos.getY();
+				botFromX[0] = initialBotPos.getX();
+				botFromY[0] = initialBotPos.getY();
+				botToX[0] = initialBotPos.getX();
+				botToY[0] = initialBotPos.getY();
+			}
 		}
 
-		Timeline finalLoop = loop;
+		AnimationTimer loop = null;
+		if (mode == PlayMode.BOT) {
+			loop = new AnimationTimer() {
+				@Override
+				public void handle(long now) {
+					if (botLastFrameNanos[0] == 0L) {
+						botLastFrameNanos[0] = now;
+						return;
+					}
+
+					long frameDelta = now - botLastFrameNanos[0];
+					botLastFrameNanos[0] = now;
+					botAccumulatorNanos[0] += Math.max(0L, frameDelta);
+
+					long stepDurationNanos = Math.max(16_000_000L, Math.round(delaySlider.getValue() * 1_000_000.0));
+
+					while (botAccumulatorNanos[0] >= stepDurationNanos && botEngine.getState() == GameState.MOVING) {
+						botAccumulatorNanos[0] -= stepDurationNanos;
+
+						int prevPathSize = safeSize(botEngine.getPath());
+						int prevExploredSize = safeSize(botEngine.getExplored());
+						GameState prevState = botEngine.getState();
+						State prevPos = botEngine.getRobotPosition();
+
+						botEngine.update();
+
+						State nextPos = botEngine.getRobotPosition();
+						if (nextPos != null) {
+							botFromX[0] = botRenderX[0];
+							botFromY[0] = botRenderY[0];
+							botToX[0] = nextPos.getX();
+							botToY[0] = nextPos.getY();
+						} else if (prevPos != null) {
+							botFromX[0] = prevPos.getX();
+							botFromY[0] = prevPos.getY();
+							botToX[0] = prevPos.getX();
+							botToY[0] = prevPos.getY();
+						}
+
+						if (botEngine.getState() == GameState.MOVING && prevPos != null && nextPos != null) {
+							if (prevPos.getX() != nextPos.getX() || prevPos.getY() != nextPos.getY()) {
+								audio.playFootstep(masterVolume[0], sfxVolume[0]);
+							}
+						}
+
+						if (!rankingRecorded[0] && (botEngine.getState() == GameState.FINISHED || botEngine.getState() == GameState.NO_PATH)) {
+							recordGameRanking(
+								difficulty,
+								safeSize(botEngine.getPath()),
+								gameStartTime[0],
+								algorithmName,
+								botEngine.getScore(),
+								botEngine.getState() == GameState.FINISHED
+							);
+							rankingRecorded[0] = true;
+						}
+
+						refreshBotStats(botEngine, stateLabel, scoreLabel, pathLabel, exploredLabel, statusText);
+						State pos = botEngine.getRobotPosition();
+						if (pos != null) {
+							currentPosText.setText("Vi tri hien tai: (" + pos.getX() + ", " + pos.getY() + ")");
+						}
+					}
+
+					double progress = stepDurationNanos <= 0
+						? 1.0
+						: Math.min(1.0, Math.max(0.0, (double) botAccumulatorNanos[0] / (double) stepDurationNanos));
+					double t = reducedMotion[0] ? 1.0 : smoothStep(progress);
+					botRenderX[0] = botFromX[0] + (botToX[0] - botFromX[0]) * t;
+					botRenderY[0] = botFromY[0] + (botToY[0] - botFromY[0]) * t;
+
+					renderFrame.run();
+				}
+			};
+			loop.start();
+		} else {
+			refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
+			statusText.setFill(Color.web("#AEE8FF"));
+			statusText.setText("MOVE WITH ARROW KEYS - REACH THE GOAL FLAG");
+			currentPosText.setText("Vi tri hien tai: (" + playerPos[0].getX() + ", " + playerPos[0].getY() + ")");
+			playerRenderX[0] = playerPos[0].getX();
+			playerRenderY[0] = playerPos[0].getY();
+			playerFromX[0] = playerPos[0].getX();
+			playerFromY[0] = playerPos[0].getY();
+			playerToX[0] = playerPos[0].getX();
+			playerToY[0] = playerPos[0].getY();
+			loop = new AnimationTimer() {
+				@Override
+				public void handle(long now) {
+					if (playerLastFrameNanos[0] == 0L) {
+						playerLastFrameNanos[0] = now;
+						return;
+					}
+
+					long frameDelta = Math.max(0L, now - playerLastFrameNanos[0]);
+					playerLastFrameNanos[0] = now;
+
+					boolean movingTween = playerFromX[0] != playerToX[0] || playerFromY[0] != playerToY[0];
+					if (movingTween) {
+						playerAccumulatorNanos[0] += frameDelta;
+						double progress = playerMovementDurationNanos[0] <= 0
+							? 1.0
+							: Math.min(1.0, (double) playerAccumulatorNanos[0] / (double) playerMovementDurationNanos[0]);
+						double t = reducedMotion[0] ? 1.0 : smoothStep(progress);
+						playerRenderX[0] = playerFromX[0] + (playerToX[0] - playerFromX[0]) * t;
+						playerRenderY[0] = playerFromY[0] + (playerToY[0] - playerFromY[0]) * t;
+
+						if (progress >= 1.0) {
+							playerRenderX[0] = playerToX[0];
+							playerRenderY[0] = playerToY[0];
+							playerFromX[0] = playerToX[0];
+							playerFromY[0] = playerToY[0];
+							playerAccumulatorNanos[0] = 0L;
+							playerAnimating[0] = false;
+						}
+					} else {
+						playerRenderX[0] = playerToX[0];
+						playerRenderY[0] = playerToY[0];
+						playerAccumulatorNanos[0] = 0L;
+						playerAnimating[0] = false;
+					}
+
+					renderFrame.run();
+				}
+			};
+			loop.start();
+		}
+
+		AnimationTimer finalLoop = loop;
 		replay.setOnAction(e -> {
+			audio.stopAll();
 			if (finalLoop != null) {
 				finalLoop.stop();
 			}
@@ -239,7 +467,7 @@ public class PlayGamePage {
 			}
 			optionsOpen[0] = true;
 			if (finalLoop != null) {
-				finalLoop.pause();
+				finalLoop.stop();
 			}
 			showInGameOptions(
 				root,
@@ -252,32 +480,41 @@ public class PlayGamePage {
 				reducedMotion,
 				() -> {
 					optionsOpen[0] = false;
+					audio.updateVolumes(masterVolume[0], musicVolume[0], sfxVolume[0]);
 					if (finalLoop != null) {
-						finalLoop.play();
+						if (mode == PlayMode.BOT) {
+							botLastFrameNanos[0] = 0L;
+						} else {
+							playerLastFrameNanos[0] = 0L;
+						}
+						finalLoop.start();
 					}
 					root.requestFocus();
 				},
 				() -> {
+					audio.stopAll();
 					optionsOpen[0] = false;
 					if (finalLoop != null) {
 						finalLoop.stop();
 					}
 					stage.setScene(previousScene);
-				}
+					MenuAudioManager.startTheme();
+				},
+				() -> audio.updateVolumes(masterVolume[0], musicVolume[0], sfxVolume[0])
 			);
 		});
- 
-		toggleLegend.setOnAction(e -> {
-			boolean show = !legendPanel.isVisible();
-			legendPanel.setVisible(show);
-			legendPanel.setManaged(show);
-			mazeCanvas.setWidth(show ? CANVAS_WITH_LEGEND : CANVAS_NO_LEGEND);
-			toggleLegend.setText(show ? "HIDE LEGEND" : "SHOW LEGEND");
-			renderFrame.run();
+
+		backMenu.setOnAction(e -> {
+			audio.stopAll();
+			if (finalLoop != null) {
+				finalLoop.stop();
+			}
+			stage.setScene(previousScene);
+			MenuAudioManager.startTheme();
 		});
 
-		actions.getChildren().addAll(toggleLegend, optionsButton, replay);
-		page.getChildren().addAll(title, subtitle, statsRow, arenaRow, inventorySection, statusText, actions);
+		actions.getChildren().addAll(optionsButton, replay, backMenu);
+		page.getChildren().addAll(mazeBoard, sideColumn);
 
 		Pane overlay = new Pane();
 		overlay.setStyle("-fx-background-color: rgba(0,0,0,0.14);");
@@ -286,7 +523,11 @@ public class PlayGamePage {
 		root.getChildren().addAll(page, overlay);
 
 		if (mode == PlayMode.BOT) {
-			refreshBotStats(botEngine, stateText, scoreText, pathText, exploredText, statusText);
+			refreshBotStats(botEngine, stateLabel, scoreLabel, pathLabel, exploredLabel, statusText);
+			State pos = botEngine.getRobotPosition();
+			if (pos != null) {
+				currentPosText.setText("Vi tri hien tai: (" + pos.getX() + ", " + pos.getY() + ")");
+			}
 		}
 		renderFrame.run();
 
@@ -296,6 +537,11 @@ public class PlayGamePage {
 		if (mode == PlayMode.PLAYER) {
 			scene.setOnKeyPressed(e -> {
 				if (optionsOpen[0] || selectingPowerUp[0]) {
+					e.consume();
+					return;
+				}
+
+				if (isMovementKey(e.getCode()) && playerAnimating[0]) {
 					e.consume();
 					return;
 				}
@@ -317,6 +563,9 @@ public class PlayGamePage {
 					playerLives,
 					playerFinished,
 					statusText,
+					audio,
+					masterVolume,
+					sfxVolume,
 					inventory,
 					scene,
 					selectingPowerUp,
@@ -329,12 +578,33 @@ public class PlayGamePage {
 				);
 
 				if (changed) {
-					refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateText, scoreText, pathText, exploredText);
-					renderFrame.run();
+					playerFromX[0] = playerToX[0];
+					playerFromY[0] = playerToY[0];
+					playerToX[0] = playerPos[0].getX();
+					playerToY[0] = playerPos[0].getY();
+					playerAccumulatorNanos[0] = 0L;
+					playerAnimating[0] = true;
+					refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
+					currentPosText.setText("Vi tri hien tai: (" + playerPos[0].getX() + ", " + playerPos[0].getY() + ")");
 				}
 			});
 			root.requestFocus();
 		}
+
+		scene.windowProperty().addListener((obs, oldWindow, newWindow) -> {
+			if (oldWindow != null) {
+				oldWindow.setOnHidden(null);
+			}
+			if (newWindow != null) {
+				newWindow.setOnHidden(event -> {
+					audio.stopAll();
+					if (finalLoop != null) {
+						finalLoop.stop();
+					}
+				});
+			}
+		});
+
 		return scene;
 	}
 
@@ -399,6 +669,9 @@ public class PlayGamePage {
 		int[] playerLives,
 		boolean[] playerFinished,
 		Text statusText,
+		InGameAudio audio,
+		double[] masterVolume,
+		double[] sfxVolume,
 		InventoryPanel inventory,
 		Scene gameScene,
 		boolean[] selectingPowerUp,
@@ -437,6 +710,7 @@ public class PlayGamePage {
 		CellType target = maze.getCell(nx, ny);
 		playerScore[0] = Math.max(0, playerScore[0] - 5);
 		stepCounter[0]++;
+		audio.playFootstep(masterVolume[0], sfxVolume[0]);
 
 		if (target == CellType.BOMB) {
 			playerLives[0]--;
@@ -496,6 +770,11 @@ public class PlayGamePage {
 		return list == null ? 0 : list.size();
 	}
 
+	private static double smoothStep(double t) {
+		double clamped = Math.max(0.0, Math.min(1.0, t));
+		return clamped * clamped * (3.0 - 2.0 * clamped);
+	}
+
 	private static boolean isMovementKey(KeyCode code) {
 		return code == KeyCode.UP || code == KeyCode.DOWN || code == KeyCode.LEFT || code == KeyCode.RIGHT;
 	}
@@ -517,81 +796,116 @@ public class PlayGamePage {
 		Canvas bg = new Canvas(VIEW_WIDTH, VIEW_HEIGHT);
 		GraphicsContext gc = bg.getGraphicsContext2D();
 
-		for (int y = 0; y < (int) VIEW_HEIGHT; y++) {
-			double ratio = y / VIEW_HEIGHT;
-			int r = (int) (26 + (48 - 26) * ratio);
-			int g = (int) (46 + (80 - 46) * ratio);
-			int b = (int) (64 + (110 - 64) * ratio);
-			gc.setStroke(Color.rgb(r, g, b));
-			gc.strokeLine(0, y, VIEW_WIDTH, y);
-		}
+		Image landTexture = loadPlayImage("/image/vit/Land.png");
+		if (landTexture != null && !landTexture.isError()) {
+			double tile = 50;
+			for (double x = 0; x < VIEW_WIDTH; x += tile) {
+				for (double y = 0; y < VIEW_HEIGHT; y += tile) {
+					gc.drawImage(landTexture, x, y, tile, tile);
+				}
+			}
+		} else {
+			for (int y = 0; y < (int) VIEW_HEIGHT; y++) {
+				double ratio = y / VIEW_HEIGHT;
+				int r = (int) (248 + (236 - 248) * ratio);
+				int g = (int) (209 + (198 - 209) * ratio);
+				int b = (int) (142 + (130 - 142) * ratio);
+				gc.setStroke(Color.rgb(r, g, b));
+				gc.strokeLine(0, y, VIEW_WIDTH, y);
+			}
 
-		gc.setStroke(Color.color(0.45, 0.82, 1.0, 0.20));
-		gc.setLineWidth(1);
-		int grid = 42;
-		for (int x = 0; x < VIEW_WIDTH; x += grid) {
-			gc.strokeLine(x, 0, x, VIEW_HEIGHT);
-		}
-		for (int y = 0; y < VIEW_HEIGHT; y += grid) {
-			gc.strokeLine(0, y, VIEW_WIDTH, y);
+			gc.setFill(Color.color(0.92, 0.72, 0.45, 0.35));
+			for (int x = 0; x < VIEW_WIDTH; x += 18) {
+				for (int y = 0; y < VIEW_HEIGHT; y += 18) {
+					if (((x + y) / 18) % 3 == 0) {
+						gc.fillOval(x + 2, y + 2, 3, 3);
+					}
+				}
+			}
 		}
 
 		pane.getChildren().add(bg);
 		return pane;
 	}
 
+	private static Image loadPlayImage(String resourcePath) {
+		try {
+			java.io.InputStream stream = PlayGamePage.class.getResourceAsStream(resourcePath);
+			if (stream == null) {
+				return null;
+			}
+			return new Image(stream);
+		} catch (Exception ex) {
+			return null;
+		}
+	}
+
 	private static VBox createLegendPanel() {
-		VBox panel = new VBox(12);
-		panel.setPrefWidth(260);
+		VBox panel = new VBox(10);
+		panel.setPrefWidth(360);
 		panel.setPadding(new Insets(14, 14, 14, 14));
 		panel.setAlignment(Pos.TOP_LEFT);
 		panel.setStyle(
-			"-fx-background-color: rgba(22,34,52,0.90);" +
-			"-fx-border-color: rgba(126,223,255,0.62);" +
-			"-fx-border-width: 1.4;" +
+			"-fx-background-color: rgba(255,255,255,0.95);" +
+			"-fx-border-color: rgba(0,0,0,0.08);" +
+			"-fx-border-width: 1;" +
 			"-fx-border-radius: 10;" +
 			"-fx-background-radius: 10;"
 		);
 
-		Text title = new Text("LEGEND");
-		title.setFont(Font.font("Orbitron", FontWeight.BOLD, 22));
-		title.setFill(Color.web("#00FFFF"));
+		Text title = new Text("Chu thich");
+		title.setFont(Font.font("Arial", FontWeight.BOLD, 31));
+		title.setFill(Color.web("#1F2D3A"));
 
-		Text hint = new Text("Mau sac va ky hieu de nguoi moi de nhan biet:");
-		hint.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-		hint.setFill(Color.web("#C9DCEA"));
+		Text hint = new Text("Nhan biet nhanh cac doi tuong trong ban do:");
+		hint.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		hint.setFill(Color.web("#4F5B62"));
 
 		VBox rows = new VBox(8,
-			legendRow("S", Color.web("#5EA5FF"), "Diem xuat phat"),
-			legendRow("F", Color.web("#FFD166"), "Dich den"),
-			legendRow("B", Color.web("#EE5A7A"), "Bom - tranh de mat loi"),
-			legendRow("D", Color.web("#2BD99F"), "Vat pham + diem"),
-			legendRow("R", Color.web("#8BE9FD"), "Vi tri robot hien tai"),
-			legendRow(".", Color.web("#BFD5FF"), "Duong di AI de xuat"),
-			legendRow("~", Color.web("#8FDFFF"), "O da duoc duyet")
+			legendRow("/image/vit/Duck.png", "R", Color.web("#FFE082"), "Nguoi choi / Robot"),
+			legendRow("/image/vit/FinishLine.png", "F", Color.web("#212121"), "GOAL"),
+			legendRow("/image/vit/Grass.png", "W", Color.web("#A3D977"), "Vat can"),
+			legendRow("/image/vit/Water.png", "~", Color.web("#8AE5F6"), "Duong nuoc"),
+			legendRow("/image/vit/Flag.png", ".", Color.web("#AFC7FF"), "Da di qua"),
+			legendRow("/image/vit/Vit.png", "+", Color.web("#A5D6A7"), "Solution / Item"),
+			legendRow("/image/vit/Stop.png", "X", Color.web("#FF6B6B"), "Duong cut / Nguy hiem")
 		);
 
-		Text foot = new Text("Ban co the an legend de mo rong khong gian map khi da quen ky hieu.");
-		foot.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
-		foot.setFill(Color.web("#9FB7C8"));
-		foot.setWrappingWidth(245);
+		Text foot = new Text("Co the mo options de bat goi y duong di trong qua trinh choi.");
+		foot.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+		foot.setFill(Color.web("#7B8A93"));
+		foot.setWrappingWidth(330);
 
 		panel.getChildren().addAll(title, hint, rows, foot);
 		return panel;
 	}
 
-	private static HBox legendRow(String symbol, Color color, String meaning) {
-		Text badge = new Text(symbol);
-		badge.setFont(Font.font("Orbitron", FontWeight.BOLD, 18));
-		badge.setFill(color);
+	private static HBox legendRow(String imagePath, String fallbackSymbol, Color fallbackColor, String meaning) {
+		javafx.scene.Node iconNode = createLegendIcon(imagePath, fallbackSymbol, fallbackColor);
 
 		Text text = new Text(meaning);
 		text.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-		text.setFill(Color.web("#D6E5EF"));
+		text.setFill(Color.web("#22303A"));
 
-		HBox row = new HBox(10, badge, text);
+		HBox row = new HBox(10, iconNode, text);
 		row.setAlignment(Pos.CENTER_LEFT);
 		return row;
+	}
+
+	private static javafx.scene.Node createLegendIcon(String imagePath, String fallbackSymbol, Color fallbackColor) {
+		Image image = loadPlayImage(imagePath);
+		if (image != null && !image.isError()) {
+			ImageView icon = new ImageView(image);
+			icon.setFitWidth(22);
+			icon.setFitHeight(22);
+			icon.setPreserveRatio(true);
+			return icon;
+		}
+
+		Text fallback = new Text(fallbackSymbol);
+		fallback.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+		fallback.setFill(fallbackColor);
+		return fallback;
 	}
 
 	private static void showInGameOptions(
@@ -604,7 +918,8 @@ public class PlayGamePage {
 		boolean[] highContrast,
 		boolean[] reducedMotion,
 		Runnable onResume,
-		Runnable onExitToMenu
+		Runnable onExitToMenu,
+		Runnable onAudioChanged
 	) {
 		if (root.lookup("#in-game-options-overlay") != null) {
 			return;
@@ -612,7 +927,7 @@ public class PlayGamePage {
 
 		StackPane overlay = new StackPane();
 		overlay.setId("in-game-options-overlay");
-		overlay.setStyle("-fx-background-color: rgba(0,0,0,0.74);");
+		overlay.setStyle("-fx-background-color: rgba(35,30,20,0.42);");
 		overlay.setPickOnBounds(true);
 
 		VBox panel = new VBox(14);
@@ -621,8 +936,8 @@ public class PlayGamePage {
 		panel.setPrefWidth(620);
 		panel.setMaxWidth(620);
 		panel.setStyle(
-			"-fx-background-color: rgba(14,24,38,0.96);" +
-			"-fx-border-color: rgba(0,255,255,0.45);" +
+			"-fx-background-color: rgba(255,255,255,0.98);" +
+			"-fx-border-color: rgba(0,0,0,0.12);" +
 			"-fx-border-width: 1.8;" +
 			"-fx-border-radius: 12;" +
 			"-fx-background-radius: 12;"
@@ -630,11 +945,11 @@ public class PlayGamePage {
 
 		Text title = new Text("OPTIONS");
 		title.setFont(Font.font("Orbitron", FontWeight.BOLD, 32));
-		title.setFill(Color.web("#00FFFF"));
+		title.setFill(Color.web("#1F2D3A"));
 
 		Text subtitle = new Text("Pause game settings: audio, gameplay support, and quick exit");
 		subtitle.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
-		subtitle.setFill(Color.web("#C9DCEA"));
+		subtitle.setFill(Color.web("#4F5B62"));
 
 		Slider master = createOptionsSlider(masterVolume[0]);
 		Slider music = createOptionsSlider(musicVolume[0]);
@@ -644,9 +959,24 @@ public class PlayGamePage {
 		VBox musicRow = createOptionsSliderRow("Music", music);
 		VBox sfxRow = createOptionsSliderRow("SFX", sfx);
 
-		master.valueProperty().addListener((obs, ov, nv) -> masterVolume[0] = nv.doubleValue());
-		music.valueProperty().addListener((obs, ov, nv) -> musicVolume[0] = nv.doubleValue());
-		sfx.valueProperty().addListener((obs, ov, nv) -> sfxVolume[0] = nv.doubleValue());
+		master.valueProperty().addListener((obs, ov, nv) -> {
+			masterVolume[0] = nv.doubleValue();
+			if (onAudioChanged != null) {
+				onAudioChanged.run();
+			}
+		});
+		music.valueProperty().addListener((obs, ov, nv) -> {
+			musicVolume[0] = nv.doubleValue();
+			if (onAudioChanged != null) {
+				onAudioChanged.run();
+			}
+		});
+		sfx.valueProperty().addListener((obs, ov, nv) -> {
+			sfxVolume[0] = nv.doubleValue();
+			if (onAudioChanged != null) {
+				onAudioChanged.run();
+			}
+		});
 
 		CheckBox pathHintToggle = createOptionsToggle("Show path hint", pathHint[0]);
 		CheckBox aiToggle = createOptionsToggle("Enable AI suggestion", aiSuggest[0]);
@@ -659,13 +989,13 @@ public class PlayGamePage {
 		motionToggle.selectedProperty().addListener((obs, ov, nv) -> reducedMotion[0] = nv);
 
 		Label gameplayLabel = new Label("Gameplay / Accessibility");
-		gameplayLabel.setTextFill(Color.web("#9FC8DE"));
+		gameplayLabel.setTextFill(Color.web("#546E7A"));
 		gameplayLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 
 		HBox actions = new HBox(10);
 		actions.setAlignment(Pos.CENTER_RIGHT);
-		Button resumeBtn = new NeonButton("RESUME", Color.web("#00FF9C"), 13, 7, 14, 6);
-		Button exitBtn = new NeonButton("EXIT TO MENU", Color.web("#FF6B6B"), 13, 7, 14, 6);
+		Button resumeBtn = new NeonButton("RESUME", Color.web("#2E7D32"), 13, 7, 14, 6);
+		Button exitBtn = new NeonButton("EXIT TO MENU", Color.web("#D84343"), 13, 7, 14, 6);
 
 		Runnable closeOverlay = () -> {
 			root.getChildren().remove(overlay);
@@ -723,8 +1053,8 @@ public class PlayGamePage {
 		slider.setShowTickLabels(false);
 		slider.setShowTickMarks(false);
 		slider.setStyle(
-			"-fx-control-inner-background: #0D1520;" +
-			"-fx-accent: #00FFFF;"
+			"-fx-control-inner-background: #F3E3C7;" +
+			"-fx-accent: #2F80ED;"
 		);
 		return slider;
 	}
@@ -732,7 +1062,7 @@ public class PlayGamePage {
 	private static VBox createOptionsSliderRow(String label, Slider slider) {
 		VBox row = new VBox(6);
 		Label title = new Label(label + "  " + String.format(java.util.Locale.US, "%.0f%%", slider.getValue()));
-		title.setTextFill(Color.web("#D4E4EF"));
+		title.setTextFill(Color.web("#455A64"));
 		title.setFont(Font.font("Arial", FontWeight.BOLD, 14));
 		slider.valueProperty().addListener((obs, ov, nv) -> {
 			title.setText(label + "  " + String.format(java.util.Locale.US, "%.0f%%", nv.doubleValue()));
@@ -744,14 +1074,78 @@ public class PlayGamePage {
 	private static CheckBox createOptionsToggle(String text, boolean selected) {
 		CheckBox box = new CheckBox(text);
 		box.setSelected(selected);
-		box.setTextFill(Color.web("#D4E4EF"));
+		box.setTextFill(Color.web("#455A64"));
 		box.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
 		box.setStyle(
-			"-fx-mark-color: #00FFFF;" +
+			"-fx-mark-color: #2F80ED;" +
 			"-fx-focus-color: transparent;" +
 			"-fx-faint-focus-color: transparent;"
 		);
 		return box;
+	}
+
+	private static final class InGameAudio {
+		private final AudioClip footstep;
+
+		private InGameAudio(AudioClip footstep) {
+			this.footstep = footstep;
+		}
+
+		static InGameAudio create() {
+			AudioClip footstep = loadClip("/audio/Swimming.mp3");
+			return new InGameAudio(footstep);
+		}
+
+		void startTheme(double master, double music) {
+			// Intentionally empty: gameplay should not play theme music.
+		}
+
+		void updateVolumes(double master, double music, double sfx) {
+			setClipVolume(footstep, master, sfx);
+		}
+
+		void playFootstep(double master, double sfx) {
+			playClip(footstep, master, sfx);
+		}
+
+		void stopAll() {
+			if (footstep != null) {
+				footstep.stop();
+			}
+		}
+
+		private void playClip(AudioClip clip, double master, double sfx) {
+			if (clip == null) {
+				return;
+			}
+			clip.setVolume(normalized(master, sfx));
+			clip.play();
+		}
+
+		private void setClipVolume(AudioClip clip, double master, double sfx) {
+			if (clip == null) {
+				return;
+			}
+			clip.setVolume(normalized(master, sfx));
+		}
+
+		private double normalized(double master, double channel) {
+			double value = (master / 100.0) * (channel / 100.0);
+			return Math.max(0.0, Math.min(1.0, value));
+		}
+
+		private static AudioClip loadClip(String resourcePath) {
+			try {
+				java.net.URL url = PlayGamePage.class.getResource(resourcePath);
+				if (url == null) {
+					return null;
+				}
+				return new AudioClip(url.toExternalForm());
+			} catch (Exception ex) {
+				return null;
+			}
+		}
+
 	}
 
 	private static void recordGameRanking(

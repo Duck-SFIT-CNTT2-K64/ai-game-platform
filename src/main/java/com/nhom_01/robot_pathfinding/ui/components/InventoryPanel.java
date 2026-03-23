@@ -31,8 +31,8 @@ public class InventoryPanel {
         inventoryContainer.setPrefWrapLength(800);
         inventoryContainer.setStyle(
             "-fx-padding: 10;" +
-            "-fx-background-color: rgba(20,30,50,0.6);" +
-            "-fx-border-color: rgba(100,200,255,0.4);" +
+            "-fx-background-color: rgba(255,255,255,0.92);" +
+            "-fx-border-color: rgba(0,0,0,0.10);" +
             "-fx-border-width: 1;" +
             "-fx-border-radius: 8;" +
             "-fx-background-radius: 8;"
@@ -81,7 +81,7 @@ public class InventoryPanel {
         if (inventory.isEmpty()) {
             Text emptyText = new Text("No items collected yet");
             emptyText.setFont(Font.font("Arial", 12));
-            emptyText.setFill(Color.web("#999999"));
+            emptyText.setFill(Color.web("#6B7A82"));
             inventoryContainer.getChildren().add(emptyText);
             return;
         }
@@ -101,8 +101,8 @@ public class InventoryPanel {
         itemBox.setPadding(new Insets(8));
 
         PowerUp powerUp = collected.getPowerUp();
-        Color borderColor = collected.isActive() ? Color.web("#00FF9C") : Color.web("#FFB800");
-        String bgColor = collected.isActive() ? "rgba(0,255,156,0.15)" : "rgba(255,184,0,0.15)";
+        Color borderColor = collected.isActive() ? Color.web("#2E7D32") : Color.web("#EF6C00");
+        String bgColor = collected.isActive() ? "rgba(76,175,80,0.14)" : "rgba(255,183,77,0.16)";
 
         itemBox.setStyle(
             "-fx-background-color: " + bgColor + ";" +
@@ -119,7 +119,7 @@ public class InventoryPanel {
 
         Text nameText = new Text(powerUp.getDisplayName());
         nameText.setFont(Font.font("Arial", FontWeight.BOLD, 11));
-        nameText.setFill(Color.web("#00FFFF"));
+        nameText.setFill(Color.web("#1F2D3A"));
         nameText.setTextAlignment(TextAlignment.CENTER);
         nameText.setWrappingWidth(100);
 
