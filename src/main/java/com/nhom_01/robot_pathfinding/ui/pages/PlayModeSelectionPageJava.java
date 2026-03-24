@@ -26,8 +26,8 @@ import javafx.stage.Stage;
 
 public final class PlayModeSelectionPageJava {
 
-    private static final double VIEW_WIDTH = 1400;
-    private static final double VIEW_HEIGHT = 800;
+    private static final double VIEW_WIDTH  = javafx.stage.Screen.getPrimary().getVisualBounds().getWidth();
+    private static final double VIEW_HEIGHT = javafx.stage.Screen.getPrimary().getVisualBounds().getHeight();
 
     private PlayModeSelectionPageJava() {
     }

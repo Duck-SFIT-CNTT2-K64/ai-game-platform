@@ -37,11 +37,10 @@ import javafx.stage.Stage;
 
 public class PlayGamePage {
 
-	private static final double VIEW_WIDTH = 1400;
-	private static final double VIEW_HEIGHT = 800;
-	private static final double CANVAS_WITH_LEGEND = 900;
-	private static final double CANVAS_NO_LEGEND = 1160;
-	private static final long MOVE_COOLDOWN_NANOS = 85_000_000L;
+	/** Minimum ms between bot engine steps (used as floor for delay slider). */
+	private static final long BOT_CELL_ANIM_NANOS  = 16_000_000L;
+	/** Time per grid-cell for player continuous motion (130 ms ≈ 7-8 cells/s). */
+	private static final long PLAYER_STEP_NANOS    = 130_000_000L;
 
 	private enum PlayMode {
 		PLAYER,
@@ -65,6 +64,9 @@ public class PlayGamePage {
 
 	private static Scene buildScene(Stage stage, Scene previousScene, String difficulty, String algorithmName, PlayMode mode) {
 		MenuAudioManager.stopTheme();
+		javafx.geometry.Rectangle2D screenBounds = javafx.stage.Screen.getPrimary().getVisualBounds();
+		double W = screenBounds.getWidth();
+		double H = screenBounds.getHeight();
 		GameSettings settings = GameSettings.getInstance();
 
 		// Generate maze with mode-aware configuration (BOT mode excludes items/bombs)
@@ -87,8 +89,8 @@ public class PlayGamePage {
 		boolean[] playerFinished = new boolean[] { false };
 		boolean[] selectingPowerUp = new boolean[] { false };
 		boolean[] optionsOpen = new boolean[] { false };
-		boolean[] playerAnimating = new boolean[] { false };
-		long[] lastMoveNanos = new long[] { 0L };
+		// Currently held movement key — drives continuous motion like bot
+		KeyCode[] playerHeldKey = new KeyCode[] { null };
 		double[] masterVolume = new double[] { settings.getMasterVolume() };
 		double[] musicVolume = new double[] { settings.getMusicVolume() };
 		double[] sfxVolume = new double[] { settings.getSFXVolume() };
@@ -121,15 +123,21 @@ public class PlayGamePage {
 		double[] playerToX = new double[] { maze.getStart().getX() };
 		double[] playerToY = new double[] { maze.getStart().getY() };
 		long[] playerAccumulatorNanos = new long[] { 0L };
-		long[] playerLastFrameNanos = new long[] { 0L };
-		long[] playerMovementDurationNanos = new long[] { 200_000_000L };
+		long[] playerLastFrameNanos   = new long[] { 0L };
+
+		double sideW   = 360;
+		double hPad    = 22;
+		double hGap    = 18;
+		double vPad    = 16;
+		double canvasW = W - sideW - hPad * 2 - hGap - 20;
+		double canvasH = H - vPad * 2 - 20;
 
 		StackPane root = new StackPane();
-		root.setPrefSize(VIEW_WIDTH, VIEW_HEIGHT);
+		root.setPrefSize(W, H);
 		root.getChildren().add(createBackground());
 
-		HBox page = new HBox(18);
-		page.setPadding(new Insets(16, 22, 16, 22));
+		HBox page = new HBox(hGap);
+		page.setPadding(new Insets(vPad, hPad, vPad, hPad));
 		page.setAlignment(Pos.TOP_CENTER);
 
 		String initialState = mode == PlayMode.BOT ? String.valueOf(engine.getState()) : "READY";
@@ -147,12 +155,12 @@ public class PlayGamePage {
 			Color.web("#C7D8E5")
 		);
 
-		Canvas mazeCanvas = new Canvas(860, 720);
+		Canvas mazeCanvas = new Canvas(canvasW, canvasH);
 		GraphicsContext gc = mazeCanvas.getGraphicsContext2D();
 
 		StackPane mazeBoard = new StackPane(mazeCanvas);
-		mazeBoard.setPrefSize(880, 740);
-		mazeBoard.setMinSize(880, 740);
+		mazeBoard.setPrefSize(canvasW + 20, canvasH + 20);
+		mazeBoard.setMinSize(canvasW + 20, canvasH + 20);
 		mazeBoard.setStyle(
 			"-fx-background-color: rgba(138, 236, 255, 0.48);" +
 			"-fx-border-color: rgba(130, 190, 140, 0.95);" +
@@ -282,6 +290,7 @@ public class PlayGamePage {
 		sideColumn.setPrefWidth(360);
 		sideColumn.setMinWidth(360);
 		sideColumn.setMaxWidth(360);
+		sideColumn.setMaxHeight(Double.MAX_VALUE);
 
 		Runnable renderFrame = () -> {
 			if (mode == PlayMode.BOT) {
@@ -331,24 +340,25 @@ public class PlayGamePage {
 						return;
 					}
 
-					long frameDelta = now - botLastFrameNanos[0];
+					long frameDelta = Math.max(0L, now - botLastFrameNanos[0]);
 					botLastFrameNanos[0] = now;
-					botAccumulatorNanos[0] += Math.max(0L, frameDelta);
 
-					long stepDurationNanos = Math.max(16_000_000L, Math.round(delaySlider.getValue() * 1_000_000.0));
+					// Accumulate elapsed time — each step spans the full delay interval
+					botAccumulatorNanos[0] += frameDelta;
+					long stepDurationNanos = Math.max(BOT_CELL_ANIM_NANOS,
+							Math.round(delaySlider.getValue() * 1_000_000.0));
 
-					while (botAccumulatorNanos[0] >= stepDurationNanos && botEngine.getState() == GameState.MOVING) {
+					// Advance engine one step per completed interval
+					while (botAccumulatorNanos[0] >= stepDurationNanos
+							&& botEngine.getState() == GameState.MOVING) {
 						botAccumulatorNanos[0] -= stepDurationNanos;
 
-						int prevPathSize = safeSize(botEngine.getPath());
-						int prevExploredSize = safeSize(botEngine.getExplored());
-						GameState prevState = botEngine.getState();
 						State prevPos = botEngine.getRobotPosition();
-
 						botEngine.update();
-
 						State nextPos = botEngine.getRobotPosition();
+
 						if (nextPos != null) {
+							// from = last rendered position (no jump even with sub-frame timing)
 							botFromX[0] = botRenderX[0];
 							botFromY[0] = botRenderY[0];
 							botToX[0] = nextPos.getX();
@@ -356,17 +366,17 @@ public class PlayGamePage {
 						} else if (prevPos != null) {
 							botFromX[0] = prevPos.getX();
 							botFromY[0] = prevPos.getY();
-							botToX[0] = prevPos.getX();
-							botToY[0] = prevPos.getY();
+							botToX[0]   = prevPos.getX();
+							botToY[0]   = prevPos.getY();
 						}
 
-						if (botEngine.getState() == GameState.MOVING && prevPos != null && nextPos != null) {
-							if (prevPos.getX() != nextPos.getX() || prevPos.getY() != nextPos.getY()) {
-								audio.playFootstep(masterVolume[0], sfxVolume[0]);
-							}
+						if (prevPos != null && nextPos != null
+								&& (prevPos.getX() != nextPos.getX() || prevPos.getY() != nextPos.getY())) {
+							audio.playFootstep(masterVolume[0], sfxVolume[0]);
 						}
 
-						if (!rankingRecorded[0] && (botEngine.getState() == GameState.FINISHED || botEngine.getState() == GameState.NO_PATH)) {
+						if (!rankingRecorded[0] && (botEngine.getState() == GameState.FINISHED
+								|| botEngine.getState() == GameState.NO_PATH)) {
 							recordGameRanking(
 								difficulty,
 								safeSize(botEngine.getPath()),
@@ -385,12 +395,15 @@ public class PlayGamePage {
 						}
 					}
 
+					// ── Linear interpolation: constant-velocity motion for the entire step ──
+					// The duck glides from botFrom → botTo smoothly for the full step duration.
+					// No easing = no perceived pause at start/end of each cell transition.
 					double progress = stepDurationNanos <= 0
 						? 1.0
-						: Math.min(1.0, Math.max(0.0, (double) botAccumulatorNanos[0] / (double) stepDurationNanos));
-					double t = reducedMotion[0] ? 1.0 : smoothStep(progress);
-					botRenderX[0] = botFromX[0] + (botToX[0] - botFromX[0]) * t;
-					botRenderY[0] = botFromY[0] + (botToY[0] - botFromY[0]) * t;
+						: Math.min(1.0, Math.max(0.0,
+							(double) botAccumulatorNanos[0] / (double) stepDurationNanos));
+					botRenderX[0] = botFromX[0] + (botToX[0] - botFromX[0]) * progress;
+					botRenderY[0] = botFromY[0] + (botToY[0] - botFromY[0]) * progress;
 
 					renderFrame.run();
 				}
@@ -403,10 +416,13 @@ public class PlayGamePage {
 			currentPosText.setText("Vi tri hien tai: (" + playerPos[0].getX() + ", " + playerPos[0].getY() + ")");
 			playerRenderX[0] = playerPos[0].getX();
 			playerRenderY[0] = playerPos[0].getY();
-			playerFromX[0] = playerPos[0].getX();
-			playerFromY[0] = playerPos[0].getY();
-			playerToX[0] = playerPos[0].getX();
-			playerToY[0] = playerPos[0].getY();
+			playerFromX[0]   = playerPos[0].getX();
+			playerFromY[0]   = playerPos[0].getY();
+			playerToX[0]     = playerPos[0].getX();
+			playerToY[0]     = playerPos[0].getY();
+			// Pre-fill accumulator so the first key press fires a step on the very next frame
+			playerAccumulatorNanos[0] = PLAYER_STEP_NANOS;
+
 			loop = new AnimationTimer() {
 				@Override
 				public void handle(long now) {
@@ -418,30 +434,52 @@ public class PlayGamePage {
 					long frameDelta = Math.max(0L, now - playerLastFrameNanos[0]);
 					playerLastFrameNanos[0] = now;
 
-					boolean movingTween = playerFromX[0] != playerToX[0] || playerFromY[0] != playerToY[0];
-					if (movingTween) {
-						playerAccumulatorNanos[0] += frameDelta;
-						double progress = playerMovementDurationNanos[0] <= 0
-							? 1.0
-							: Math.min(1.0, (double) playerAccumulatorNanos[0] / (double) playerMovementDurationNanos[0]);
-						double t = reducedMotion[0] ? 1.0 : smoothStep(progress);
-						playerRenderX[0] = playerFromX[0] + (playerToX[0] - playerFromX[0]) * t;
-						playerRenderY[0] = playerFromY[0] + (playerToY[0] - playerFromY[0]) * t;
+					// ── Accumulator: identical pattern to bot ──────────────────────────
+					// Cap at exactly 1 step — prevents double-move on first key press
+					// and limits lag-spike teleporting to at most 1 extra cell.
+					playerAccumulatorNanos[0] = Math.min(
+						playerAccumulatorNanos[0] + frameDelta,
+						PLAYER_STEP_NANOS
+					);
 
-						if (progress >= 1.0) {
-							playerRenderX[0] = playerToX[0];
-							playerRenderY[0] = playerToY[0];
-							playerFromX[0] = playerToX[0];
-							playerFromY[0] = playerToY[0];
-							playerAccumulatorNanos[0] = 0L;
-							playerAnimating[0] = false;
+					// ── Fire one step per interval when a key is held ──────────────────
+					if (playerAccumulatorNanos[0] >= PLAYER_STEP_NANOS
+							&& playerHeldKey[0] != null
+							&& !playerFinished[0]
+							&& !selectingPowerUp[0]) {
+
+						playerAccumulatorNanos[0] -= PLAYER_STEP_NANOS;
+
+						// Start from current render position (seamless, no snap)
+						playerFromX[0] = playerRenderX[0];
+						playerFromY[0] = playerRenderY[0];
+
+						boolean moved = handlePlayerMove(
+							playerHeldKey[0],
+							maze, playerPos, playerScore, playerLives, playerFinished,
+							statusText, audio, masterVolume, sfxVolume,
+							inventory, gameScene[0], selectingPowerUp, renderFrame,
+							gameStartTime, stepCounter, rankingRecorded,
+							difficulty, algorithmName
+						);
+
+						// Target = new grid cell (unchanged if wall/finished)
+						playerToX[0] = playerPos[0].getX();
+						playerToY[0] = playerPos[0].getY();
+
+						if (moved) {
+							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0],
+								stateLabel, scoreLabel, pathLabel, exploredLabel);
+							currentPosText.setText("Vi tri hien tai: ("
+								+ playerPos[0].getX() + ", " + playerPos[0].getY() + ")");
 						}
-					} else {
-						playerRenderX[0] = playerToX[0];
-						playerRenderY[0] = playerToY[0];
-						playerAccumulatorNanos[0] = 0L;
-						playerAnimating[0] = false;
 					}
+
+					// ── Linear interpolation — constant-velocity glide (same as bot) ──
+					double progress = Math.min(1.0, Math.max(0.0,
+						(double) playerAccumulatorNanos[0] / (double) PLAYER_STEP_NANOS));
+					playerRenderX[0] = playerFromX[0] + (playerToX[0] - playerFromX[0]) * progress;
+					playerRenderY[0] = playerFromY[0] + (playerToY[0] - playerFromY[0]) * progress;
 
 					renderFrame.run();
 				}
@@ -466,6 +504,7 @@ public class PlayGamePage {
 				return;
 			}
 			optionsOpen[0] = true;
+			playerHeldKey[0] = null; // stop player movement while paused
 			if (finalLoop != null) {
 				finalLoop.stop();
 			}
@@ -486,6 +525,8 @@ public class PlayGamePage {
 							botLastFrameNanos[0] = 0L;
 						} else {
 							playerLastFrameNanos[0] = 0L;
+							// Pre-fill so next key press fires instantly, but no ghost step
+							playerAccumulatorNanos[0] = PLAYER_STEP_NANOS;
 						}
 						finalLoop.start();
 					}
@@ -531,63 +572,29 @@ public class PlayGamePage {
 		}
 		renderFrame.run();
 
-		Scene scene = new Scene(root, VIEW_WIDTH, VIEW_HEIGHT);
+		Scene scene = new Scene(root, W, H);
 		gameScene[0] = scene;
 		
 		if (mode == PlayMode.PLAYER) {
+			// Key PRESSED — register held direction; step fires in the AnimationTimer
 			scene.setOnKeyPressed(e -> {
 				if (optionsOpen[0] || selectingPowerUp[0]) {
 					e.consume();
 					return;
 				}
-
-				if (isMovementKey(e.getCode()) && playerAnimating[0]) {
-					e.consume();
-					return;
-				}
-
 				if (isMovementKey(e.getCode())) {
-					long now = System.nanoTime();
-					if (now - lastMoveNanos[0] < MOVE_COOLDOWN_NANOS) {
-						e.consume();
-						return;
-					}
-					lastMoveNanos[0] = now;
-				}
-
-				boolean changed = handlePlayerMove(
-					e.getCode(),
-					maze,
-					playerPos,
-					playerScore,
-					playerLives,
-					playerFinished,
-					statusText,
-					audio,
-					masterVolume,
-					sfxVolume,
-					inventory,
-					scene,
-					selectingPowerUp,
-					renderFrame,
-					gameStartTime,
-					stepCounter,
-					rankingRecorded,
-					difficulty,
-					algorithmName
-				);
-
-				if (changed) {
-					playerFromX[0] = playerToX[0];
-					playerFromY[0] = playerToY[0];
-					playerToX[0] = playerPos[0].getX();
-					playerToY[0] = playerPos[0].getY();
-					playerAccumulatorNanos[0] = 0L;
-					playerAnimating[0] = true;
-					refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
-					currentPosText.setText("Vi tri hien tai: (" + playerPos[0].getX() + ", " + playerPos[0].getY() + ")");
+					playerHeldKey[0] = e.getCode();
+					e.consume();
 				}
 			});
+
+			// Key RELEASED — stop continuous motion
+			scene.setOnKeyReleased(e -> {
+				if (isMovementKey(e.getCode()) && e.getCode() == playerHeldKey[0]) {
+					playerHeldKey[0] = null;
+				}
+			});
+
 			root.requestFocus();
 		}
 
@@ -704,7 +711,7 @@ public class PlayGamePage {
 		if (maze.getCell(nx, ny) == CellType.WALL) {
 			statusText.setFill(Color.web("#FFD59A"));
 			statusText.setText("BLOCKED BY WALL - TRY ANOTHER DIRECTION");
-			return true;
+			return false;
 		}
 
 		CellType target = maze.getCell(nx, ny);
@@ -791,32 +798,36 @@ public class PlayGamePage {
 	}
 
 	private static Pane createBackground() {
+		javafx.geometry.Rectangle2D sb = javafx.stage.Screen.getPrimary().getVisualBounds();
+		double bgW = sb.getWidth();
+		double bgH = sb.getHeight();
+
 		Pane pane = new Pane();
-		pane.setPrefSize(VIEW_WIDTH, VIEW_HEIGHT);
-		Canvas bg = new Canvas(VIEW_WIDTH, VIEW_HEIGHT);
+		pane.setPrefSize(bgW, bgH);
+		Canvas bg = new Canvas(bgW, bgH);
 		GraphicsContext gc = bg.getGraphicsContext2D();
 
 		Image landTexture = loadPlayImage("/image/vit/Land.png");
 		if (landTexture != null && !landTexture.isError()) {
 			double tile = 50;
-			for (double x = 0; x < VIEW_WIDTH; x += tile) {
-				for (double y = 0; y < VIEW_HEIGHT; y += tile) {
+			for (double x = 0; x < bgW; x += tile) {
+				for (double y = 0; y < bgH; y += tile) {
 					gc.drawImage(landTexture, x, y, tile, tile);
 				}
 			}
 		} else {
-			for (int y = 0; y < (int) VIEW_HEIGHT; y++) {
-				double ratio = y / VIEW_HEIGHT;
+			for (int y = 0; y < (int) bgH; y++) {
+				double ratio = y / bgH;
 				int r = (int) (248 + (236 - 248) * ratio);
 				int g = (int) (209 + (198 - 209) * ratio);
 				int b = (int) (142 + (130 - 142) * ratio);
 				gc.setStroke(Color.rgb(r, g, b));
-				gc.strokeLine(0, y, VIEW_WIDTH, y);
+				gc.strokeLine(0, y, bgW, y);
 			}
 
 			gc.setFill(Color.color(0.92, 0.72, 0.45, 0.35));
-			for (int x = 0; x < VIEW_WIDTH; x += 18) {
-				for (int y = 0; y < VIEW_HEIGHT; y += 18) {
+			for (int x = 0; x < (int) bgW; x += 18) {
+				for (int y = 0; y < (int) bgH; y += 18) {
 					if (((x + y) / 18) % 3 == 0) {
 						gc.fillOval(x + 2, y + 2, 3, 3);
 					}

@@ -29,9 +29,9 @@ import java.util.Locale;
 
 public final class OptionsPageJava {
 
-    private static final double VIEW_WIDTH = 1400;
-    private static final double VIEW_HEIGHT = 800;
-    private static final double CARD_WIDTH = 415;
+    private static final double VIEW_WIDTH  = javafx.stage.Screen.getPrimary().getVisualBounds().getWidth();
+    private static final double VIEW_HEIGHT = javafx.stage.Screen.getPrimary().getVisualBounds().getHeight();
+    private static final double CARD_WIDTH  = 415;
     private static final double CARD_HEIGHT = 330;
 
     private OptionsPageJava() {
