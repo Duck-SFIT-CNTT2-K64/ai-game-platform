@@ -107,6 +107,8 @@ public class PlayGamePage {
 		
 		// Inventory for player mode
 		InventoryPanel inventory = mode == PlayMode.PLAYER ? new InventoryPanel() : null;
+		// Power-up runtime state (only meaningful in PLAYER mode)
+		PowerUpState pw = new PowerUpState();
 		Scene[] gameScene = new Scene[1];
 		double[] botRenderX = new double[] { maze.getStart().getX() };
 		double[] botRenderY = new double[] { maze.getStart().getY() };
@@ -295,25 +297,30 @@ public class PlayGamePage {
 		Runnable renderFrame = () -> {
 			if (mode == PlayMode.BOT) {
 				MazeRenderer.render(
-					gc,
-					maze,
-					botEngine.getExplored(),
-					botEngine.getPath(),
-					botRenderX[0],
-					botRenderY[0],
-					mazeCanvas.getWidth(),
-					mazeCanvas.getHeight()
+					gc, maze,
+					botEngine.getExplored(), botEngine.getPath(),
+					botRenderX[0], botRenderY[0],
+					mazeCanvas.getWidth(), mazeCanvas.getHeight()
 				);
 			} else {
+				// ── Determine visual overlays from active power-ups ──────────
+				java.util.List<State> pathOverlay     = null;
+				java.util.List<State> exploredOverlay = null;
+
+				if (pw.isRevealingMap()) {
+					exploredOverlay = allWalkable(maze);
+				} else if (pw.isDetectingBombs()) {
+					exploredOverlay = bombPositions(maze);
+				}
+				if (pw.isRevealingPath() || pw.aiRunning) {
+					pathOverlay = computePathToGoal(maze, playerPos[0]);
+				}
+
 				MazeRenderer.render(
-					gc,
-					maze,
-					null,
-					null,
-					playerRenderX[0],
-					playerRenderY[0],
-					mazeCanvas.getWidth(),
-					mazeCanvas.getHeight()
+					gc, maze,
+					exploredOverlay, pathOverlay,
+					playerRenderX[0], playerRenderY[0],
+					mazeCanvas.getWidth(), mazeCanvas.getHeight()
 				);
 			}
 		};
@@ -420,8 +427,8 @@ public class PlayGamePage {
 			playerFromY[0]   = playerPos[0].getY();
 			playerToX[0]     = playerPos[0].getX();
 			playerToY[0]     = playerPos[0].getY();
-			// Pre-fill accumulator so the first key press fires a step on the very next frame
-			playerAccumulatorNanos[0] = PLAYER_STEP_NANOS;
+			// Pre-fill so the first key press fires immediately
+			playerAccumulatorNanos[0] = pw.effectiveStepNs;
 
 			loop = new AnimationTimer() {
 				@Override
@@ -435,49 +442,83 @@ public class PlayGamePage {
 					playerLastFrameNanos[0] = now;
 
 					// ── Accumulator: identical pattern to bot ──────────────────────────
-					// Cap at exactly 1 step — prevents double-move on first key press
-					// and limits lag-spike teleporting to at most 1 extra cell.
+					// ── Expire timed power-ups every frame ─────────────────────────
+					pw.tickExpiry();
+
+					// Use dynamic step duration (affected by SPEED_BOOST / SPEED_SLOW)
+					long stepNs = pw.effectiveStepNs;
+
+					// Cap at exactly 1 step so first key press never jumps 2 cells
 					playerAccumulatorNanos[0] = Math.min(
 						playerAccumulatorNanos[0] + frameDelta,
-						PLAYER_STEP_NANOS
+						stepNs
 					);
 
-					// ── Fire one step per interval when a key is held ──────────────────
-					if (playerAccumulatorNanos[0] >= PLAYER_STEP_NANOS
-							&& playerHeldKey[0] != null
-							&& !playerFinished[0]
-							&& !selectingPowerUp[0]) {
-
-						playerAccumulatorNanos[0] -= PLAYER_STEP_NANOS;
-
-						// Start from current render position (seamless, no snap)
-						playerFromX[0] = playerRenderX[0];
-						playerFromY[0] = playerRenderY[0];
-
-						boolean moved = handlePlayerMove(
-							playerHeldKey[0],
-							maze, playerPos, playerScore, playerLives, playerFinished,
-							statusText, audio, masterVolume, sfxVolume,
-							inventory, gameScene[0], selectingPowerUp, renderFrame,
-							gameStartTime, stepCounter, rankingRecorded,
-							difficulty, algorithmName
-						);
-
-						// Target = new grid cell (unchanged if wall/finished)
-						playerToX[0] = playerPos[0].getX();
-						playerToY[0] = playerPos[0].getY();
-
-						if (moved) {
+					// ── AI ASSIST: auto-move along pre-computed path ─────────────────
+					if (pw.aiRunning && pw.aiPath != null
+							&& pw.aiPathIdx < pw.aiPath.size()
+							&& pw.aiPathIdx <= 8) {
+						if (playerAccumulatorNanos[0] >= stepNs && !playerFinished[0] && !selectingPowerUp[0]) {
+							playerAccumulatorNanos[0] -= stepNs;
+							State nextAi = pw.aiPath.get(pw.aiPathIdx++);
+							playerFromX[0] = playerRenderX[0];
+							playerFromY[0] = playerRenderY[0];
+							playerPos[0] = new State(nextAi.getX(), nextAi.getY(), playerLives[0]);
+							playerToX[0] = nextAi.getX();
+							playerToY[0] = nextAi.getY();
+							stepCounter[0]++;
+							playerScore[0] = Math.max(0, playerScore[0] - 3);
+							audio.playFootstep(masterVolume[0], sfxVolume[0]);
 							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0],
 								stateLabel, scoreLabel, pathLabel, exploredLabel);
 							currentPosText.setText("Vi tri hien tai: ("
-								+ playerPos[0].getX() + ", " + playerPos[0].getY() + ")");
+								+ nextAi.getX() + ", " + nextAi.getY() + ")");
+							if (pw.aiPathIdx >= pw.aiPath.size() || pw.aiPathIdx > 8) {
+								pw.aiRunning = false;
+								pw.aiPath = null;
+								statusText.setFill(Color.web("#A5D6A7"));
+								statusText.setText("AI ASSIST hoan thanh — tiep tuc tu di chuyen!");
+							}
+						}
+					// ── Normal player step ────────────────────────────────────────────
+					} else {
+						if (pw.aiRunning) { pw.aiRunning = false; pw.aiPath = null; }
+
+						if (playerAccumulatorNanos[0] >= stepNs
+								&& playerHeldKey[0] != null
+								&& !playerFinished[0]
+								&& !selectingPowerUp[0]) {
+
+							playerAccumulatorNanos[0] -= stepNs;
+
+							// Start from current render position (seamless)
+							playerFromX[0] = playerRenderX[0];
+							playerFromY[0] = playerRenderY[0];
+
+							boolean moved = handlePlayerMove(
+								playerHeldKey[0],
+								maze, playerPos, playerScore, playerLives, playerFinished,
+								statusText, audio, masterVolume, sfxVolume,
+								inventory, gameScene[0], selectingPowerUp, renderFrame,
+								gameStartTime, stepCounter, rankingRecorded,
+								difficulty, algorithmName, pw
+							);
+
+							playerToX[0] = playerPos[0].getX();
+							playerToY[0] = playerPos[0].getY();
+
+							if (moved) {
+								refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0],
+									stateLabel, scoreLabel, pathLabel, exploredLabel);
+								currentPosText.setText("Vi tri hien tai: ("
+									+ playerPos[0].getX() + ", " + playerPos[0].getY() + ")");
+							}
 						}
 					}
 
-					// ── Linear interpolation — constant-velocity glide (same as bot) ──
+					// ── Linear interpolation — constant-velocity glide ───────────────
 					double progress = Math.min(1.0, Math.max(0.0,
-						(double) playerAccumulatorNanos[0] / (double) PLAYER_STEP_NANOS));
+						(double) playerAccumulatorNanos[0] / (double) stepNs));
 					playerRenderX[0] = playerFromX[0] + (playerToX[0] - playerFromX[0]) * progress;
 					playerRenderY[0] = playerFromY[0] + (playerToY[0] - playerFromY[0]) * progress;
 
@@ -525,8 +566,8 @@ public class PlayGamePage {
 							botLastFrameNanos[0] = 0L;
 						} else {
 							playerLastFrameNanos[0] = 0L;
-							// Pre-fill so next key press fires instantly, but no ghost step
-							playerAccumulatorNanos[0] = PLAYER_STEP_NANOS;
+							// Pre-fill so next key press fires instantly (uses dynamic step)
+							playerAccumulatorNanos[0] = pw.effectiveStepNs;
 						}
 						finalLoop.start();
 					}
@@ -594,6 +635,145 @@ public class PlayGamePage {
 					playerHeldKey[0] = null;
 				}
 			});
+
+			// ── Wire inventory: clicking an item in the panel activates its effect ──
+			if (inventory != null) {
+				inventory.setOnActivateCallback(collected -> {
+					if (collected == null || !collected.isActive()) return;
+					PowerUp type = collected.getPowerUp();
+					long NOW = System.currentTimeMillis();
+
+					switch (type) {
+						case EXTRA_LIFE -> {
+							playerLives[0] = Math.min(playerLives[0] + 1, 9);
+							statusText.setFill(Color.web("#00FF9C"));
+							statusText.setText("EXTRA LIFE! Mang song: " + playerLives[0]);
+							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
+						}
+						case SHIELD -> {
+							pw.shield = true;
+							statusText.setFill(Color.web("#64B5F6"));
+							statusText.setText("SHIELD kich hoat — bomb tiep theo duoc chan!");
+						}
+						case BOMB_IMMUNITY -> {
+							pw.bombImmune = true; pw.immuneUntil = NOW + 8_000;
+							statusText.setFill(Color.web("#80DEEA"));
+							statusText.setText("MIEN NHIEM BOMB trong 8 giay!");
+						}
+						case FREEZE_TIME, SLOW_BOMBS -> {
+							pw.bombImmune = true; pw.immuneUntil = NOW + 6_000;
+							statusText.setFill(Color.web("#B3E5FC"));
+							statusText.setText("BOMB BI DONG LANH trong 6 giay!");
+						}
+						case DOUBLE_SCORE -> {
+							pw.doubleScore = true; pw.dblScoreUntil = NOW + 15_000;
+							statusText.setFill(Color.web("#FFD54F"));
+							statusText.setText("DIEM X2 trong 15 giay!");
+						}
+						case REVEAL_PATH, SHORTEST_PATH_MODE -> {
+							pw.revealPath = true; pw.revealPathUntil = NOW + 20_000;
+							statusText.setFill(Color.web("#A5D6A7"));
+							statusText.setText("DUONG DI duoc hien thi trong 20 giay!");
+						}
+						case REVEAL_MAP -> {
+							pw.revealMap = true; pw.revealMapUntil = NOW + 20_000;
+							statusText.setFill(Color.web("#C5E1A5"));
+							statusText.setText("TOAN BO BAN DO duoc mo trong 20 giay!");
+						}
+						case BOMB_DETECTOR -> {
+							pw.bombDetect = true; pw.detectUntil = NOW + 15_000;
+							statusText.setFill(Color.web("#FFCC80"));
+							statusText.setText("PHAT HIEN BOMB trong 15 giay!");
+						}
+						case SPEED_BOOST -> {
+							pw.effectiveStepNs = PLAYER_STEP_NANOS / 2;
+							pw.speedUntil = NOW + 8_000;
+							// reset accumulator so new speed takes effect immediately
+							playerAccumulatorNanos[0] = pw.effectiveStepNs;
+							statusText.setFill(Color.web("#80DEEA"));
+							statusText.setText("TOC DO TANG x2 trong 8 giay!");
+						}
+						case SPEED_SLOW -> {
+							pw.effectiveStepNs = PLAYER_STEP_NANOS * 2;
+							pw.speedUntil = NOW + 8_000;
+							playerAccumulatorNanos[0] = pw.effectiveStepNs;
+							statusText.setFill(Color.web("#BCAAA4"));
+							statusText.setText("CHE DO CHAM — an toan hon trong 8 giay!");
+						}
+						case TELEPORT -> {
+							com.nhom_01.robot_pathfinding.core.State newPos =
+								findRandomSafeCell(maze, playerPos[0]);
+							if (newPos != null) {
+								playerPos[0] = new State(newPos.getX(), newPos.getY(), playerLives[0]);
+								playerRenderX[0] = newPos.getX(); playerRenderY[0] = newPos.getY();
+								playerFromX[0] = newPos.getX(); playerFromY[0] = newPos.getY();
+								playerToX[0]   = newPos.getX(); playerToY[0]   = newPos.getY();
+								refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
+								currentPosText.setText("Vi tri hien tai: (" + newPos.getX() + ", " + newPos.getY() + ")");
+								statusText.setFill(Color.web("#CE93D8"));
+								statusText.setText("DICH CHUYEN toi vi tri an toan!");
+							}
+						}
+						case REMOVE_WALL -> {
+							pw.wallRemoval = true;
+							statusText.setFill(Color.web("#FFAB91"));
+							statusText.setText("XOA TUONG san sang — di vao tuong de pha!");
+						}
+						case SAFE_STEP -> {
+							pw.safeStep = true;
+							statusText.setFill(Color.web("#A5D6A7"));
+							statusText.setText("BUOC AN TOAN — bomb tiep theo bi vo hieu hoa!");
+						}
+						case TIME_BONUS -> {
+							playerScore[0] += 500;
+							statusText.setFill(Color.web("#FFD54F"));
+							statusText.setText("+500 DIEM THUONG!");
+							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
+						}
+						case LUCKY_FIND -> {
+							playerScore[0] += 300;
+							statusText.setFill(Color.web("#FFF176"));
+							statusText.setText("+300 DIEM MAY MAN!");
+							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
+						}
+						case AI_ASSIST -> {
+							java.util.List<com.nhom_01.robot_pathfinding.core.State> aiPath =
+								computePathToGoal(maze, playerPos[0]);
+							if (aiPath != null && aiPath.size() > 1) {
+								pw.aiRunning = true;
+								pw.aiPath = aiPath;
+								pw.aiPathIdx = 1;
+								playerHeldKey[0] = null; // AI takes over
+								statusText.setFill(Color.web("#80CBC4"));
+								statusText.setText("AI TRO LY — tu dong di 8 buoc!");
+							} else {
+								statusText.setFill(Color.web("#FFAB91"));
+								statusText.setText("AI TRO LY — khong tim duoc duong di.");
+							}
+						}
+						case DOUBLE_CHOICE -> {
+							if (gameScene[0] != null) {
+								ItemCardSelectionModal.showOnScene(gameScene[0], extra -> {
+									if (extra != null) inventory.addCollectedPowerUp(extra);
+								}, () -> {});
+								statusText.setFill(Color.web("#CE93D8"));
+								statusText.setText("CHON THEM 1 VAT PHAM!");
+							}
+						}
+						case VISION_BOOST -> {
+							pw.revealMap = true; pw.revealMapUntil = NOW + 15_000;
+							statusText.setFill(Color.web("#B3E5FC"));
+							statusText.setText("TAM NHIN MO RONG trong 15 giay!");
+						}
+						default -> {
+							statusText.setFill(Color.web("#FFD59A"));
+							statusText.setText(type.getDisplayName() + " DA KICH HOAT!");
+						}
+					}
+					renderFrame.run();
+					// Note: inventory.updateDisplay() is already called inside activatePowerUp
+				});
+			}
 
 			root.requestFocus();
 		}
@@ -687,86 +867,111 @@ public class PlayGamePage {
 		int[] stepCounter,
 		boolean[] rankingRecorded,
 		String difficulty,
-		String algorithmName
+		String algorithmName,
+		PowerUpState pw
 	) {
 		if (playerFinished[0] || selectingPowerUp[0]) {
 			return false;
 		}
 
-		int dx = 0;
-		int dy = 0;
+		int dx = 0, dy = 0;
 		switch (code) {
-			case UP -> dy = -1;
-			case DOWN -> dy = 1;
-			case LEFT -> dx = -1;
-			case RIGHT -> dx = 1;
-			default -> {
-				return false;
-			}
+			case UP    -> dy = -1;
+			case DOWN  -> dy =  1;
+			case LEFT  -> dx = -1;
+			case RIGHT -> dx =  1;
+			default    -> { return false; }
 		}
 
 		int nx = playerPos[0].getX() + dx;
 		int ny = playerPos[0].getY() + dy;
 
-		if (maze.getCell(nx, ny) == CellType.WALL) {
-			statusText.setFill(Color.web("#FFD59A"));
-			statusText.setText("BLOCKED BY WALL - TRY ANOTHER DIRECTION");
-			return false;
+		CellType nextCell = maze.getCell(nx, ny);
+
+		// ── Wall check: REMOVE_WALL powerup can demolish 1 wall ───────────────
+		if (nextCell == CellType.WALL) {
+			if (pw.wallRemoval) {
+				pw.wallRemoval = false;
+				maze.setCell(nx, ny, CellType.EMPTY);
+				nextCell = CellType.EMPTY;
+				statusText.setFill(Color.web("#FFAB91"));
+				statusText.setText("TUONG DA BI XOA!");
+			} else {
+				statusText.setFill(Color.web("#FFD59A"));
+				statusText.setText("DUONG BI CHAN - thu huong khac");
+				return false;
+			}
 		}
 
-		CellType target = maze.getCell(nx, ny);
-		playerScore[0] = Math.max(0, playerScore[0] - 5);
+		// Each step costs 3 score (unchanged if double-score active on losses)
+		playerScore[0] = Math.max(0, playerScore[0] - 3);
 		stepCounter[0]++;
 		audio.playFootstep(masterVolume[0], sfxVolume[0]);
 
-		if (target == CellType.BOMB) {
-			playerLives[0]--;
-			playerScore[0] = Math.max(0, playerScore[0] - 120);
+		// ── Bomb ──────────────────────────────────────────────────────────────
+		if (nextCell == CellType.BOMB) {
 			maze.setCell(nx, ny, CellType.EMPTY);
-			statusText.setFill(Color.web("#FF8DA6"));
-			statusText.setText("HIT A BOMB -1 LIFE");
-			if (playerLives[0] <= 0) {
-				playerFinished[0] = true;
-				statusText.setFill(Color.web("#FF6B6B"));
-				statusText.setText("GAME OVER - OUT OF LIVES");
-				if (!rankingRecorded[0]) {
-					recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], false);
-					rankingRecorded[0] = true;
+			if (pw.isBombSafe() || pw.safeStep) {
+				// Safe: bomb neutralised
+				pw.safeStep = false;
+				statusText.setFill(Color.web("#A5D6A7"));
+				statusText.setText("BOMB BI VO HIEU HOA boi powerup!");
+			} else if (pw.shield) {
+				// Shield absorbs 1 bomb
+				pw.shield = false;
+				statusText.setFill(Color.web("#64B5F6"));
+				statusText.setText("SHIELD DA CHAN BOMB!");
+			} else {
+				// Normal damage
+				playerLives[0]--;
+				playerScore[0] = Math.max(0, playerScore[0] - 120);
+				statusText.setFill(Color.web("#FF8DA6"));
+				statusText.setText("DINH BOMB -1 MANG SONG!");
+				if (playerLives[0] <= 0) {
+					playerFinished[0] = true;
+					statusText.setFill(Color.web("#FF6B6B"));
+					statusText.setText("GAME OVER - HET MANG SONG");
+					if (!rankingRecorded[0]) {
+						recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], false);
+						rankingRecorded[0] = true;
+					}
 				}
 			}
-		} else if (target == CellType.ITEM) {
-			playerScore[0] += 180;
+
+		// ── Item ─────────────────────────────────────────────────────────────
+		} else if (nextCell == CellType.ITEM) {
+			int reward = pw.isScoreDoubled() ? 360 : 180;
+			playerScore[0] += reward;
 			maze.setCell(nx, ny, CellType.EMPTY);
 			statusText.setFill(Color.web("#9FFFD8"));
-			statusText.setText("ITEM COLLECTED - SELECT A POWER-UP");
-			
-			// Show in-scene overlay modal (do not replace scene to avoid focus freeze).
+			statusText.setText("NHAT VAT PHAM (+" + reward + ") — chon power-up!");
+
 			if (inventory != null && gameScene != null) {
 				boolean shown = ItemCardSelectionModal.showOnScene(gameScene, selectedPowerUp -> {
 					if (selectedPowerUp != null) {
 						inventory.addCollectedPowerUp(selectedPowerUp);
 					}
-					if (renderFrame != null) {
-						renderFrame.run();
-					}
+					if (renderFrame != null) renderFrame.run();
 				}, () -> selectingPowerUp[0] = false);
 				selectingPowerUp[0] = shown;
 				if (!shown) {
 					statusText.setFill(Color.web("#FFD59A"));
-					statusText.setText("ITEM COLLECTED - CONTINUE MOVING (MODAL UNAVAILABLE)");
+					statusText.setText("VAT PHAM DA NHAT — tiep tuc di chuyen");
 				}
 			}
-		} else if (target == CellType.GOAL) {
+
+		// ── Goal ─────────────────────────────────────────────────────────────
+		} else if (nextCell == CellType.GOAL) {
 			playerFinished[0] = true;
 			statusText.setFill(Color.web("#00FF9C"));
-			statusText.setText("YOU REACHED GOAL - FINAL SCORE: " + Math.max(0, playerScore[0]));
+			statusText.setText("DA THOAT! DIEM CUOI: " + Math.max(0, playerScore[0]));
 			if (!rankingRecorded[0]) {
 				recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], true);
 				rankingRecorded[0] = true;
 			}
 		} else {
 			statusText.setFill(Color.web("#AEE8FF"));
-			statusText.setText("MOVE WITH ARROW KEYS - REACH THE GOAL FLAG");
+			statusText.setText("DI CHUYEN BANG MUI TEN — TIM CUA THOAT");
 		}
 
 		playerPos[0] = new State(nx, ny, Math.max(0, playerLives[0]));
@@ -1093,6 +1298,111 @@ public class PlayGamePage {
 			"-fx-faint-focus-color: transparent;"
 		);
 		return box;
+	}
+
+	// ── Power-up runtime state ────────────────────────────────────────────────
+	static final class PowerUpState {
+		// 1-use protective flags
+		boolean shield      = false;  // absorb next bomb
+		boolean wallRemoval = false;  // destroy next wall hit
+		boolean safeStep    = false;  // neutralise next bomb cell
+
+		// Timed: bomb protection
+		boolean bombImmune  = false;  long immuneUntil    = 0L;
+
+		// Timed: score doubler
+		boolean doubleScore = false;  long dblScoreUntil  = 0L;
+
+		// Timed: visual overlays
+		boolean revealPath  = false;  long revealPathUntil = 0L;
+		boolean revealMap   = false;  long revealMapUntil  = 0L;
+		boolean bombDetect  = false;  long detectUntil     = 0L;
+
+		// Speed modifier  (default = PLAYER_STEP_NANOS, set externally)
+		long effectiveStepNs = PLAYER_STEP_NANOS;
+		long speedUntil      = 0L;
+
+		// AI assist – follows BFS path for a few steps
+		boolean             aiRunning = false;
+		java.util.List<com.nhom_01.robot_pathfinding.core.State> aiPath = null;
+		int                 aiPathIdx = 0;
+
+		/** Call every frame to expire timed effects. */
+		void tickExpiry() {
+			long now = System.currentTimeMillis();
+			if (bombImmune  && now > immuneUntil)     bombImmune  = false;
+			if (doubleScore && now > dblScoreUntil)   doubleScore = false;
+			if (revealPath  && now > revealPathUntil) revealPath  = false;
+			if (revealMap   && now > revealMapUntil)  revealMap   = false;
+			if (bombDetect  && now > detectUntil)     bombDetect  = false;
+			if (effectiveStepNs != PLAYER_STEP_NANOS && now > speedUntil)
+				effectiveStepNs = PLAYER_STEP_NANOS;
+		}
+
+		boolean isBombSafe() {
+			return bombImmune && System.currentTimeMillis() < immuneUntil;
+		}
+		boolean isScoreDoubled() {
+			return doubleScore && System.currentTimeMillis() < dblScoreUntil;
+		}
+		boolean isRevealingPath() {
+			return revealPath && System.currentTimeMillis() < revealPathUntil;
+		}
+		boolean isRevealingMap() {
+			return revealMap && System.currentTimeMillis() < revealMapUntil;
+		}
+		boolean isDetectingBombs() {
+			return bombDetect && System.currentTimeMillis() < detectUntil;
+		}
+	}
+
+	/** BFS path from current player position to maze goal (used by REVEAL_PATH, AI_ASSIST). */
+	private static java.util.List<com.nhom_01.robot_pathfinding.core.State> computePathToGoal(
+			Maze maze,
+			com.nhom_01.robot_pathfinding.core.State from) {
+		try {
+			SearchResult result = new com.nhom_01.robot_pathfinding.ai.BFS().findPath(maze, from, maze.getGoal());
+			return (result != null) ? result.getPath() : null;
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	/** All walkable (non-wall) cells — used by REVEAL_MAP overlay. */
+	private static java.util.List<com.nhom_01.robot_pathfinding.core.State> allWalkable(Maze maze) {
+		java.util.List<com.nhom_01.robot_pathfinding.core.State> cells = new java.util.ArrayList<>();
+		for (int x = 0; x < maze.getWidth(); x++)
+			for (int y = 0; y < maze.getHeight(); y++)
+				if (maze.getCell(x, y) != CellType.WALL)
+					cells.add(new com.nhom_01.robot_pathfinding.core.State(x, y, 0));
+		return cells;
+	}
+
+	/** All bomb cell positions — used by BOMB_DETECTOR overlay. */
+	private static java.util.List<com.nhom_01.robot_pathfinding.core.State> bombPositions(Maze maze) {
+		java.util.List<com.nhom_01.robot_pathfinding.core.State> bombs = new java.util.ArrayList<>();
+		for (int x = 0; x < maze.getWidth(); x++)
+			for (int y = 0; y < maze.getHeight(); y++)
+				if (maze.getCell(x, y) == CellType.BOMB)
+					bombs.add(new com.nhom_01.robot_pathfinding.core.State(x, y, 0));
+		return bombs;
+	}
+
+	/** Random safe (non-wall, non-bomb) cell for TELEPORT. */
+	private static com.nhom_01.robot_pathfinding.core.State findRandomSafeCell(
+			Maze maze,
+			com.nhom_01.robot_pathfinding.core.State exclude) {
+		java.util.List<int[]> candidates = new java.util.ArrayList<>();
+		for (int x = 1; x < maze.getWidth() - 1; x++)
+			for (int y = 1; y < maze.getHeight() - 1; y++) {
+				CellType c = maze.getCell(x, y);
+				if (c != CellType.WALL && c != CellType.BOMB
+						&& !(x == exclude.getX() && y == exclude.getY()))
+					candidates.add(new int[]{x, y});
+			}
+		if (candidates.isEmpty()) return null;
+		int[] chosen = candidates.get(new java.util.Random().nextInt(candidates.size()));
+		return new com.nhom_01.robot_pathfinding.core.State(chosen[0], chosen[1], exclude.getLives());
 	}
 
 	private static final class InGameAudio {

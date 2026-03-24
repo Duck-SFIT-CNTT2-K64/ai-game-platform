@@ -49,16 +49,24 @@ public class InventoryPanel {
         updateDisplay();
     }
 
-    public void activatePowerUp(int index) {
-        if (index >= 0 && index < inventory.size()) {
-            CollectedPowerUp collected = inventory.get(index);
-            collected.activate();
-            if (onActivateCallback != null) {
-                onActivateCallback.accept(collected);
-            }
-            updateDisplay();
-        }
-    }
+	public void activatePowerUp(int index) {
+		if (index < 0 || index >= inventory.size()) return;
+		CollectedPowerUp collected = inventory.get(index);
+
+		// Guard: already consumed — prevent double-use
+		if (collected.isActive()) return;
+
+		// Mark active so the callback can read the state
+		collected.activate();
+
+		if (onActivateCallback != null) {
+			onActivateCallback.accept(collected);
+		}
+
+		// Single-use: remove from inventory immediately after activating
+		inventory.remove(index);
+		updateDisplay();
+	}
 
     public void removePowerUp(int index) {
         if (index >= 0 && index < inventory.size()) {
@@ -163,7 +171,12 @@ public class InventoryPanel {
         return itemBox;
     }
 
-    public FlowPane getContainer() {
-        return inventoryContainer;
-    }
+	/** Re-render all items so ACTIVE/READY badges refresh immediately. */
+	public void refreshDisplay() {
+		updateDisplay();
+	}
+
+	public FlowPane getContainer() {
+		return inventoryContainer;
+	}
 }
