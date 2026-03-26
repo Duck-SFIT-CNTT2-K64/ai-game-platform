@@ -132,83 +132,115 @@ public final class PlayModeSelectionPageJava {
     }
 
     private static void ensurePlayerName(Stage stage, Scene currentScene, Runnable onReady) {
-        if (PlayerProfile.hasPlayerName()) {
-            onReady.run();
-            return;
-        }
+        if (PlayerProfile.hasPlayerName()) { onReady.run(); return; }
+        if (!(currentScene.getRoot() instanceof StackPane root)) { onReady.run(); return; }
+        if (root.lookup("#player-name-overlay") != null) return;
 
-        if (!(currentScene.getRoot() instanceof StackPane root)) {
-            onReady.run();
-            return;
-        }
-
-        if (root.lookup("#player-name-overlay") != null) {
-            return;
-        }
-
+        // ── Dark semi-transparent backdrop ──────────────────────────────────
         StackPane overlay = new StackPane();
         overlay.setId("player-name-overlay");
-        overlay.setStyle("-fx-background-color: rgba(35,30,20,0.42);");
+        overlay.setStyle("-fx-background-color: rgba(6,4,18,0.72);");
+        overlay.setPickOnBounds(true);
 
-        VBox dialog = new VBox(12);
-        dialog.setAlignment(Pos.CENTER_LEFT);
-        dialog.setPadding(new Insets(22));
-        dialog.setPrefWidth(520);
-        dialog.setStyle(
-            "-fx-background-color: rgba(255,255,255,0.98);" +
-            "-fx-border-color: rgba(0,0,0,0.12);" +
-            "-fx-border-width: 1.8;" +
-            "-fx-border-radius: 12;" +
-            "-fx-background-radius: 12;"
+        // ── Compact dialog card ──────────────────────────────────────────────
+        VBox card = new VBox(0);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.setPrefWidth(420);
+        card.setMaxWidth(420);
+        card.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
+        card.setStyle(
+            "-fx-background-color: #F8FAFF;" +
+            "-fx-border-color: rgba(0,0,0,0.06);" +
+            "-fx-border-width: 1;" +
+            "-fx-border-radius: 16;" +
+            "-fx-background-radius: 16;"
         );
+        javafx.scene.effect.DropShadow shadow = new javafx.scene.effect.DropShadow();
+        shadow.setColor(Color.color(0, 0, 0, 0.30));
+        shadow.setRadius(32); shadow.setOffsetY(8);
+        card.setEffect(shadow);
 
-        Text title = new Text("ENTER PLAYER NAME");
-        title.setFont(Font.font("Orbitron", FontWeight.BOLD, 26));
-        title.setFill(Color.web("#1F2D3A"));
+        // ── Gradient header ──────────────────────────────────────────────────
+        VBox cardHeader = new VBox(5);
+        cardHeader.setAlignment(Pos.CENTER_LEFT);
+        cardHeader.setPadding(new Insets(22, 24, 18, 24));
+        cardHeader.setStyle(
+            "-fx-background-color: linear-gradient(to right, #1565C0, #2F80ED);" +
+            "-fx-background-radius: 16 16 0 0;"
+        );
+        Text headerTag = new Text("🦆  ROBOT MAZE");
+        headerTag.setFont(Font.font("Orbitron", FontWeight.BOLD, 11));
+        headerTag.setFill(Color.color(1, 1, 1, 0.60));
+        Text headerTitle = new Text("Nhap ten nguoi choi");
+        headerTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 20));
+        headerTitle.setFill(Color.WHITE);
+        Text headerSub = new Text("Ten se xuat hien trong bang xep hang.");
+        headerSub.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+        headerSub.setFill(Color.color(0.80, 0.90, 1.0, 0.70));
+        cardHeader.getChildren().addAll(headerTag, headerTitle, headerSub);
 
-        Text helper = new Text("Ranking requires a player name before game starts.");
-        helper.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
-        helper.setFill(Color.web("#4F5B62"));
+        // ── Body ─────────────────────────────────────────────────────────────
+        VBox cardBody = new VBox(12);
+        cardBody.setPadding(new Insets(20, 24, 22, 24));
 
+        // Input row with char counter
+        HBox inputRow = new HBox(8);
+        inputRow.setAlignment(Pos.CENTER_LEFT);
         TextField nameField = new TextField();
-        nameField.setPromptText("Your name (max 24 chars)");
+        nameField.setPromptText("Nhan vao day de nhap ten...");
+        HBox.setHgrow(nameField, javafx.scene.layout.Priority.ALWAYS);
         nameField.setStyle(
-            "-fx-background-color: rgba(255,255,255,0.96);" +
+            "-fx-background-color: #EEF2FF;" +
             "-fx-text-fill: #1F2D3A;" +
             "-fx-prompt-text-fill: #8A9AA1;" +
-            "-fx-font-size: 15px;" +
+            "-fx-font-size: 14px;" +
             "-fx-font-family: 'Arial';" +
-            "-fx-border-color: rgba(0,0,0,0.16);" +
-            "-fx-border-width: 1.2;"
+            "-fx-border-color: transparent transparent #2F80ED transparent;" +
+            "-fx-border-width: 0 0 2 0;" +
+            "-fx-background-radius: 6 6 0 0;" +
+            "-fx-padding: 9 10 9 10;"
         );
+        Text counter = new Text("0 / 24");
+        counter.setFont(Font.font("Arial", FontWeight.NORMAL, 11));
+        counter.setFill(Color.web("#7A8DA0"));
+        nameField.textProperty().addListener((obs, ov, nv) -> {
+            if (nv != null && nv.length() > 24) {
+                nameField.setText(ov != null ? ov : "");
+                return;
+            }
+            int len = nv == null ? 0 : nv.length();
+            counter.setText(len + " / 24");
+            counter.setFill(len > 20 ? Color.web("#FF5252") : Color.web("#7A8DA0"));
+        });
+        inputRow.getChildren().addAll(nameField, counter);
 
         Text error = new Text("");
-        error.setFont(Font.font("Arial", FontWeight.BOLD, 13));
-        error.setFill(Color.web("#FF8DA6"));
+        error.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+        error.setFill(Color.web("#FF5252"));
 
         HBox actions = new HBox(10);
         actions.setAlignment(Pos.CENTER_RIGHT);
-        Button cancel = new NeonButton("CANCEL", Color.web("#607D8B"), 13, 7, 12, 5);
-        Button save = new NeonButton("CONFIRM", Color.web("#00FF9C"), 13, 7, 12, 5);
+        Button cancel = new NeonButton("HUY", Color.web("#90A4AE"), 12, 6, 14, 7);
+        Button save   = new NeonButton("XAC NHAN  ▶", Color.web("#2F80ED"), 12, 6, 14, 7);
 
         cancel.setOnAction(e -> root.getChildren().remove(overlay));
         save.setOnAction(e -> {
             String rawName = nameField.getText() == null ? "" : nameField.getText().trim();
             if (rawName.isEmpty()) {
-                error.setText("Name is required.");
+                error.setText("⚠  Ten khong duoc de trong.");
                 return;
             }
             PlayerProfile.setCurrentPlayerName(rawName);
             root.getChildren().remove(overlay);
             onReady.run();
         });
-
         nameField.setOnAction(e -> save.fire());
 
         actions.getChildren().addAll(cancel, save);
-        dialog.getChildren().addAll(title, helper, nameField, error, actions);
-        overlay.getChildren().add(dialog);
+        cardBody.getChildren().addAll(inputRow, error, actions);
+        card.getChildren().addAll(cardHeader, cardBody);
 
+        overlay.getChildren().add(card);
         root.getChildren().add(overlay);
         nameField.requestFocus();
     }

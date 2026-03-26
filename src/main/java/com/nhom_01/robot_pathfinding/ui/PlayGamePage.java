@@ -12,6 +12,11 @@ import com.nhom_01.robot_pathfinding.ui.components.InventoryPanel;
 import com.nhom_01.robot_pathfinding.ui.components.ItemCardSelectionModal;
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
 import javafx.animation.AnimationTimer;
+import javafx.animation.FadeTransition;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.util.Duration;
+import java.util.function.BiConsumer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -26,6 +31,8 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.media.AudioClip;
@@ -89,8 +96,10 @@ public class PlayGamePage {
 		boolean[] playerFinished = new boolean[] { false };
 		boolean[] selectingPowerUp = new boolean[] { false };
 		boolean[] optionsOpen = new boolean[] { false };
-		// Currently held movement key — drives continuous motion like bot
-		KeyCode[] playerHeldKey = new KeyCode[] { null };
+		// Single-step movement: one key press = one cell. No continuous motion from holding.
+		// (Continuous movement is only used by the AI ASSIST power-up.)
+		KeyCode[]  pendingKey  = new KeyCode[]  { null };
+		boolean[]  keyConsumed = new boolean[]  { false }; // prevents key-repeat from re-firing
 		double[] masterVolume = new double[] { settings.getMasterVolume() };
 		double[] musicVolume = new double[] { settings.getMusicVolume() };
 		double[] sfxVolume = new double[] { settings.getSFXVolume() };
@@ -104,6 +113,21 @@ public class PlayGamePage {
 		long[] gameStartTime = new long[] { System.currentTimeMillis() };
 		int[] stepCounter = new int[] { 0 };
 		boolean[] rankingRecorded = new boolean[] { false };
+
+		// Countdown timer (player mode only): Easy=3m, Medium=6m, Hard=9m
+		long countdownMs = switch (difficulty.toUpperCase()) {
+			case "EASY"   -> 180_000L;
+			case "MEDIUM" -> 360_000L;
+			default       -> 540_000L;   // HARD
+		};
+		long[] countdownEndMs = new long[] { gameStartTime[0] + countdownMs };
+
+		// Result-screen state
+		boolean[] resultShown    = new boolean[] { false };
+		boolean[] playerTimedOut = new boolean[] { false };
+
+		// Ref to the player loop so the result overlay buttons can stop it
+		AnimationTimer[] playerLoopRef = new AnimationTimer[] { null };
 		
 		// Inventory for player mode
 		InventoryPanel inventory = mode == PlayMode.PLAYER ? new InventoryPanel() : null;
@@ -171,6 +195,30 @@ public class PlayGamePage {
 			"-fx-background-radius: 8;"
 		);
 
+		// ── HUD overlay (skill chips + toast) — non-blocking, on top of canvas ──
+		HBox skillChipsBox = new HBox(5);
+		skillChipsBox.setAlignment(Pos.CENTER);
+		skillChipsBox.setPickOnBounds(false);
+
+		Text toastMsgText = new Text();
+		toastMsgText.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+		toastMsgText.setFill(Color.WHITE);
+		HBox toastBox = new HBox(8);
+		toastBox.setAlignment(Pos.CENTER);
+		toastBox.setPadding(new Insets(10, 24, 10, 24));
+		toastBox.setStyle("-fx-background-color: rgba(10,8,28,0.88); -fx-background-radius: 26;");
+		toastBox.setOpacity(0);
+		toastBox.setMouseTransparent(true);
+		toastBox.getChildren().add(toastMsgText);
+
+		VBox mazeHud = new VBox(5, skillChipsBox, toastBox);
+		mazeHud.setAlignment(Pos.TOP_CENTER);
+		mazeHud.setPadding(new Insets(10, 8, 0, 8));
+		mazeHud.setPickOnBounds(false);
+		mazeHud.setMouseTransparent(true);
+		StackPane.setAlignment(mazeHud, Pos.TOP_CENTER);
+		mazeBoard.getChildren().add(mazeHud);
+
 		// Inventory panel for PLAYER mode
 		VBox inventorySection = new VBox(8);
 		inventorySection.setAlignment(Pos.CENTER_LEFT);
@@ -184,7 +232,7 @@ public class PlayGamePage {
 			"-fx-padding: 8 10 8 10;"
 		);
 		if (mode == PlayMode.PLAYER) {
-			Text inventoryLabel = new Text("Vat pham da nhat");
+			Text inventoryLabel = new Text("Collected Items");
 			inventoryLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 			inventoryLabel.setFill(Color.web("#263238"));
 			inventorySection.getChildren().addAll(inventoryLabel, inventory.getContainer());
@@ -198,18 +246,29 @@ public class PlayGamePage {
 		statusText.setFill(Color.web("#34495E"));
 		statusText.setWrappingWidth(312);
 
-		Text currentPosText = new Text("Vi tri hien tai: -");
+		Text gameTimerText = new Text(mode == PlayMode.PLAYER ? "⏱  00:00" : "");
+		gameTimerText.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		gameTimerText.setFill(Color.web("#1976D2"));
+
+		Text currentPosText = new Text("Position: -");
 		currentPosText.setFont(Font.font("Arial", FontWeight.BOLD, 15));
 		currentPosText.setFill(Color.web("#22303A"));
 
-		HBox actions = new HBox(12);
-		actions.setAlignment(Pos.CENTER_RIGHT);
+		HBox actions = new HBox(5);
+		actions.setAlignment(Pos.CENTER_LEFT);
 
-		Button replay = new NeonButton("AP DUNG", Color.web("#4E54E8"), 14, 8, 14, 8);
-		Button optionsButton = new NeonButton("GOI Y", Color.web("#2F80ED"), 14, 8, 14, 8);
-		Button backMenu = new NeonButton("BACK MENU", Color.web("#BBBBBB"), 14, 8, 14, 8);
+		// Smaller font+padding so all 3 labels fit without truncation inside the 360px panel
+		Button replay        = new NeonButton("RESTART",   Color.web("#4E54E8"), 12, 5, 8, 4);
+		Button optionsButton = new NeonButton("OPTIONS",   Color.web("#2F80ED"), 12, 5, 8, 4);
+		Button backMenu      = new NeonButton("MAIN MENU", Color.web("#BBBBBB"), 12, 5, 8, 4);
+		replay.setMaxWidth(Double.MAX_VALUE);
+		optionsButton.setMaxWidth(Double.MAX_VALUE);
+		backMenu.setMaxWidth(Double.MAX_VALUE);
+		HBox.setHgrow(replay,        Priority.ALWAYS);
+		HBox.setHgrow(optionsButton, Priority.ALWAYS);
+		HBox.setHgrow(backMenu,      Priority.ALWAYS);
 
-		Text settingsTitle = new Text("Cai dat");
+		Text settingsTitle = new Text("Settings");
 		settingsTitle.setFont(Font.font("Arial", FontWeight.BOLD, 31));
 		settingsTitle.setFill(Color.web("#1F2D3A"));
 
@@ -223,11 +282,11 @@ public class PlayGamePage {
 		delaySlider.setShowTickLabels(false);
 		delaySlider.setShowTickMarks(false);
 		delaySlider.setStyle("-fx-accent: #2f80ed;");
-		Text delayText = new Text("Do tre: 220ms");
+		Text delayText = new Text("Delay: 220ms");
 		delayText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 		delayText.setFill(Color.web("#263238"));
 		delaySlider.valueProperty().addListener((obs, ov, nv) -> {
-			delayText.setText("Do tre: " + Math.round(nv.doubleValue()) + "ms");
+			delayText.setText("Delay: " + Math.round(nv.doubleValue()) + "ms");
 			botAccumulatorNanos[0] = 0L;
 		});
 
@@ -266,12 +325,13 @@ public class PlayGamePage {
 		);
 
 		VBox infoCard = new VBox(8,
-			new Text("Thong tin"),
+			new Text("Game Info"),
 			currentPosText,
 			stateLabel,
 			scoreLabel,
 			pathLabel,
 			exploredLabel,
+			gameTimerText,
 			statusText,
 			inventorySection
 		);
@@ -293,6 +353,48 @@ public class PlayGamePage {
 		sideColumn.setMinWidth(360);
 		sideColumn.setMaxWidth(360);
 		sideColumn.setMaxHeight(Double.MAX_VALUE);
+
+		// ── Toast notification system ────────────────────────────────────────
+		Timeline[] toastTL = { null };
+		BiConsumer<String, Color> showNotif = (msg, notifColor) -> {
+			if (toastTL[0] != null) toastTL[0].stop();
+			toastMsgText.setText(msg);
+			toastMsgText.setFill(notifColor);
+			toastBox.setOpacity(1.0);
+			toastTL[0] = new Timeline(new KeyFrame(Duration.millis(2400), e -> {
+				FadeTransition ft = new FadeTransition(Duration.millis(500), toastBox);
+				ft.setToValue(0.0);
+				ft.play();
+			}));
+			toastTL[0].play();
+		};
+
+		// ── Skill chips updater (called every timer frame) ───────────────────
+		Runnable updateSkillChips = () -> {
+			skillChipsBox.getChildren().clear();
+			long nowMs = System.currentTimeMillis();
+			if (pw.bombImmune  && nowMs < pw.immuneUntil)
+				skillChipsBox.getChildren().add(makeSkillChip("🛡 IMMUNITY "    + ((pw.immuneUntil    - nowMs + 999) / 1000) + "s", "#00ACC1"));
+			if (pw.doubleScore && nowMs < pw.dblScoreUntil)
+				skillChipsBox.getChildren().add(makeSkillChip("✨ x2 SCORE "    + ((pw.dblScoreUntil  - nowMs + 999) / 1000) + "s", "#F9A825"));
+			if (pw.revealPath  && nowMs < pw.revealPathUntil)
+				skillChipsBox.getChildren().add(makeSkillChip("🗺 PATH "        + ((pw.revealPathUntil - nowMs + 999) / 1000) + "s", "#43A047"));
+			if (pw.revealMap   && nowMs < pw.revealMapUntil)
+				skillChipsBox.getChildren().add(makeSkillChip("👁 MAP "         + ((pw.revealMapUntil - nowMs + 999) / 1000) + "s", "#558B2F"));
+			if (pw.bombDetect  && nowMs < pw.detectUntil)
+				skillChipsBox.getChildren().add(makeSkillChip("🔍 BOMB "        + ((pw.detectUntil   - nowMs + 999) / 1000) + "s", "#EF6C00"));
+			if (pw.effectiveStepNs != PLAYER_STEP_NANOS && nowMs < pw.speedUntil) {
+				boolean fast = pw.effectiveStepNs < PLAYER_STEP_NANOS;
+				skillChipsBox.getChildren().add(makeSkillChip(
+					(fast ? "⚡ SPEED+ " : "🐢 SLOW ") + ((pw.speedUntil - nowMs + 999) / 1000) + "s",
+					fast ? "#0097A7" : "#78909C"
+				));
+			}
+			if (pw.shield)      skillChipsBox.getChildren().add(makeSkillChip("🛡 SHIELD",     "#1E88E5"));
+			if (pw.wallRemoval) skillChipsBox.getChildren().add(makeSkillChip("⛏ WALL -1",    "#E64A19"));
+			if (pw.safeStep)    skillChipsBox.getChildren().add(makeSkillChip("👣 SAFE STEP",  "#2E7D32"));
+			if (pw.aiRunning)   skillChipsBox.getChildren().add(makeSkillChip("🤖 AI ASSIST",  "#00695C"));
+		};
 
 		Runnable renderFrame = () -> {
 			if (mode == PlayMode.BOT) {
@@ -336,6 +438,9 @@ public class PlayGamePage {
 				botToY[0] = initialBotPos.getY();
 			}
 		}
+
+		// Ref used by the result overlay to stop the bot loop
+		AnimationTimer[] botLoopRef = new AnimationTimer[] { null };
 
 		AnimationTimer loop = null;
 		if (mode == PlayMode.BOT) {
@@ -398,7 +503,7 @@ public class PlayGamePage {
 						refreshBotStats(botEngine, stateLabel, scoreLabel, pathLabel, exploredLabel, statusText);
 						State pos = botEngine.getRobotPosition();
 						if (pos != null) {
-							currentPosText.setText("Vi tri hien tai: (" + pos.getX() + ", " + pos.getY() + ")");
+							currentPosText.setText("Position: (" + pos.getX() + ", " + pos.getY() + ")");
 						}
 					}
 
@@ -409,18 +514,43 @@ public class PlayGamePage {
 						? 1.0
 						: Math.min(1.0, Math.max(0.0,
 							(double) botAccumulatorNanos[0] / (double) stepDurationNanos));
-					botRenderX[0] = botFromX[0] + (botToX[0] - botFromX[0]) * progress;
-					botRenderY[0] = botFromY[0] + (botToY[0] - botFromY[0]) * progress;
+				botRenderX[0] = botFromX[0] + (botToX[0] - botFromX[0]) * progress;
+				botRenderY[0] = botFromY[0] + (botToY[0] - botFromY[0]) * progress;
 
-					renderFrame.run();
+				renderFrame.run();
+
+				// ── Show result overlay when bot finishes ─────────────────────────
+				if (rankingRecorded[0] && !resultShown[0]) {
+					resultShown[0] = true;
+					boolean botWon    = botEngine.getState() == GameState.FINISHED;
+					int     botScore  = botEngine.getScore();
+					int     botSteps  = safeSize(botEngine.getPath());
+					int     botExplrd = safeSize(botEngine.getExplored());
+					long    botElapse = System.currentTimeMillis() - gameStartTime[0];
+					new Timeline(new KeyFrame(Duration.millis(800), ev -> {
+						if (botLoopRef[0] != null) botLoopRef[0].stop();
+						showResultOverlay(
+							root, stage, previousScene, difficulty,
+							botWon, false,
+							botScore, botSteps, botElapse,
+							-(botExplrd + 1), // negative = bot mode; abs()-1 = explored count
+							() -> showBotOnStage(stage, previousScene, difficulty, algorithmName),
+							() -> {
+								stage.setScene(previousScene);
+								MenuAudioManager.startTheme();
+							}
+						);
+					})).play();
 				}
-			};
-			loop.start();
+			}
+		};
+		loop.start();
+		botLoopRef[0] = loop;
 		} else {
 			refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
 			statusText.setFill(Color.web("#AEE8FF"));
-			statusText.setText("MOVE WITH ARROW KEYS - REACH THE GOAL FLAG");
-			currentPosText.setText("Vi tri hien tai: (" + playerPos[0].getX() + ", " + playerPos[0].getY() + ")");
+			statusText.setText("MOVE WITH ARROW KEYS — REACH THE GOAL!");
+			currentPosText.setText("Position: (" + playerPos[0].getX() + ", " + playerPos[0].getY() + ")");
 			playerRenderX[0] = playerPos[0].getX();
 			playerRenderY[0] = playerPos[0].getY();
 			playerFromX[0]   = playerPos[0].getX();
@@ -441,9 +571,50 @@ public class PlayGamePage {
 					long frameDelta = Math.max(0L, now - playerLastFrameNanos[0]);
 					playerLastFrameNanos[0] = now;
 
-					// ── Accumulator: identical pattern to bot ──────────────────────────
-					// ── Expire timed power-ups every frame ─────────────────────────
+					// ── Countdown timer ──────────────────────────────────────────────
+					long remainingMs = Math.max(0, countdownEndMs[0] - System.currentTimeMillis());
+					long secLeft = (remainingMs / 1000) % 60;
+					long minLeft = remainingMs / 60000;
+					gameTimerText.setText(String.format("⏱  %02d:%02d", minLeft, secLeft));
+					gameTimerText.setFill(remainingMs < 30_000
+						? Color.web("#FF5252")
+						: remainingMs < 60_000 ? Color.web("#FF8F00") : Color.web("#1976D2"));
+
+					// ── Timeout check ─────────────────────────────────────────────────
+					if (!playerFinished[0] && !selectingPowerUp[0] && remainingMs <= 0) {
+						playerFinished[0] = true;
+						playerTimedOut[0] = true;
+						pendingKey[0]     = null;
+						if (!rankingRecorded[0]) {
+							recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], false);
+							rankingRecorded[0] = true;
+						}
+						showNotif.accept("⏰  TIME UP! Game over.", Color.web("#FF8F00"));
+					}
+
+					// ── Detect skill expirations → show toast ─────────────────────────
+					boolean wasImmune  = pw.bombImmune;
+					boolean wasDbl     = pw.doubleScore;
+					boolean wasPath    = pw.revealPath;
+					boolean wasMap     = pw.revealMap;
+					boolean wasDetect  = pw.bombDetect;
+					boolean wasSpeed   = pw.effectiveStepNs != PLAYER_STEP_NANOS;
 					pw.tickExpiry();
+					if (wasImmune  && !pw.bombImmune)
+						showNotif.accept("🛡 Bomb Immunity has expired!", Color.web("#80DEEA"));
+					if (wasDbl     && !pw.doubleScore)
+						showNotif.accept("✨ Double Score has ended.", Color.web("#FFD54F"));
+					if (wasPath    && !pw.revealPath)
+						showNotif.accept("🗺 Path Reveal has ended.", Color.web("#A5D6A7"));
+					if (wasMap     && !pw.revealMap)
+						showNotif.accept("👁 Map Reveal has ended.", Color.web("#C5E1A5"));
+					if (wasDetect  && !pw.bombDetect)
+						showNotif.accept("🔍 Bomb Detector has ended.", Color.web("#FFCC80"));
+					if (wasSpeed   && pw.effectiveStepNs == PLAYER_STEP_NANOS)
+						showNotif.accept("⏱ Speed effect has ended.", Color.web("#B3E5FC"));
+
+					// ── Update active-skill chips bar ─────────────────────────────────
+					updateSkillChips.run();
 
 					// Use dynamic step duration (affected by SPEED_BOOST / SPEED_SLOW)
 					long stepNs = pw.effectiveStepNs;
@@ -471,32 +642,35 @@ public class PlayGamePage {
 							audio.playFootstep(masterVolume[0], sfxVolume[0]);
 							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0],
 								stateLabel, scoreLabel, pathLabel, exploredLabel);
-							currentPosText.setText("Vi tri hien tai: ("
+							currentPosText.setText("Position: ("
 								+ nextAi.getX() + ", " + nextAi.getY() + ")");
 							if (pw.aiPathIdx >= pw.aiPath.size() || pw.aiPathIdx > 8) {
 								pw.aiRunning = false;
 								pw.aiPath = null;
 								statusText.setFill(Color.web("#A5D6A7"));
-								statusText.setText("AI ASSIST hoan thanh — tiep tuc tu di chuyen!");
+								statusText.setText("AI ASSIST complete — resume moving!");
 							}
 						}
-					// ── Normal player step ────────────────────────────────────────────
+					// ── Single-step player movement ──────────────────────────────────
+					// One key press fires exactly one step. Key-repeat is ignored.
 					} else {
 						if (pw.aiRunning) { pw.aiRunning = false; pw.aiPath = null; }
 
-						if (playerAccumulatorNanos[0] >= stepNs
-								&& playerHeldKey[0] != null
+						if (!keyConsumed[0]
+								&& pendingKey[0] != null
+								&& playerAccumulatorNanos[0] >= stepNs
 								&& !playerFinished[0]
 								&& !selectingPowerUp[0]) {
 
 							playerAccumulatorNanos[0] -= stepNs;
+							keyConsumed[0] = true; // mark step as consumed for this press
 
-							// Start from current render position (seamless)
+							// Start from current render position (seamless glide)
 							playerFromX[0] = playerRenderX[0];
 							playerFromY[0] = playerRenderY[0];
 
 							boolean moved = handlePlayerMove(
-								playerHeldKey[0],
+								pendingKey[0],
 								maze, playerPos, playerScore, playerLives, playerFinished,
 								statusText, audio, masterVolume, sfxVolume,
 								inventory, gameScene[0], selectingPowerUp, renderFrame,
@@ -510,7 +684,7 @@ public class PlayGamePage {
 							if (moved) {
 								refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0],
 									stateLabel, scoreLabel, pathLabel, exploredLabel);
-								currentPosText.setText("Vi tri hien tai: ("
+								currentPosText.setText("Position: ("
 									+ playerPos[0].getX() + ", " + playerPos[0].getY() + ")");
 							}
 						}
@@ -523,9 +697,34 @@ public class PlayGamePage {
 					playerRenderY[0] = playerFromY[0] + (playerToY[0] - playerFromY[0]) * progress;
 
 					renderFrame.run();
+
+					// ── Show result overlay on win/lose/timeout ───────────────────────
+					if (playerFinished[0] && !resultShown[0]) {
+						resultShown[0] = true;
+						pendingKey[0]  = null;
+						boolean won     = !playerTimedOut[0] && playerLives[0] > 0;
+						boolean timedOut = playerTimedOut[0];
+						long elapsedResult = System.currentTimeMillis() - gameStartTime[0];
+						int  finalScore  = playerScore[0];
+						int  finalSteps  = stepCounter[0];
+						int  finalLives  = playerLives[0];
+						new Timeline(new KeyFrame(Duration.millis(700), ev -> {
+							if (playerLoopRef[0] != null) playerLoopRef[0].stop();
+							showResultOverlay(
+								root, stage, previousScene, difficulty,
+								won, timedOut, finalScore, finalSteps, elapsedResult, finalLives,
+								() -> showPlayerOnStage(stage, previousScene, difficulty),
+								() -> {
+									stage.setScene(previousScene);
+									MenuAudioManager.startTheme();
+								}
+							);
+						})).play();
+					}
 				}
 			};
 			loop.start();
+			playerLoopRef[0] = loop;
 		}
 
 		AnimationTimer finalLoop = loop;
@@ -545,7 +744,8 @@ public class PlayGamePage {
 				return;
 			}
 			optionsOpen[0] = true;
-			playerHeldKey[0] = null; // stop player movement while paused
+			pendingKey[0]  = null; // discard any pending step while paused
+			keyConsumed[0] = false;
 			if (finalLoop != null) {
 				finalLoop.stop();
 			}
@@ -617,23 +817,38 @@ public class PlayGamePage {
 		gameScene[0] = scene;
 		
 		if (mode == PlayMode.PLAYER) {
-			// Key PRESSED — register held direction; step fires in the AnimationTimer
+			// Key PRESSED — schedule exactly one step; repeat events are ignored via keyConsumed
 			scene.setOnKeyPressed(e -> {
 				if (optionsOpen[0] || selectingPowerUp[0]) {
 					e.consume();
 					return;
 				}
 				if (isMovementKey(e.getCode())) {
-					playerHeldKey[0] = e.getCode();
+					if (e.getCode() != pendingKey[0]) {
+						// New direction pressed: schedule a fresh step
+						pendingKey[0]  = e.getCode();
+						keyConsumed[0] = false;
+					}
+					// Same key while already pending/consumed → ignore (prevents key-repeat)
 					e.consume();
 				}
 			});
 
-			// Key RELEASED — stop continuous motion
+			// Key RELEASED — clear the pending step so the key must be pressed again
 			scene.setOnKeyReleased(e -> {
-				if (isMovementKey(e.getCode()) && e.getCode() == playerHeldKey[0]) {
-					playerHeldKey[0] = null;
+				if (isMovementKey(e.getCode()) && e.getCode() == pendingKey[0]) {
+					pendingKey[0]  = null;
+					keyConsumed[0] = false;
 				}
+			});
+
+			// ── Mirror important status messages to on-screen toast ─────────────
+			statusText.textProperty().addListener((obs, ov, nv) -> {
+				if (nv == null || nv.isEmpty() || nv.equals(ov)) return;
+				// Skip high-frequency / low-importance messages
+				if (nv.startsWith("MOVE WITH ARROW KEYS") || nv.startsWith("BLOCKED BY WALL")) return;
+				Color fill = statusText.getFill() instanceof Color c ? c : Color.WHITE;
+				showNotif.accept(nv, fill);
 			});
 
 			// ── Wire inventory: clicking an item in the panel activates its effect ──
@@ -647,43 +862,43 @@ public class PlayGamePage {
 						case EXTRA_LIFE -> {
 							playerLives[0] = Math.min(playerLives[0] + 1, 9);
 							statusText.setFill(Color.web("#00FF9C"));
-							statusText.setText("EXTRA LIFE! Mang song: " + playerLives[0]);
+							statusText.setText("EXTRA LIFE! Lives remaining: " + playerLives[0]);
 							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
 						}
 						case SHIELD -> {
 							pw.shield = true;
 							statusText.setFill(Color.web("#64B5F6"));
-							statusText.setText("SHIELD kich hoat — bomb tiep theo duoc chan!");
+							statusText.setText("SHIELD active — next bomb will be blocked!");
 						}
 						case BOMB_IMMUNITY -> {
 							pw.bombImmune = true; pw.immuneUntil = NOW + 8_000;
 							statusText.setFill(Color.web("#80DEEA"));
-							statusText.setText("MIEN NHIEM BOMB trong 8 giay!");
+							statusText.setText("BOMB IMMUNITY for 8 seconds!");
 						}
 						case FREEZE_TIME, SLOW_BOMBS -> {
 							pw.bombImmune = true; pw.immuneUntil = NOW + 6_000;
 							statusText.setFill(Color.web("#B3E5FC"));
-							statusText.setText("BOMB BI DONG LANH trong 6 giay!");
+							statusText.setText("BOMBS FROZEN for 6 seconds!");
 						}
 						case DOUBLE_SCORE -> {
 							pw.doubleScore = true; pw.dblScoreUntil = NOW + 15_000;
 							statusText.setFill(Color.web("#FFD54F"));
-							statusText.setText("DIEM X2 trong 15 giay!");
+							statusText.setText("DOUBLE SCORE for 15 seconds!");
 						}
 						case REVEAL_PATH, SHORTEST_PATH_MODE -> {
 							pw.revealPath = true; pw.revealPathUntil = NOW + 20_000;
 							statusText.setFill(Color.web("#A5D6A7"));
-							statusText.setText("DUONG DI duoc hien thi trong 20 giay!");
+							statusText.setText("PATH REVEALED for 20 seconds!");
 						}
 						case REVEAL_MAP -> {
 							pw.revealMap = true; pw.revealMapUntil = NOW + 20_000;
 							statusText.setFill(Color.web("#C5E1A5"));
-							statusText.setText("TOAN BO BAN DO duoc mo trong 20 giay!");
+							statusText.setText("FULL MAP revealed for 20 seconds!");
 						}
 						case BOMB_DETECTOR -> {
 							pw.bombDetect = true; pw.detectUntil = NOW + 15_000;
 							statusText.setFill(Color.web("#FFCC80"));
-							statusText.setText("PHAT HIEN BOMB trong 15 giay!");
+							statusText.setText("BOMB DETECTOR for 15 seconds!");
 						}
 						case SPEED_BOOST -> {
 							pw.effectiveStepNs = PLAYER_STEP_NANOS / 2;
@@ -691,14 +906,14 @@ public class PlayGamePage {
 							// reset accumulator so new speed takes effect immediately
 							playerAccumulatorNanos[0] = pw.effectiveStepNs;
 							statusText.setFill(Color.web("#80DEEA"));
-							statusText.setText("TOC DO TANG x2 trong 8 giay!");
+							statusText.setText("SPEED BOOST x2 for 8 seconds!");
 						}
 						case SPEED_SLOW -> {
 							pw.effectiveStepNs = PLAYER_STEP_NANOS * 2;
 							pw.speedUntil = NOW + 8_000;
 							playerAccumulatorNanos[0] = pw.effectiveStepNs;
 							statusText.setFill(Color.web("#BCAAA4"));
-							statusText.setText("CHE DO CHAM — an toan hon trong 8 giay!");
+							statusText.setText("SLOW MODE — safer movement for 8 seconds!");
 						}
 						case TELEPORT -> {
 							com.nhom_01.robot_pathfinding.core.State newPos =
@@ -711,29 +926,29 @@ public class PlayGamePage {
 								refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
 								currentPosText.setText("Vi tri hien tai: (" + newPos.getX() + ", " + newPos.getY() + ")");
 								statusText.setFill(Color.web("#CE93D8"));
-								statusText.setText("DICH CHUYEN toi vi tri an toan!");
+								statusText.setText("TELEPORTED to a safe location!");
 							}
 						}
 						case REMOVE_WALL -> {
 							pw.wallRemoval = true;
 							statusText.setFill(Color.web("#FFAB91"));
-							statusText.setText("XOA TUONG san sang — di vao tuong de pha!");
+							statusText.setText("WALL REMOVAL ready — walk into a wall to break it!");
 						}
 						case SAFE_STEP -> {
 							pw.safeStep = true;
 							statusText.setFill(Color.web("#A5D6A7"));
-							statusText.setText("BUOC AN TOAN — bomb tiep theo bi vo hieu hoa!");
+							statusText.setText("SAFE STEP ready — next bomb cell is neutralized!");
 						}
 						case TIME_BONUS -> {
 							playerScore[0] += 500;
 							statusText.setFill(Color.web("#FFD54F"));
-							statusText.setText("+500 DIEM THUONG!");
+							statusText.setText("+500 SCORE BONUS!");
 							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
 						}
 						case LUCKY_FIND -> {
 							playerScore[0] += 300;
 							statusText.setFill(Color.web("#FFF176"));
-							statusText.setText("+300 DIEM MAY MAN!");
+							statusText.setText("+300 LUCKY SCORE!");
 							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
 						}
 						case AI_ASSIST -> {
@@ -743,12 +958,13 @@ public class PlayGamePage {
 								pw.aiRunning = true;
 								pw.aiPath = aiPath;
 								pw.aiPathIdx = 1;
-								playerHeldKey[0] = null; // AI takes over
+								pendingKey[0]  = null; // AI takes over, clear any pending manual step
+						keyConsumed[0] = false;
 								statusText.setFill(Color.web("#80CBC4"));
-								statusText.setText("AI TRO LY — tu dong di 8 buoc!");
+								statusText.setText("AI ASSIST — auto-moving 8 steps!");
 							} else {
 								statusText.setFill(Color.web("#FFAB91"));
-								statusText.setText("AI TRO LY — khong tim duoc duong di.");
+								statusText.setText("AI ASSIST — no path found from here.");
 							}
 						}
 						case DOUBLE_CHOICE -> {
@@ -757,17 +973,17 @@ public class PlayGamePage {
 									if (extra != null) inventory.addCollectedPowerUp(extra);
 								}, () -> {});
 								statusText.setFill(Color.web("#CE93D8"));
-								statusText.setText("CHON THEM 1 VAT PHAM!");
+								statusText.setText("DOUBLE CHOICE — pick a bonus item!");
 							}
 						}
 						case VISION_BOOST -> {
 							pw.revealMap = true; pw.revealMapUntil = NOW + 15_000;
 							statusText.setFill(Color.web("#B3E5FC"));
-							statusText.setText("TAM NHIN MO RONG trong 15 giay!");
+							statusText.setText("VISION BOOST for 15 seconds!");
 						}
 						default -> {
 							statusText.setFill(Color.web("#FFD59A"));
-							statusText.setText(type.getDisplayName() + " DA KICH HOAT!");
+							statusText.setText(type.getDisplayName() + " ACTIVATED!");
 						}
 					}
 					renderFrame.run();
@@ -895,10 +1111,10 @@ public class PlayGamePage {
 				maze.setCell(nx, ny, CellType.EMPTY);
 				nextCell = CellType.EMPTY;
 				statusText.setFill(Color.web("#FFAB91"));
-				statusText.setText("TUONG DA BI XOA!");
+				statusText.setText("WALL DESTROYED!");
 			} else {
 				statusText.setFill(Color.web("#FFD59A"));
-				statusText.setText("DUONG BI CHAN - thu huong khac");
+				statusText.setText("BLOCKED BY WALL — try another direction");
 				return false;
 			}
 		}
@@ -915,22 +1131,22 @@ public class PlayGamePage {
 				// Safe: bomb neutralised
 				pw.safeStep = false;
 				statusText.setFill(Color.web("#A5D6A7"));
-				statusText.setText("BOMB BI VO HIEU HOA boi powerup!");
+				statusText.setText("BOMB neutralized by power-up!");
 			} else if (pw.shield) {
 				// Shield absorbs 1 bomb
 				pw.shield = false;
 				statusText.setFill(Color.web("#64B5F6"));
-				statusText.setText("SHIELD DA CHAN BOMB!");
+				statusText.setText("SHIELD blocked the bomb!");
 			} else {
 				// Normal damage
 				playerLives[0]--;
 				playerScore[0] = Math.max(0, playerScore[0] - 120);
 				statusText.setFill(Color.web("#FF8DA6"));
-				statusText.setText("DINH BOMB -1 MANG SONG!");
+				statusText.setText("HIT A BOMB — -1 LIFE!");
 				if (playerLives[0] <= 0) {
 					playerFinished[0] = true;
 					statusText.setFill(Color.web("#FF6B6B"));
-					statusText.setText("GAME OVER - HET MANG SONG");
+					statusText.setText("GAME OVER — Out of lives!");
 					if (!rankingRecorded[0]) {
 						recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], false);
 						rankingRecorded[0] = true;
@@ -944,7 +1160,7 @@ public class PlayGamePage {
 			playerScore[0] += reward;
 			maze.setCell(nx, ny, CellType.EMPTY);
 			statusText.setFill(Color.web("#9FFFD8"));
-			statusText.setText("NHAT VAT PHAM (+" + reward + ") — chon power-up!");
+			statusText.setText("ITEM COLLECTED (+" + reward + ") — choose a power-up!");
 
 			if (inventory != null && gameScene != null) {
 				boolean shown = ItemCardSelectionModal.showOnScene(gameScene, selectedPowerUp -> {
@@ -956,7 +1172,7 @@ public class PlayGamePage {
 				selectingPowerUp[0] = shown;
 				if (!shown) {
 					statusText.setFill(Color.web("#FFD59A"));
-					statusText.setText("VAT PHAM DA NHAT — tiep tuc di chuyen");
+					statusText.setText("ITEM COLLECTED — continue moving");
 				}
 			}
 
@@ -964,18 +1180,203 @@ public class PlayGamePage {
 		} else if (nextCell == CellType.GOAL) {
 			playerFinished[0] = true;
 			statusText.setFill(Color.web("#00FF9C"));
-			statusText.setText("DA THOAT! DIEM CUOI: " + Math.max(0, playerScore[0]));
+			statusText.setText("GOAL REACHED! Final score: " + Math.max(0, playerScore[0]));
 			if (!rankingRecorded[0]) {
 				recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], true);
 				rankingRecorded[0] = true;
 			}
 		} else {
 			statusText.setFill(Color.web("#AEE8FF"));
-			statusText.setText("DI CHUYEN BANG MUI TEN — TIM CUA THOAT");
+			statusText.setText("MOVE WITH ARROW KEYS — REACH THE GOAL!");
 		}
 
 		playerPos[0] = new State(nx, ny, Math.max(0, playerLives[0]));
 		return true;
+	}
+
+	// ── Win / Lose / Timeout result overlay ───────────────────────────────────
+	private static void showResultOverlay(
+		StackPane root,
+		Stage stage,
+		Scene previousScene,
+		String difficulty,
+		boolean won,
+		boolean timedOut,
+		int finalScore,
+		int steps,
+		long elapsedMs,
+		int livesLeft,
+		Runnable onRestart,
+		Runnable onMenu
+	) {
+		if (root.lookup("#result-overlay") != null) return;
+
+		// ── Dark backdrop (same style as skill modal) ────────────────────────
+		StackPane overlay = new StackPane();
+		overlay.setId("result-overlay");
+		overlay.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+		overlay.setStyle("-fx-background-color: rgba(6,4,18,0.82);");
+		overlay.setPickOnBounds(true);
+
+		// ── Result card ──────────────────────────────────────────────────────
+		VBox card = new VBox(0);
+		card.setPrefWidth(540);
+		card.setMaxWidth(540);
+		card.setMaxHeight(Region.USE_PREF_SIZE);
+
+		javafx.scene.effect.DropShadow shadow = new javafx.scene.effect.DropShadow();
+		shadow.setColor(Color.color(0, 0, 0, 0.55));
+		shadow.setRadius(30);
+		shadow.setOffsetY(8);
+		card.setEffect(shadow);
+
+		// ── Colored header ───────────────────────────────────────────────────
+		String headerHex   = won ? "#2E7D32" : timedOut ? "#E65100" : "#C62828";
+		// livesLeft >= 0  → player mode (real lives)
+		// livesLeft < 0  → bot mode (explored-count passed negated, or -1 as sentinel)
+		boolean isBotMode  = livesLeft < 0;
+		String titleLabel  = won ? "🏆  CONGRATULATIONS!" : timedOut ? "⏰  TIME'S UP!"
+		                         : isBotMode ? "🤖  NO PATH FOUND" : "💀  GAME OVER";
+		String subLabel    = won
+		    ? (isBotMode ? "The bot reached the goal!" : "You found the exit successfully!")
+		    : timedOut ? "You ran out of time. Better luck next time!"
+		    : isBotMode ? "No valid path exists. Try a different algorithm."
+		    : "You lost all your lives. Try again!";
+
+		VBox header = new VBox(6);
+		header.setAlignment(Pos.CENTER);
+		header.setPadding(new Insets(22, 20, 18, 20));
+		header.setStyle("-fx-background-color: " + headerHex + "; -fx-background-radius: 16 16 0 0;");
+
+		Text titleText = new Text(titleLabel);
+		titleText.setFont(Font.font("Orbitron", FontWeight.BOLD, 26));
+		titleText.setFill(Color.WHITE);
+
+		Text subText = new Text(subLabel);
+		subText.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
+		subText.setFill(Color.color(1, 1, 1, 0.75));
+		header.getChildren().addAll(titleText, subText);
+
+		// ── Stats grid ───────────────────────────────────────────────────────
+		VBox statsSection = new VBox(10);
+		statsSection.setPadding(new Insets(18, 24, 14, 24));
+		statsSection.setStyle("-fx-background-color: #F8FAFF;");
+
+		long sec = (elapsedMs / 1000) % 60;
+		long min = elapsedMs / 60000;
+		String timeStr = String.format("%02d:%02d", min, sec);
+
+		HBox statsGrid = new HBox(16);
+		statsGrid.setAlignment(Pos.CENTER);
+		statsGrid.getChildren().addAll(
+			statBox("SCORE",    String.valueOf(Math.max(0, finalScore)),             "#1565C0"),
+			statBox("TIME",     timeStr,                                             "#00695C"),
+			statBox("STEPS",    String.valueOf(steps),                               "#E65100"),
+			isBotMode
+				? statBox("EXPLORED", String.valueOf(Math.abs(livesLeft) - 1),      "#6A1B9A")
+				: statBox("LIVES",    String.valueOf(Math.max(0, livesLeft)),        "#6A1B9A")
+		);
+		statsSection.getChildren().add(statsGrid);
+
+		// ── Top rankings for this difficulty ─────────────────────────────────
+		VBox rankSection = new VBox(8);
+		rankSection.setPadding(new Insets(10, 24, 14, 24));
+		rankSection.setStyle("-fx-background-color: #F0F4FF;");
+
+		Text rankTitle = new Text("TOP SCORES — " + difficulty.toUpperCase());
+		rankTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 13));
+		rankTitle.setFill(Color.web("#1F2D3A"));
+		rankSection.getChildren().add(rankTitle);
+
+		java.util.List<RankingEntry> entries = RankingManager.getInstance()
+			.getRankingsByDifficulty(difficulty);
+		int maxShow = Math.min(entries.size(), 5);
+		for (int i = 0; i < maxShow; i++) {
+			RankingEntry e = entries.get(i);
+			String medal = i == 0 ? "🥇" : i == 1 ? "🥈" : i == 2 ? "🥉" : "  " + (i + 1) + ".";
+			HBox row = new HBox(8);
+			row.setAlignment(Pos.CENTER_LEFT);
+			Text rankNum = new Text(medal + "  " + e.getPlayerName());
+			rankNum.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+			rankNum.setFill(Color.web("#263238"));
+			javafx.scene.layout.Region sp = new Region();
+			HBox.setHgrow(sp, Priority.ALWAYS);
+			Text scoreVal = new Text(String.valueOf(e.getScore()));
+			scoreVal.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+			scoreVal.setFill(Color.web("#1565C0"));
+			row.getChildren().addAll(rankNum, sp, scoreVal);
+			rankSection.getChildren().add(row);
+		}
+		if (maxShow == 0) {
+			Text noData = new Text("No scores recorded yet.");
+			noData.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+			noData.setFill(Color.web("#607D8B"));
+			rankSection.getChildren().add(noData);
+		}
+
+		// ── Action buttons ───────────────────────────────────────────────────
+		HBox actions = new HBox(14);
+		actions.setAlignment(Pos.CENTER);
+		actions.setPadding(new Insets(16, 20, 20, 20));
+		actions.setStyle("-fx-background-color: #F8FAFF; -fx-background-radius: 0 0 16 16;");
+
+		Button restartBtn = new NeonButton("▶  PLAY AGAIN", Color.web("#2F80ED"), 14, 10, 16, 8);
+		restartBtn.setPrefWidth(180);
+		Button menuBtn    = new NeonButton("⌂  MAIN MENU",  Color.web("#607D8B"), 14, 10, 16, 8);
+		menuBtn.setPrefWidth(180);
+
+		restartBtn.setOnAction(ev -> {
+			root.getChildren().remove(overlay);
+			onRestart.run();
+		});
+		menuBtn.setOnAction(ev -> {
+			root.getChildren().remove(overlay);
+			onMenu.run();
+		});
+		actions.getChildren().addAll(restartBtn, menuBtn);
+
+		card.getChildren().addAll(header, statsSection, rankSection, actions);
+
+		overlay.getChildren().add(card);
+		root.getChildren().add(overlay);
+
+		overlay.setOpacity(0);
+		FadeTransition ft = new FadeTransition(Duration.millis(320), overlay);
+		ft.setFromValue(0);
+		ft.setToValue(1);
+		ft.play();
+	}
+
+	/** Small stat box used inside the result overlay. */
+	private static VBox statBox(String label, String value, String colorHex) {
+		VBox box = new VBox(4);
+		box.setAlignment(Pos.CENTER);
+		box.setPadding(new Insets(10, 18, 10, 18));
+		box.setStyle(
+			"-fx-background-color: rgba(0,0,0,0.04);" +
+			"-fx-background-radius: 10;"
+		);
+		Text val = new Text(value);
+		val.setFont(Font.font("Orbitron", FontWeight.BOLD, 20));
+		val.setFill(Color.web(colorHex));
+		Text lbl = new Text(label);
+		lbl.setFont(Font.font("Arial", FontWeight.NORMAL, 11));
+		lbl.setFill(Color.web("#607D8B"));
+		box.getChildren().addAll(val, lbl);
+		return box;
+	}
+
+	/** Compact colored chip displayed in the skill-timer HUD bar. */
+	private static HBox makeSkillChip(String label, String bgHex) {
+		HBox chip = new HBox();
+		chip.setAlignment(Pos.CENTER);
+		chip.setPadding(new Insets(4, 10, 4, 10));
+		chip.setStyle("-fx-background-color: " + bgHex + "; -fx-background-radius: 12;");
+		Text t = new Text(label);
+		t.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+		t.setFill(Color.WHITE);
+		chip.getChildren().add(t);
+		return chip;
 	}
 
 	private static int safeSize(java.util.List<?> list) {
@@ -1069,25 +1470,25 @@ public class PlayGamePage {
 			"-fx-background-radius: 10;"
 		);
 
-		Text title = new Text("Chu thich");
+		Text title = new Text("Legend");
 		title.setFont(Font.font("Arial", FontWeight.BOLD, 31));
 		title.setFill(Color.web("#1F2D3A"));
 
-		Text hint = new Text("Nhan biet nhanh cac doi tuong trong ban do:");
+		Text hint = new Text("Quick reference for map objects:");
 		hint.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 		hint.setFill(Color.web("#4F5B62"));
 
 		VBox rows = new VBox(8,
-			legendRow("/image/vit/Duck.png", "R", Color.web("#FFE082"), "Nguoi choi / Robot"),
+			legendRow("/image/vit/Duck.png", "R", Color.web("#FFE082"), "Player / Robot"),
 			legendRow("/image/vit/FinishLine.png", "F", Color.web("#212121"), "GOAL"),
-			legendRow("/image/vit/Grass.png", "W", Color.web("#A3D977"), "Vat can"),
-			legendRow("/image/vit/Water.png", "~", Color.web("#8AE5F6"), "Duong nuoc"),
-			legendRow("/image/vit/Flag.png", ".", Color.web("#AFC7FF"), "Da di qua"),
+			legendRow("/image/vit/Grass.png", "W", Color.web("#A3D977"), "Wall"),
+			legendRow("/image/vit/Water.png", "~", Color.web("#8AE5F6"), "Open path"),
+			legendRow("/image/vit/Flag.png", ".", Color.web("#AFC7FF"), "Explored"),
 			legendRow("/image/vit/Vit.png", "+", Color.web("#A5D6A7"), "Solution / Item"),
-			legendRow("/image/vit/Stop.png", "X", Color.web("#FF6B6B"), "Duong cut / Nguy hiem")
+			legendRow("/image/vit/Stop.png", "X", Color.web("#FF6B6B"), "Dead end / Hazard")
 		);
 
-		Text foot = new Text("Co the mo options de bat goi y duong di trong qua trinh choi.");
+		Text foot = new Text("Open OPTIONS to enable path hints during gameplay.");
 		foot.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
 		foot.setFill(Color.web("#7B8A93"));
 		foot.setWrappingWidth(330);

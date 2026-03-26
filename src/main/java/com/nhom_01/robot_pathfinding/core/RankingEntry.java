@@ -60,4 +60,4 @@ public class RankingEntry {
             playerName, difficulty, steps, getTimeFormatted(), algorithm, score
         );
     }
-}
+} 

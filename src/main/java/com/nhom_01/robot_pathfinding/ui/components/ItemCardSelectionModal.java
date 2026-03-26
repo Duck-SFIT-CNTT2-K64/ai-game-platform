@@ -6,8 +6,10 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
-import javafx.scene.control.Label;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -24,6 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 public class ItemCardSelectionModal {
+
     private static final String MODAL_OVERLAY_ID = "item-card-selection-overlay";
 
     private ItemCardSelectionModal() {
@@ -36,168 +39,194 @@ public class ItemCardSelectionModal {
         }
 
         StackPane gameRoot = (StackPane) gameScene.getRoot();
-        if (gameRoot.lookup("#" + MODAL_OVERLAY_ID) != null) {
-            return false;
-        }
+        if (gameRoot.lookup("#" + MODAL_OVERLAY_ID) != null) return false;
 
-        StackPane overlayRoot = new StackPane();
-        overlayRoot.setId(MODAL_OVERLAY_ID);
-        overlayRoot.setPrefSize(gameScene.getWidth(), gameScene.getHeight());
-        overlayRoot.setStyle("-fx-background-color: rgba(35,30,20,0.42);");
-        overlayRoot.setPickOnBounds(true);
+        List<PowerUp> powerUps = generateRandomPowerUps(3);
+        if (powerUps.isEmpty()) { safeRun(onClosed); return false; }
 
-        VBox modalContainer = new VBox(20);
-        modalContainer.setAlignment(Pos.CENTER);
-        modalContainer.setPrefWidth(1200);
-        modalContainer.setStyle(
-            "-fx-background-color: rgba(255,255,255,0.97);" +
-            "-fx-border-color: rgba(0,0,0,0.12);" +
-            "-fx-border-width: 1.5;" +
-            "-fx-border-radius: 15;" +
-            "-fx-background-radius: 15;"
-        );
-        modalContainer.setPadding(new Insets(30));
+        // ── Dark semi-transparent backdrop — game (duck + maze) stays visible ──
+        StackPane overlay = new StackPane();
+        overlay.setId(MODAL_OVERLAY_ID);
+        overlay.setPrefSize(gameScene.getWidth(), gameScene.getHeight());
+        overlay.setStyle("-fx-background-color: rgba(6,4,18,0.78);");
+        overlay.setPickOnBounds(true);
 
-        Text titleText = new Text("SELECT A POWER-UP");
-        titleText.setFont(Font.font("Orbitron", FontWeight.BOLD, 40));
-        titleText.setFill(Color.web("#1F2D3A"));
+        // ── Title (white text floating on dark backdrop) ────────────────────
+        Text title = new Text("⚡  CHON POWER-UP");
+        title.setFont(Font.font("Orbitron", FontWeight.BOLD, 32));
+        title.setFill(Color.WHITE);
+        DropShadow glow = new DropShadow();
+        glow.setColor(Color.color(0.35, 0.62, 1.0, 0.90));
+        glow.setRadius(20);
+        title.setEffect(glow);
 
-        Text subtitleText = new Text("Choose 1 of 3 power-ups to boost your game");
-        subtitleText.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
-        subtitleText.setFill(Color.web("#4F5B62"));
+        Text subtitle = new Text("Chon 1 trong 3 power-up de tang cuong co hoi chien thang!");
+        subtitle.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
+        subtitle.setFill(Color.color(0.72, 0.80, 1.0, 0.78));
 
-        // Generate 3 random power-ups
-        List<PowerUp> selectedPowerUps = generateRandomPowerUps(3);
+        VBox titleBlock = new VBox(7, title, subtitle);
+        titleBlock.setAlignment(Pos.CENTER);
 
-        if (selectedPowerUps.isEmpty()) {
-            Label error = new Label("No power-up available");
-            error.setFont(Font.font("Arial", FontWeight.BOLD, 16));
-            error.setTextFill(Color.web("#FFD59A"));
-            modalContainer.getChildren().add(error);
-            overlayRoot.getChildren().add(modalContainer);
-            gameRoot.getChildren().add(overlayRoot);
-            safeRun(onClosed);
-            return false;
-        }
-
-        HBox cardsBox = new HBox(30);
-        cardsBox.setAlignment(Pos.CENTER);
-        cardsBox.setPrefHeight(350);
+        // ── Cards row (cards float directly on dark overlay) ────────────────
+        HBox cardsRow = new HBox(22);
+        cardsRow.setAlignment(Pos.CENTER);
 
         AtomicBoolean closing = new AtomicBoolean(false);
-
-        for (PowerUp powerUp : selectedPowerUps) {
-            HBox cardBox = createPowerUpCard(powerUp, () -> {
+        for (PowerUp pu : powerUps) {
+            VBox card = buildCard(pu, () -> {
                 if (closing.compareAndSet(false, true)) {
-                    safeRun(() -> onSelect.accept(powerUp));
-                    fadeOutAndRemove(overlayRoot, gameRoot, onClosed);
+                    safeRun(() -> onSelect.accept(pu));
+                    fadeOutAndRemove(overlay, gameRoot, onClosed);
                 }
             });
-            cardsBox.getChildren().add(cardBox);
+            cardsRow.getChildren().add(card);
         }
 
-        modalContainer.getChildren().addAll(titleText, subtitleText, cardsBox);
-        overlayRoot.getChildren().add(modalContainer);
+        Text escHint = new Text("Nhan  ESC  de bo qua");
+        escHint.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+        escHint.setFill(Color.color(0.55, 0.60, 0.72, 0.55));
 
-        // Block arrow keys while selecting card, and close with ESC.
-        overlayRoot.setOnKeyPressed(e -> {
+        VBox content = new VBox(16, titleBlock, cardsRow, escHint);
+        content.setAlignment(Pos.CENTER);
+        content.setPickOnBounds(false);
+        overlay.getChildren().add(content);
+
+        overlay.setOnKeyPressed(e -> {
             switch (e.getCode()) {
                 case ESCAPE -> {
-                    if (closing.compareAndSet(false, true)) {
-                        fadeOutAndRemove(overlayRoot, gameRoot, onClosed);
-                    }
+                    if (closing.compareAndSet(false, true))
+                        fadeOutAndRemove(overlay, gameRoot, onClosed);
                     e.consume();
                 }
                 default -> e.consume();
             }
         });
 
-        gameRoot.getChildren().add(overlayRoot);
-        overlayRoot.requestFocus();
+        gameRoot.getChildren().add(overlay);
+        overlay.requestFocus();
 
-        // Fade in animation
-        FadeTransition fade = new FadeTransition(Duration.millis(240), overlayRoot);
-        fade.setFromValue(0);
-        fade.setToValue(1);
-        fade.play();
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(220), overlay);
+        fadeIn.setFromValue(0);
+        fadeIn.setToValue(1);
+        fadeIn.play();
         return true;
     }
 
-    private static HBox createPowerUpCard(PowerUp powerUp, Runnable onSelect) {
-        HBox card = new HBox(15);
-        card.setPrefSize(300, 320);
-        card.setAlignment(Pos.TOP_CENTER);
-        card.setPadding(new Insets(20));
+    // ── Card: colored header + white body ─────────────────────────────────────
+    private static VBox buildCard(PowerUp pu, Runnable onSelect) {
+        String diffHex = switch (pu.getDifficulty()) {
+            case EASY   -> "#00C853";
+            case MEDIUM -> "#F57C00";
+            case HARD   -> "#C62828";
+        };
+        Color diffColor = Color.web(diffHex);
+        String diffBgRgba = switch (pu.getDifficulty()) {
+            case EASY   -> "rgba(0,200,83,0.12)";
+            case MEDIUM -> "rgba(245,124,0,0.12)";
+            case HARD   -> "rgba(198,40,40,0.12)";
+        };
+
+        VBox card = new VBox(0);
+        card.setPrefSize(308, 450);
+        card.setMaxSize(308, 450);
         card.setStyle(
-            "-fx-background-color: rgba(255,255,255,0.95);" +
-            "-fx-border-color: rgba(0,0,0,0.12);" +
+            "-fx-background-color: rgba(255,255,255,0.97);" +
+            "-fx-border-color: rgba(255,255,255,0.28);" +
             "-fx-border-width: 1.5;" +
-            "-fx-border-radius: 12;" +
-            "-fx-background-radius: 12;" +
+            "-fx-border-radius: 16;" +
+            "-fx-background-radius: 16;" +
             "-fx-cursor: hand;"
         );
 
-        VBox content = new VBox(12);
-        content.setAlignment(Pos.TOP_CENTER);
-        content.setPrefWidth(260);
+        DropShadow shadow = new DropShadow();
+        shadow.setColor(Color.color(0, 0, 0, 0.55));
+        shadow.setRadius(24);
+        shadow.setOffsetY(7);
+        card.setEffect(shadow);
 
-        // Difficulty indicator
-        Text difficultyText = new Text(powerUp.getDifficulty().toString());
-        difficultyText.setFont(Font.font("Arial", FontWeight.BOLD, 12));
-        Color diffColor = switch (powerUp.getDifficulty()) {
-            case EASY -> Color.web("#00FF9C");
-            case MEDIUM -> Color.web("#FFB800");
-            case HARD -> Color.web("#FF6B6B");
-        };
-        difficultyText.setFill(diffColor);
+        // ── Colored header ──────────────────────────────────────────────
+        VBox header = new VBox(5);
+        header.setAlignment(Pos.CENTER);
+        header.setPadding(new Insets(22, 16, 18, 16));
+        header.setStyle(
+            "-fx-background-color: " + diffHex + ";" +
+            "-fx-background-radius: 16 16 0 0;"
+        );
 
-        // Power-up name
-        Text nameText = new Text(powerUp.getDisplayName());
-        nameText.setFont(Font.font("Orbitron", FontWeight.BOLD, 18));
-        nameText.setFill(Color.web("#1F2D3A"));
+        Text badge = new Text("▸ " + pu.getDifficulty().toString());
+        badge.setFont(Font.font("Arial", FontWeight.BOLD, 11));
+        badge.setFill(Color.color(1, 1, 1, 0.68));
+
+        Text nameText = new Text(pu.getDisplayName());
+        nameText.setFont(Font.font("Orbitron", FontWeight.BOLD, 20));
+        nameText.setFill(Color.WHITE);
         nameText.setTextAlignment(TextAlignment.CENTER);
-        nameText.setWrappingWidth(260);
+        nameText.setWrappingWidth(272);
+        nameText.setEffect(new DropShadow(6, Color.color(0, 0, 0, 0.30)));
 
-        // English description
-        Text descText = new Text(powerUp.getEnglishDescription());
-        descText.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
-        descText.setFill(Color.web("#4F5B62"));
+        header.getChildren().addAll(badge, nameText);
+
+        // ── Body ────────────────────────────────────────────────────────
+        VBox body = new VBox(12);
+        body.setAlignment(Pos.TOP_CENTER);
+        body.setPadding(new Insets(18, 18, 20, 18));
+        VBox.setVgrow(body, Priority.ALWAYS);
+
+        Text descText = new Text(pu.getEnglishDescription());
+        descText.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
+        descText.setFill(Color.web("#2D3E50"));
         descText.setTextAlignment(TextAlignment.CENTER);
-        descText.setWrappingWidth(260);
+        descText.setWrappingWidth(264);
 
-        // Vietnamese description (effect)
-        Text effectText = new Text("Hiệu ứng: " + powerUp.getVietnameseDescription());
-        effectText.setFont(Font.font("Arial", 12));
-        effectText.setFill(Color.web("#2E7D32"));
+        // Vietnamese effect tag with tinted background
+        HBox effectTag = new HBox(4);
+        effectTag.setAlignment(Pos.CENTER);
+        effectTag.setPadding(new Insets(7, 12, 7, 12));
+        effectTag.setStyle(
+            "-fx-background-color: " + diffBgRgba + ";" +
+            "-fx-background-radius: 8;"
+        );
+        Text effectText = new Text("✦  " + pu.getVietnameseDescription());
+        effectText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+        effectText.setFill(diffColor);
         effectText.setTextAlignment(TextAlignment.CENTER);
-        effectText.setWrappingWidth(260);
+        effectText.setWrappingWidth(252);
+        effectTag.getChildren().add(effectText);
 
-        // Select button
-        Button selectButton = new NeonButton("SELECT", Color.web("#00FF9C"), 12, 6, 12, 6);
-        selectButton.setPrefWidth(200);
-        selectButton.setOnAction(e -> onSelect.run());
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
 
-        content.getChildren().addAll(difficultyText, nameText, descText, effectText, selectButton);
-        card.getChildren().add(content);
+        Button selectBtn = new NeonButton("  CHON NGAY  ", diffColor, 13, 10, 14, 8);
+        selectBtn.setPrefWidth(222);
+        selectBtn.setOnAction(e -> onSelect.run());
 
-        // Hover effect
+        body.getChildren().addAll(descText, effectTag, spacer, selectBtn);
+        card.getChildren().addAll(header, body);
+
+        // ── Hover: lift + glow border ─────────────────────────────────
         card.setOnMouseEntered(e -> {
+            shadow.setRadius(34);
+            shadow.setOffsetY(12);
+            card.setTranslateY(-5);
             card.setStyle(
-                "-fx-background-color: rgba(255,255,255,1.0);" +
-                "-fx-border-color: rgba(47,128,237,0.55);" +
-                "-fx-border-width: 1.8;" +
-                "-fx-border-radius: 12;" +
-                "-fx-background-radius: 12;" +
+                "-fx-background-color: rgba(255,255,255,0.99);" +
+                "-fx-border-color: " + diffHex + ";" +
+                "-fx-border-width: 2;" +
+                "-fx-border-radius: 16;" +
+                "-fx-background-radius: 16;" +
                 "-fx-cursor: hand;"
             );
         });
         card.setOnMouseExited(e -> {
+            shadow.setRadius(24);
+            shadow.setOffsetY(7);
+            card.setTranslateY(0);
             card.setStyle(
-                "-fx-background-color: rgba(255,255,255,0.95);" +
-                "-fx-border-color: rgba(0,0,0,0.12);" +
+                "-fx-background-color: rgba(255,255,255,0.97);" +
+                "-fx-border-color: rgba(255,255,255,0.28);" +
                 "-fx-border-width: 1.5;" +
-                "-fx-border-radius: 12;" +
-                "-fx-background-radius: 12;" +
+                "-fx-border-radius: 16;" +
+                "-fx-background-radius: 16;" +
                 "-fx-cursor: hand;"
             );
         });
@@ -206,40 +235,30 @@ public class ItemCardSelectionModal {
     }
 
     private static List<PowerUp> generateRandomPowerUps(int count) {
-        PowerUp[] allPowerUps = PowerUp.values();
+        PowerUp[] all = PowerUp.values();
         List<PowerUp> selected = new ArrayList<>();
-        Random random = new Random();
-
-        while (selected.size() < count && selected.size() < allPowerUps.length) {
-            PowerUp powerUp = allPowerUps[random.nextInt(allPowerUps.length)];
-            if (!selected.contains(powerUp)) {
-                selected.add(powerUp);
-            }
+        Random rng = new Random();
+        while (selected.size() < count && selected.size() < all.length) {
+            PowerUp pu = all[rng.nextInt(all.length)];
+            if (!selected.contains(pu)) selected.add(pu);
         }
-
         return selected;
     }
 
-    private static void fadeOutAndRemove(StackPane overlayRoot, StackPane gameRoot, Runnable onClosed) {
-        FadeTransition fade = new FadeTransition(Duration.millis(180), overlayRoot);
-        fade.setFromValue(1);
-        fade.setToValue(0);
-        fade.setOnFinished(e -> {
-            gameRoot.getChildren().remove(overlayRoot);
-            gameRoot.requestFocus();
+    private static void fadeOutAndRemove(StackPane overlay, StackPane root, Runnable onClosed) {
+        FadeTransition ft = new FadeTransition(Duration.millis(200), overlay);
+        ft.setFromValue(1);
+        ft.setToValue(0);
+        ft.setOnFinished(e -> {
+            root.getChildren().remove(overlay);
+            root.requestFocus();
             safeRun(onClosed);
         });
-        fade.play();
+        ft.play();
     }
 
-    private static void safeRun(Runnable runnable) {
-        if (runnable == null) {
-            return;
-        }
-        try {
-            runnable.run();
-        } catch (Exception ignored) {
-            // Never break UI flow because of callback exceptions.
-        }
+    private static void safeRun(Runnable r) {
+        if (r == null) return;
+        try { r.run(); } catch (Exception ignored) {}
     }
 }
