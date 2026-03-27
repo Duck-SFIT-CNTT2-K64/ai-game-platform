@@ -986,6 +986,11 @@ public class PlayGamePage {
 							statusText.setText(type.getDisplayName() + " ACTIVATED!");
 						}
 					}
+					// Show full-screen activation overlay (skip for DOUBLE_CHOICE
+					// which already opens its own item-selection modal)
+					if (type != PowerUp.DOUBLE_CHOICE) {
+						showActivationNotif(root, type);
+					}
 					renderFrame.run();
 					// Note: inventory.updateDisplay() is already called inside activatePowerUp
 				});
@@ -1192,6 +1197,115 @@ public class PlayGamePage {
 
 		playerPos[0] = new State(nx, ny, Math.max(0, playerLives[0]));
 		return true;
+	}
+
+	// ── Power-up activation notification overlay ─────────────────────────────
+	/** Dark full-screen overlay shown for ~2 s when a power-up is activated. */
+	private static void showActivationNotif(StackPane root, PowerUp powerUp) {
+		final String ID = "powerup-activation-notif";
+		if (root.lookup("#" + ID) != null) return; // don't stack multiples
+
+		// ── Dark backdrop (same look as item-selection modal) ────────────────
+		StackPane overlay = new StackPane();
+		overlay.setId(ID);
+		overlay.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+		overlay.setStyle("-fx-background-color: rgba(6,4,18,0.72);");
+		overlay.setPickOnBounds(true);
+
+		String diffHex = switch (powerUp.getDifficulty()) {
+			case EASY   -> "#00C853";
+			case MEDIUM -> "#F57C00";
+			case HARD   -> "#C62828";
+		};
+		Color diffColor = Color.web(diffHex);
+		String diffBgRgba = switch (powerUp.getDifficulty()) {
+			case EASY   -> "rgba(0,200,83,0.12)";
+			case MEDIUM -> "rgba(245,124,0,0.12)";
+			case HARD   -> "rgba(198,40,40,0.12)";
+		};
+
+		// ── Card ─────────────────────────────────────────────────────────────
+		VBox card = new VBox(0);
+		card.setPrefWidth(450);
+		card.setMaxWidth(450);
+		card.setMaxHeight(Region.USE_PREF_SIZE);
+		javafx.scene.effect.DropShadow shadow = new javafx.scene.effect.DropShadow();
+		shadow.setColor(Color.color(0, 0, 0, 0.55));
+		shadow.setRadius(26); shadow.setOffsetY(7);
+		card.setEffect(shadow);
+
+		// ── Colored header ────────────────────────────────────────────────────
+		VBox header = new VBox(5);
+		header.setAlignment(Pos.CENTER);
+		header.setPadding(new Insets(20, 18, 18, 18));
+		header.setStyle("-fx-background-color: " + diffHex + ";" +
+		                "-fx-background-radius: 16 16 0 0;");
+
+		Text badge = new Text("⚡  POWER-UP ACTIVATED");
+		badge.setFont(Font.font("Arial", FontWeight.BOLD, 11));
+		badge.setFill(Color.color(1, 1, 1, 0.70));
+
+		Text nameText = new Text(powerUp.getDisplayName());
+		nameText.setFont(Font.font("Orbitron", FontWeight.BOLD, 24));
+		nameText.setFill(Color.WHITE);
+		nameText.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+		nameText.setWrappingWidth(406);
+		nameText.setEffect(new javafx.scene.effect.DropShadow(5, Color.color(0, 0, 0, 0.3)));
+		header.getChildren().addAll(badge, nameText);
+
+		// ── White body ────────────────────────────────────────────────────────
+		VBox body = new VBox(10);
+		body.setAlignment(Pos.CENTER);
+		body.setPadding(new Insets(18, 24, 20, 24));
+		body.setStyle("-fx-background-color: rgba(255,255,255,0.97);" +
+		              "-fx-background-radius: 0 0 16 16;");
+
+		Text descText = new Text(powerUp.getEnglishDescription());
+		descText.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
+		descText.setFill(Color.web("#344456"));
+		descText.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+		descText.setWrappingWidth(398);
+
+		// Effect tag (colored tint)
+		HBox effectTag = new HBox(4);
+		effectTag.setAlignment(Pos.CENTER);
+		effectTag.setPadding(new Insets(7, 14, 7, 14));
+		effectTag.setStyle("-fx-background-color: " + diffBgRgba + ";" +
+		                   "-fx-background-radius: 8;");
+		Text effectText = new Text("✦  " + powerUp.getVietnameseDescription());
+		effectText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		effectText.setFill(diffColor);
+		effectText.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+		effectText.setWrappingWidth(388);
+		effectTag.getChildren().add(effectText);
+
+		Text dismissHint = new Text("Click anywhere or wait to dismiss");
+		dismissHint.setFont(Font.font("Arial", FontWeight.NORMAL, 11));
+		dismissHint.setFill(Color.color(0.50, 0.55, 0.62, 0.58));
+
+		body.getChildren().addAll(descText, effectTag, dismissHint);
+		card.getChildren().addAll(header, body);
+		overlay.getChildren().add(card);
+		root.getChildren().add(overlay);
+
+		// ── Dismiss helper ────────────────────────────────────────────────────
+		Runnable dismiss = () -> {
+			FadeTransition ft = new FadeTransition(Duration.millis(320), overlay);
+			ft.setFromValue(overlay.getOpacity());
+			ft.setToValue(0);
+			ft.setOnFinished(e -> root.getChildren().remove(overlay));
+			ft.play();
+		};
+		overlay.setOnMouseClicked(e -> dismiss.run());
+
+		// ── Fade in → auto-dismiss after 2.2 s ───────────────────────────────
+		overlay.setOpacity(0);
+		FadeTransition fadeIn = new FadeTransition(Duration.millis(220), overlay);
+		fadeIn.setFromValue(0); fadeIn.setToValue(1);
+		fadeIn.setOnFinished(ev ->
+			new Timeline(new KeyFrame(Duration.millis(2200), e -> dismiss.run())).play()
+		);
+		fadeIn.play();
 	}
 
 	// ── Win / Lose / Timeout result overlay ───────────────────────────────────
