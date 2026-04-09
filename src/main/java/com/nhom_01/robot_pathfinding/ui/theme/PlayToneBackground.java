@@ -31,11 +31,7 @@ public final class PlayToneBackground {
 
     private static void draw(GraphicsContext gc, double width, double height, Image texture) {
         if (texture != null && !texture.isError()) {
-            for (double x = 0; x < width; x += TILE_SIZE) {
-                for (double y = 0; y < height; y += TILE_SIZE) {
-                    gc.drawImage(texture, x, y, TILE_SIZE, TILE_SIZE);
-                }
-            }
+            gc.drawImage(texture, 0, 0, width, height);
             return;
         }
 
@@ -59,7 +55,7 @@ public final class PlayToneBackground {
     }
 
     private static Image loadTexture(Class<?> owner) {
-        try (InputStream stream = owner.getResourceAsStream("/image/vit/Land.png")) {
+        try (InputStream stream = owner.getResourceAsStream("/image/pixel_MainMenu/background.png")) {
             if (stream == null) {
                 return null;
             }

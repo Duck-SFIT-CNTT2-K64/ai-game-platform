@@ -19,6 +19,11 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.util.Duration;
+
 import com.nhom_01.robot_pathfinding.ui.animation.ParticleSystem;
 import com.nhom_01.robot_pathfinding.ui.animation.RobotAnimation;
 import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
@@ -106,7 +111,7 @@ public class MainMenuJava extends Application {
 		double big  = Math.max(32, 68 * sf);
 		double desc = Math.max(12, 17 * sf);
 
-		Text mainTitle = new Text("ROBOT");
+		Text mainTitle = new Text("DUCK");
 		mainTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, big));
 		mainTitle.setFill(Color.web("#1F2D3A"));
 
@@ -169,32 +174,26 @@ public class MainMenuJava extends Application {
 		panel.setPrefSize(pw, ph);
 		panel.setMinSize(pw * 0.5, ph * 0.6);
 		panel.setMaxSize(pw, ph);
-		panel.setStyle(
-			"-fx-background-color: rgba(255,255,255,0.92);" +
-			"-fx-border-color: rgba(0,0,0,0.10);" +
-			"-fx-border-width: 1.6;" +
-			"-fx-border-radius: 14;" +
-			"-fx-background-radius: 14;"
-		);
-
-		DropShadow ds = new DropShadow();
-		ds.setColor(Color.color(0.12, 0.16, 0.20, 0.16));
-		ds.setRadius(14);
-		panel.setEffect(ds);
+		// Transparent so the background.png maze shows through
+		panel.setStyle("-fx-background-color: transparent;");
 
 		// Inner VBox: label + arena + feature chips
 		VBox inner = new VBox(Math.max(12, 18 * sf));
 		inner.setAlignment(Pos.CENTER);
 		inner.setPadding(new Insets(Math.max(18, 28 * sf)));
 
-		// Label
+		// Label — white with shadow for readability over dark maze background
 		Text label = new Text("RUNNING DUCK PREVIEW");
 		label.setFont(Font.font("Orbitron", FontWeight.BOLD, Math.max(13, 20 * sf)));
-		label.setFill(Color.web("#455A64"));
-		label.setOpacity(0.88);
+		label.setFill(Color.web("#FFFFFF"));
+		label.setOpacity(0.95);
+		DropShadow textGlow = new DropShadow();
+		textGlow.setColor(Color.color(0, 0, 0, 0.65));
+		textGlow.setRadius(8);
+		label.setEffect(textGlow);
 
-		// Animation arena
-		double arenaH = ph * 0.55;
+		// Animation arena (water + duck + bamboo frame)
+		double arenaH = ph * 0.60;
 		double arenaW = pw - Math.max(36, 56 * sf) * 2;
 		Pane arena = buildDuckArena(arenaW, arenaH, sf);
 
@@ -211,60 +210,144 @@ public class MainMenuJava extends Application {
 		arena.setPrefSize(arenaW, arenaH);
 		arena.setMinSize(arenaW, arenaH);
 		arena.setMaxSize(arenaW, arenaH);
-		arena.setStyle(
-			"-fx-background-color: rgba(247,241,227,0.55);" +
-			"-fx-background-radius: 10;"
-		);
+		arena.setStyle("-fx-background-color: transparent;");
 
-		double duckSize  = Math.max(70, Math.min(130, arenaH * 0.45));
-		double trackH    = 12;
-		double trackInset = Math.max(24, arenaW * 0.04);
-		double trackW    = arenaW - trackInset * 2;
-		double trackY    = arenaH * 0.70;
-		double duckX     = trackInset + 4;
-		double duckY     = trackY - duckSize - 8;
+		// Clip to arena bounds
+		javafx.scene.shape.Rectangle clip = new javafx.scene.shape.Rectangle(arenaW, arenaH);
+		clip.setArcWidth(12);
+		clip.setArcHeight(12);
+		arena.setClip(clip);
 
-		// Track
-		Pane track = new Pane();
-		track.setPrefSize(trackW, trackH);
-		track.setLayoutX(trackInset);
-		track.setLayoutY(trackY);
-		track.setStyle(
-			"-fx-background-color: rgba(149,165,166,0.38);" +
-			"-fx-background-radius: 6;"
-		);
+		// ── Layer 1: Animated water pond background (Water_1..4.png) ──
+		Image[] waterFrames = new Image[4];
+		for (int i = 0; i < 4; i++) {
+			URL u = getClass().getResource("/image/pixel_MainMenu/Water_" + (i + 1) + ".png");
+			if (u != null) waterFrames[i] = new Image(u.toExternalForm());
+		}
 
-		// Duck node
+		ImageView waterBg = new ImageView();
+		if (waterFrames[0] != null) {
+			waterBg.setImage(waterFrames[0]);
+			waterBg.setFitWidth(arenaW);
+			waterBg.setFitHeight(arenaH);
+			waterBg.setPreserveRatio(false);
+			waterBg.setLayoutX(0);
+			waterBg.setLayoutY(0);
+
+			Timeline waterAnim = new Timeline(new KeyFrame(Duration.millis(280), ev -> {
+				int frame = (int) ((System.currentTimeMillis() / 280) % 4);
+				if (waterFrames[frame] != null) waterBg.setImage(waterFrames[frame]);
+			}));
+			waterAnim.setCycleCount(Animation.INDEFINITE);
+			waterAnim.play();
+		}
+
+		// ── Layer 2: Duck swimming animation ──
+		double duckSize  = Math.max(80, Math.min(150, arenaH * 0.45));
+		// Inset must match the bamboo frame pipe width (~22% on each side)
+		double swimInsetX = arenaW * 0.23;
+		double swimInsetY = arenaH * 0.22;
+		double swimW      = arenaW - swimInsetX * 2;
+		double duckX      = swimInsetX;
+		double duckY      = swimInsetY;
+
 		StackPane duck = new StackPane();
 		duck.setPrefSize(duckSize, duckSize);
 		duck.setLayoutX(duckX);
 		duck.setLayoutY(duckY);
 
-		URL url = getClass().getResource("/image/vit/Duck.png");
-		if (url != null) {
-			ImageView img = new ImageView(new Image(url.toExternalForm()));
+		Image[] mmWalkFrames = new Image[8];
+		for (int i = 0; i < 8; i++) {
+			URL u = getClass().getResource(String.format("/image/pixel_MainMenu/duck_mainmenu_walk_frames/mm_walk_%02d.png", i));
+			if (u != null) mmWalkFrames[i] = new Image(u.toExternalForm());
+		}
+
+		if (mmWalkFrames[0] != null) {
+			ImageView img = new ImageView(mmWalkFrames[0]);
 			img.setFitWidth(duckSize);
 			img.setPreserveRatio(true);
 			duck.getChildren().add(img);
+
+			// Only cycle through frames 0-3 (all face RIGHT).
+			// The swimTimeline below uses scaleX to flip for left direction.
+			Timeline duckAnim = new Timeline(new KeyFrame(Duration.millis(120), ev -> {
+				int frameIdx = (int) ((System.currentTimeMillis() / 120) % 4);
+				if (mmWalkFrames[frameIdx] != null) img.setImage(mmWalkFrames[frameIdx]);
+			}));
+			duckAnim.setCycleCount(Animation.INDEFINITE);
+			duckAnim.play();
 		} else {
-			Text fallback = new Text("🦆");
+			Text fallback = new Text("\uD83E\uDD86");
 			fallback.setFont(Font.font("Arial", FontWeight.BOLD, duckSize * 0.7));
 			fallback.setFill(Color.web("#FBC02D"));
 			duck.getChildren().add(fallback);
 		}
 
 		DropShadow dg = new DropShadow();
-		dg.setColor(Color.color(0.18, 0.50, 0.93, 0.28));
-		dg.setRadius(20 * sf);
-		dg.setSpread(0.18);
+		dg.setColor(Color.color(0.05, 0.15, 0.30, 0.50));
+		dg.setRadius(16 * sf);
+		dg.setSpread(0.12);
 		duck.setEffect(dg);
 
-		// Animate: travel the full track length minus duck width
-		double travelDist = trackW - duckSize - 8;
-		double runMs = Math.max(1800, travelDist * 3.5);
-		RobotAnimation.animate(duck, travelDist, runMs, -7, 360);
+		// ── Custom animation: horizontal oscillation + sprite flip + gentle bounce ──
+		double travelDist = swimW - duckSize;
+		double runMs = Math.max(2500, travelDist * 4.5);
+		double halfCycle = runMs;  // time for one direction (left→right or right→left)
 
-		arena.getChildren().addAll(track, duck);
+		// The duck sprite naturally faces RIGHT, so:
+		//   Moving left→right: scaleX = 1  (normal)
+		//   Moving right→left: scaleX = -1 (flipped)
+		Timeline swimTimeline = new Timeline();
+		swimTimeline.setCycleCount(Animation.INDEFINITE);
+		final double bounceAmp = 5.0;
+		final double bouncePeriodMs = 420.0;
+		swimTimeline.getKeyFrames().add(new KeyFrame(Duration.millis(16), ev -> {
+			long now = System.currentTimeMillis();
+			// Oscillate position: triangle wave over 2*halfCycle period
+			double period = halfCycle * 2.0;
+			double t = (now % (long) period) / period;  // 0.0 → 1.0
+			double progress;
+			boolean movingRight;
+			if (t < 0.5) {
+				// First half: moving right (0→1)
+				progress = t * 2.0;
+				movingRight = true;
+			} else {
+				// Second half: moving left (1→0)
+				progress = (1.0 - t) * 2.0;
+				movingRight = false;
+			}
+			double xOffset = progress * travelDist;
+			duck.setTranslateX(xOffset);
+
+			// Flip sprite based on direction
+			duck.setScaleX(movingRight ? 1.0 : -1.0);
+
+			// Gentle bounce
+			double bounceT = (now % (long) bouncePeriodMs) / bouncePeriodMs;
+			double bounceY = Math.sin(bounceT * Math.PI * 2.0) * bounceAmp;
+			duck.setTranslateY(bounceY);
+		}));
+		swimTimeline.play();
+
+		// ── Layer 3: Bamboo frame overlay (Grass_mainmenu.png) ──
+		URL frameUrl = getClass().getResource("/image/pixel_MainMenu/Grass_mainmenu.png");
+		ImageView frameOverlay = null;
+		if (frameUrl != null) {
+			frameOverlay = new ImageView(new Image(frameUrl.toExternalForm()));
+			frameOverlay.setFitWidth(arenaW);
+			frameOverlay.setFitHeight(arenaH);
+			frameOverlay.setPreserveRatio(false);
+			frameOverlay.setLayoutX(0);
+			frameOverlay.setLayoutY(0);
+			frameOverlay.setMouseTransparent(true);
+		}
+
+		// Stack layers: water → duck → bamboo frame
+		arena.getChildren().add(waterBg);
+		arena.getChildren().add(duck);
+		if (frameOverlay != null) arena.getChildren().add(frameOverlay);
+
 		return arena;
 	}
 

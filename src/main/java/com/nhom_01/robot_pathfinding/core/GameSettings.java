@@ -33,6 +33,7 @@ public class GameSettings {
     private boolean highContrastLabels = false;
     private boolean reducedMotion = false;
     
+     
     private static GameSettings instance;
     
     private GameSettings() {

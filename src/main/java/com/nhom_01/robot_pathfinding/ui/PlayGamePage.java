@@ -1527,7 +1527,7 @@ public class PlayGamePage {
 		Canvas bg = new Canvas(bgW, bgH);
 		GraphicsContext gc = bg.getGraphicsContext2D();
 
-		Image landTexture = loadPlayImage("/image/vit/Land.png");
+		Image landTexture = loadPlayImage("/image/pixel_MainMenu/Grass_mainmenu.png");
 		if (landTexture != null && !landTexture.isError()) {
 			double tile = 50;
 			for (double x = 0; x < bgW; x += tile) {

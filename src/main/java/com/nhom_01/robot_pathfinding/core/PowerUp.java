@@ -1,6 +1,7 @@
 package com.nhom_01.robot_pathfinding.core;
 
-public enum PowerUp {
+public enum 
+PowerUp {
     SPEED_BOOST(
         "Speed Boost",
         "Robot moves faster for a short time.",

@@ -22,13 +22,28 @@ public class MazeRenderer {
 	private static final Color PATH = Color.color(0.62, 0.86, 0.64, 0.45);
 	private static final Color ROBOT = Color.web("#F9D648");
 
-	private static final Image DUCK_IMAGE = loadImage("/image/vit/Duck.png");
-	private static final Image GRASS_IMAGE = loadImage("/image/vit/Grass.png");
-	private static final Image WATER_IMAGE = loadImage("/image/vit/Water.png");
-	private static final Image GOAL_IMAGE = loadImage("/image/vit/FinishLine.png");
-	private static final Image STOP_IMAGE = loadImage("/image/vit/Stop.png");
-	private static final Image VIT_IMAGE = loadImage("/image/vit/Vit.png");
-	private static final Image FLAG_IMAGE = loadImage("/image/vit/Flag.png");
+	// Pre-load all Animated / Static assets
+	private static final Image[] DUCK_IDLE = new Image[4];
+	private static final Image[] DUCK_WALK = new Image[4];
+	private static final Image DUCK_HURT = loadImage("/image/pixel_animation/duck_hurt.png");
+	
+	private static final Image GRASS_1 = loadImage("/image/pixel_animation/Grass_1.png");
+	private static final Image WATER = loadImage("/image/pixel_animation/Water.png");
+	private static final Image[] FINISH_LINE = new Image[3];
+	
+	private static final Image STOP_IMAGE = loadImage("/image/pixel_animation/Stop.png");
+	private static final Image ITEM_IMAGE = loadImage("/image/pixel_animation/Item.png");
+	private static final Image FLAG_IMAGE = loadImage("/image/pixel_animation/Flag.png");
+
+	static {
+		for (int i = 0; i < 4; i++) {
+			DUCK_IDLE[i] = loadImage(String.format("/image/pixel_animation/duck_idle_frames/idle_%02d.png", i));
+			DUCK_WALK[i] = loadImage(String.format("/image/pixel_animation/duck_walk_frames/walk_%02d.png", i));
+		}
+		for (int i = 0; i < 3; i++) {
+			FINISH_LINE[i] = loadImage(String.format("/image/pixel_animation/FinishLine_%d.png", i + 1));
+		}
+	}
 
 	private MazeRenderer() {
 	}
@@ -68,41 +83,31 @@ public class MazeRenderer {
 		double offsetX = (width - drawW) / 2.0;
 		double offsetY = (height - drawH) / 2.0;
 
+		long time = System.currentTimeMillis();
+
 		for (int x = 0; x < mazeW; x++) {
 			for (int y = 0; y < mazeH; y++) {
 				CellType type = maze.getCell(x, y);
 				double px = offsetX + x * cellSize;
 				double py = offsetY + y * cellSize;
+				
 				if (type == CellType.WALL) {
-					if (GRASS_IMAGE != null && !GRASS_IMAGE.isError()) {
-						gc.drawImage(GRASS_IMAGE, px + cellSize * 0.06, py + cellSize * 0.06, cellSize * 0.88, cellSize * 0.88);
+					if (GRASS_1 != null && !GRASS_1.isError()) {
+						// Grass tiles fill the entire cell in pixel style
+						gc.drawImage(GRASS_1, px, py, cellSize, cellSize);
 					} else {
 						gc.setFill(WALL);
-						gc.fillRoundRect(px + cellSize * 0.06, py + cellSize * 0.06, cellSize * 0.88, cellSize * 0.88, cellSize * 0.24, cellSize * 0.24);
+						gc.fillRect(px, py, cellSize, cellSize);
 					}
-					gc.setStroke(Color.web("#9BC157"));
-					gc.setLineWidth(Math.max(0.8, cellSize * 0.06));
-					gc.strokeRoundRect(px + cellSize * 0.06, py + cellSize * 0.06, cellSize * 0.88, cellSize * 0.88, cellSize * 0.24, cellSize * 0.24);
 				} else {
-					if (WATER_IMAGE != null && !WATER_IMAGE.isError()) {
-						gc.drawImage(WATER_IMAGE, px, py, cellSize, cellSize);
+					if (WATER != null && !WATER.isError()) {
+						gc.drawImage(WATER, px, py, cellSize, cellSize);
 					} else {
 						gc.setFill(colorFor(type));
 						gc.fillRect(px, py, cellSize, cellSize);
 					}
 				}
 			}
-		}
-
-		gc.setStroke(Color.color(0.63, 0.91, 0.96, 0.18));
-		gc.setLineWidth(0.5);
-		for (int x = 0; x <= mazeW; x++) {
-			double gx = offsetX + x * cellSize;
-			gc.strokeLine(gx, offsetY, gx, offsetY + drawH);
-		}
-		for (int y = 0; y <= mazeH; y++) {
-			double gy = offsetY + y * cellSize;
-			gc.strokeLine(offsetX, gy, offsetX + drawW, gy);
 		}
 
 		if (explored != null) {
@@ -131,20 +136,22 @@ public class MazeRenderer {
 
 		for (int x = 0; x < mazeW; x++) {
 			for (int y = 0; y < mazeH; y++) {
-				drawCellIcon(gc, maze.getCell(x, y), offsetX + x * cellSize, offsetY + y * cellSize, cellSize);
+				drawCellIcon(gc, maze.getCell(x, y), offsetX + x * cellSize, offsetY + y * cellSize, cellSize, time);
 			}
 		}
 
 		if (!Double.isNaN(robotGridX) && !Double.isNaN(robotGridY)) {
-			drawRobot(gc, offsetX + robotGridX * cellSize, offsetY + robotGridY * cellSize, cellSize);
+			// determine if walking or idle based on fractional position
+			boolean isMoving = (robotGridX % 1.0 != 0) || (robotGridY % 1.0 != 0);
+			drawRobot(gc, offsetX + robotGridX * cellSize, offsetY + robotGridY * cellSize, cellSize, time, isMoving);
 		}
 	}
 
-	private static void drawCellIcon(GraphicsContext gc, CellType type, double x, double y, double size) {
+	private static void drawCellIcon(GraphicsContext gc, CellType type, double x, double y, double size, long time) {
 		switch (type) {
 			case BOMB -> drawBomb(gc, x, y, size);
 			case ITEM -> drawItem(gc, x, y, size);
-			case GOAL -> drawGoal(gc, x, y, size);
+			case GOAL -> drawGoal(gc, x, y, size, time);
 			case START -> drawStart(gc, x, y, size);
 			default -> {
 			}
@@ -153,7 +160,7 @@ public class MazeRenderer {
 
 	private static void drawBomb(GraphicsContext gc, double x, double y, double size) {
 		if (STOP_IMAGE != null && !STOP_IMAGE.isError()) {
-			gc.drawImage(STOP_IMAGE, x + size * 0.15, y + size * 0.15, size * 0.70, size * 0.70);
+			gc.drawImage(STOP_IMAGE, x + size * 0.10, y + size * 0.10, size * 0.80, size * 0.80);
 			return;
 		}
 
@@ -171,8 +178,8 @@ public class MazeRenderer {
 	}
 
 	private static void drawItem(GraphicsContext gc, double x, double y, double size) {
-		if (VIT_IMAGE != null && !VIT_IMAGE.isError()) {
-			gc.drawImage(VIT_IMAGE, x + size * 0.06, y + size * 0.06, size * 0.88, size * 0.88);
+		if (ITEM_IMAGE != null && !ITEM_IMAGE.isError()) {
+			gc.drawImage(ITEM_IMAGE, x + size * 0.10, y + size * 0.10, size * 0.80, size * 0.80);
 			return;
 		}
 
@@ -196,9 +203,13 @@ public class MazeRenderer {
 		gc.strokePolygon(xs, ys, 4);
 	}
 
-	private static void drawGoal(GraphicsContext gc, double x, double y, double size) {
-		if (GOAL_IMAGE != null && !GOAL_IMAGE.isError()) {
-			gc.drawImage(GOAL_IMAGE, x + size * 0.02, y + size * 0.02, size * 0.96, size * 0.96);
+	private static void drawGoal(GraphicsContext gc, double x, double y, double size, long time) {
+		// Animated finish line
+		int frame = (int) ((time / 150) % 3);
+		Image goalImg = FINISH_LINE[frame];
+		if (goalImg != null && !goalImg.isError()) {
+			// Center the finish line
+			gc.drawImage(goalImg, x + size * 0.05, y + size * 0.05, size * 0.90, size * 0.90);
 			return;
 		}
 
@@ -225,9 +236,20 @@ public class MazeRenderer {
 		gc.fillText("S", x + size * 0.43, y + size * 0.65);
 	}
 
-	private static void drawRobot(GraphicsContext gc, double x, double y, double size) {
-		if (DUCK_IMAGE != null && !DUCK_IMAGE.isError()) {
-			gc.drawImage(DUCK_IMAGE, x + size * 0.03, y + size * 0.03, size * 0.94, size * 0.94);
+	private static void drawRobot(GraphicsContext gc, double x, double y, double size, long time, boolean isMoving) {
+		Image duckFrame = null;
+		
+		if (isMoving) {
+			int frame = (int) ((time / 120) % 4);
+			duckFrame = DUCK_WALK[frame];
+		} else {
+			int frame = (int) ((time / 200) % 4);
+			duckFrame = DUCK_IDLE[frame];
+		}
+		
+		if (duckFrame != null && !duckFrame.isError()) {
+			// make the duck sprite fill the cell roughly
+			gc.drawImage(duckFrame, x, y - size * 0.10, size, size * 1.10);
 			return;
 		}
 
@@ -246,11 +268,6 @@ public class MazeRenderer {
 		gc.setFill(Color.web("#9EDCFF"));
 		gc.fillOval(x + size * 0.32, y + size * 0.38, size * 0.12, size * 0.12);
 		gc.fillOval(x + size * 0.56, y + size * 0.38, size * 0.12, size * 0.12);
-
-		gc.setStroke(Color.web("#7BE3FF"));
-		gc.strokeLine(x + size * 0.5, y + size * 0.16, x + size * 0.5, y + size * 0.24);
-		gc.setFill(Color.web("#7BE3FF"));
-		gc.fillOval(x + size * 0.47, y + size * 0.12, size * 0.06, size * 0.06);
 	}
 
 	private static Color colorFor(CellType type) {
