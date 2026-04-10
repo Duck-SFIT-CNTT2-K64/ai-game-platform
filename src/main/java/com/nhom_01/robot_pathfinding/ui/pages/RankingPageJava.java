@@ -5,14 +5,13 @@ import com.nhom_01.robot_pathfinding.core.RankingEntry;
 import com.nhom_01.robot_pathfinding.core.RankingManager;
 import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
 import com.nhom_01.robot_pathfinding.ui.theme.PlayToneBackground;
 import com.nhom_01.robot_pathfinding.ui.theme.UITheme;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
@@ -70,11 +69,11 @@ public final class RankingPageJava {
         title.setEffect(glow);
 
         VBox heading = new VBox(4);
-        Text subtitle = new Text("TOP SCORES BY DIFFICULTY AND TOTAL GLOBAL LEADERBOARD");
+        Text subtitle = new Text("TOP SCORES");
         subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 15));
         subtitle.setFill(Color.web("#4F5B62"));
 
-        Text currentPlayer = new Text("CURRENT PLAYER: " + PlayerProfile.getCurrentPlayerName());
+        Text currentPlayer = new Text("PLAYER: " + PlayerProfile.getCurrentPlayerName());
         currentPlayer.setFont(Font.font("Arial", FontWeight.BOLD, 13));
         currentPlayer.setFill(Color.web("#607D8B"));
         heading.getChildren().addAll(title, subtitle, currentPlayer);
@@ -130,6 +129,7 @@ public final class RankingPageJava {
         overlay.setMouseTransparent(true);
 
         root.getChildren().addAll(page, overlay);
+        AppFonts.applyTo(root);
         return new Scene(root, VIEW_WIDTH, VIEW_HEIGHT);
     }
 
@@ -151,13 +151,14 @@ public final class RankingPageJava {
     }
 
     private static void setActiveTab(Button[] tabs, int activeIndex) {
+        String family = AppFonts.getJerseyFamily().replace("'", "''");
         for (int i = 0; i < tabs.length; i++) {
             Button tab = tabs[i];
             boolean active = i == activeIndex;
             tab.setStyle(
                 "-fx-background-color: " + (active ? "rgba(47,128,237,0.18);" : "rgba(255,255,255,0.93);") +
                 "-fx-text-fill: " + (active ? "#1F2D3A;" : "#455A64;") +
-                "-fx-font-family: 'Orbitron';" +
+                "-fx-font-family: '" + family + "';" +
                 "-fx-font-weight: bold;" +
                 "-fx-font-size: 14px;" +
                 "-fx-border-color: " + (active ? "rgba(47,128,237,0.56);" : "rgba(0,0,0,0.12);") +
@@ -252,8 +253,9 @@ public final class RankingPageJava {
         cols.add(scoreCol);
         cols.add(dateCol);
 
+        String family = AppFonts.getJerseyFamily().replace("'", "''");
         for (TableColumn<RankingEntry, ?> col : cols) {
-            col.setStyle("-fx-alignment: CENTER; -fx-font-family: 'Arial'; -fx-text-fill: #2D3E50;");
+            col.setStyle("-fx-alignment: CENTER; -fx-font-family: '" + family + "'; -fx-text-fill: #2D3E50;");
         }
 
         table.getColumns().addAll(rankCol, nameCol, diffCol, algoCol, stepsCol, timeCol, scoreCol, dateCol);

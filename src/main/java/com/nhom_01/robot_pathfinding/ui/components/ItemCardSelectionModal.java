@@ -1,6 +1,7 @@
 package com.nhom_01.robot_pathfinding.ui.components;
 
 import com.nhom_01.robot_pathfinding.core.PowerUp;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
 import javafx.animation.FadeTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -13,8 +14,6 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
@@ -53,7 +52,7 @@ public class ItemCardSelectionModal {
 
         // ── Title (white text floating on dark backdrop) ────────────────────
         Text title = new Text("⚡  CHON POWER-UP");
-        title.setFont(Font.font("Orbitron", FontWeight.BOLD, 32));
+        title.setFont(AppFonts.jersey(34));
         title.setFill(Color.WHITE);
         DropShadow glow = new DropShadow();
         glow.setColor(Color.color(0.35, 0.62, 1.0, 0.90));
@@ -61,7 +60,7 @@ public class ItemCardSelectionModal {
         title.setEffect(glow);
 
         Text subtitle = new Text("Chon 1 trong 3 power-up de tang cuong co hoi chien thang!");
-        subtitle.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
+        subtitle.setFont(AppFonts.jersey(15));
         subtitle.setFill(Color.color(0.72, 0.80, 1.0, 0.78));
 
         VBox titleBlock = new VBox(7, title, subtitle);
@@ -83,13 +82,14 @@ public class ItemCardSelectionModal {
         }
 
         Text escHint = new Text("Nhan  ESC  de bo qua");
-        escHint.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+        escHint.setFont(AppFonts.jersey(13));
         escHint.setFill(Color.color(0.55, 0.60, 0.72, 0.55));
 
         VBox content = new VBox(16, titleBlock, cardsRow, escHint);
         content.setAlignment(Pos.CENTER);
         content.setPickOnBounds(false);
         overlay.getChildren().add(content);
+        AppFonts.applyTo(overlay);
 
         overlay.setOnKeyPressed(e -> {
             switch (e.getCode()) {
@@ -127,8 +127,8 @@ public class ItemCardSelectionModal {
         };
 
         VBox card = new VBox(0);
-        card.setPrefSize(308, 450);
-        card.setMaxSize(308, 450);
+        card.setPrefSize(312, 450);
+        card.setMaxSize(312, 450);
         card.setStyle(
             "-fx-background-color: rgba(255,255,255,0.97);" +
             "-fx-border-color: rgba(255,255,255,0.28);" +
@@ -154,11 +154,11 @@ public class ItemCardSelectionModal {
         );
 
         Text badge = new Text("▸ " + pu.getDifficulty().toString());
-        badge.setFont(Font.font("Arial", FontWeight.BOLD, 11));
+        badge.setFont(AppFonts.jersey(12));
         badge.setFill(Color.color(1, 1, 1, 0.68));
 
         Text nameText = new Text(pu.getDisplayName());
-        nameText.setFont(Font.font("Orbitron", FontWeight.BOLD, 20));
+        nameText.setFont(AppFonts.jersey(22));
         nameText.setFill(Color.WHITE);
         nameText.setTextAlignment(TextAlignment.CENTER);
         nameText.setWrappingWidth(272);
@@ -173,7 +173,7 @@ public class ItemCardSelectionModal {
         VBox.setVgrow(body, Priority.ALWAYS);
 
         Text descText = new Text(pu.getEnglishDescription());
-        descText.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
+        descText.setFont(AppFonts.jersey(15));
         descText.setFill(Color.web("#2D3E50"));
         descText.setTextAlignment(TextAlignment.CENTER);
         descText.setWrappingWidth(264);
@@ -187,7 +187,7 @@ public class ItemCardSelectionModal {
             "-fx-background-radius: 8;"
         );
         Text effectText = new Text("✦  " + pu.getVietnameseDescription());
-        effectText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+        effectText.setFont(AppFonts.jersey(14));
         effectText.setFill(diffColor);
         effectText.setTextAlignment(TextAlignment.CENTER);
         effectText.setWrappingWidth(252);

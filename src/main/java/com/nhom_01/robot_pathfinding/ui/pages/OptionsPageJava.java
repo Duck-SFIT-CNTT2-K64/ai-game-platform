@@ -3,6 +3,7 @@ package com.nhom_01.robot_pathfinding.ui.pages;
 import com.nhom_01.robot_pathfinding.core.GameSettings;
 import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
 import com.nhom_01.robot_pathfinding.ui.theme.PlayToneBackground;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -67,7 +68,7 @@ public final class OptionsPageJava {
         title.setFont(Font.font("Orbitron", FontWeight.BOLD, 62));
         title.setFill(Color.web("#1F2D3A"));
 
-        Text subtitle = new Text("TUNE AUDIO, GAMEPLAY, AND DISPLAY BEFORE STARTING");
+        Text subtitle = new Text("ESSENTIAL SETTINGS");
         subtitle.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
         subtitle.setFill(Color.web("#4F5B62"));
 
@@ -114,7 +115,7 @@ public final class OptionsPageJava {
         );
         
         audioCard.getChildren().addAll(
-            createSectionLabel("Volume Mixer"),
+            createSectionLabel("Volume"),
             createSliderRow("Master", masterVolume),
             createSliderRow("Music", musicVolume),
             createSliderRow("SFX", sfxVolume),
@@ -155,7 +156,7 @@ public final class OptionsPageJava {
         );
         
         gameplayCard.getChildren().addAll(
-            createSectionLabel("Assist Features"),
+            createSectionLabel("Assist"),
             pathHint,
             aiSuggestion,
             vibration,
@@ -189,14 +190,14 @@ public final class OptionsPageJava {
         );
         
         accessibilityCard.getChildren().addAll(
-            createSectionLabel("Interface"),
+            createSectionLabel("Display"),
             createSliderRow("UI scale", uiScale),
             highContrast,
             reducedMotion
         );
 
         topCards.getChildren().addAll(audioCard, gameplayCard, accessibilityCard);
-        content.getChildren().addAll(topCards, createSupportRow());
+        content.getChildren().addAll(topCards);
 
         HBox actions = new HBox(16);
         actions.setAlignment(Pos.CENTER_RIGHT);
@@ -247,6 +248,7 @@ public final class OptionsPageJava {
         
         root.getChildren().add(contentLayer);
         
+        AppFonts.applyTo(root);
         Scene scene = new Scene(root);
         return scene;
     }
@@ -274,10 +276,6 @@ public final class OptionsPageJava {
         PlayToneBackground.draw(gc, width, height, OptionsPageJava.class);
     }
 
-    private static Pane createFuturisticBackground(double width, double height) {
-        return PlayToneBackground.create(width, height, OptionsPageJava.class);
-    }
-
     private static VBox createCard(String title) {
         VBox card = new VBox(16);
         card.setPadding(new Insets(18));
@@ -303,60 +301,6 @@ public final class OptionsPageJava {
         card.getChildren().add(heading);
 
         return card;
-    }
-
-    private static HBox createSupportRow() {
-        HBox row = new HBox(22);
-        row.setAlignment(Pos.TOP_CENTER);
-
-        VBox overviewPanel = createInfoPanel(
-            "AUDIO PRESET TIP",
-            "Use Master around 75-85% for consistent volume balance. " +
-                "Lower SFX when you need focus during harder mazes.",
-            Color.web("#2F80ED")
-        );
-
-        VBox comfortPanel = createInfoPanel(
-            "VISUAL COMFORT",
-            "Enable Reduced motion if animations feel distracting. " +
-                "Use High contrast labels for better readability on bright screens.",
-            Color.web("#EF6C00")
-        );
-
-        row.getChildren().addAll(overviewPanel, comfortPanel);
-        return row;
-    }
-
-    private static VBox createInfoPanel(String headingText, String bodyText, Color headingColor) {
-        VBox panel = new VBox(12);
-        panel.setPadding(new Insets(16, 18, 16, 18));
-        panel.setPrefSize(632, 178);
-        panel.setMinSize(632, 178);
-        panel.setAlignment(Pos.TOP_LEFT);
-        panel.setStyle(
-            "-fx-background-color: rgba(255,255,255,0.94);" +
-            "-fx-border-color: rgba(0,0,0,0.10);" +
-            "-fx-border-width: 1.4;" +
-            "-fx-border-radius: 12;" +
-            "-fx-background-radius: 12;"
-        );
-
-        DropShadow glow = new DropShadow();
-        glow.setColor(Color.color(0.12, 0.16, 0.20, 0.14));
-        glow.setRadius(10);
-        panel.setEffect(glow);
-
-        Text heading = new Text(headingText);
-        heading.setFont(Font.font("Orbitron", FontWeight.BOLD, 22));
-        heading.setFill(headingColor);
-
-        Text body = new Text(bodyText);
-        body.setFont(Font.font("Arial", FontWeight.NORMAL, 15));
-        body.setFill(Color.web("#4F5B62"));
-        body.setWrappingWidth(590);
-
-        panel.getChildren().addAll(heading, body);
-        return panel;
     }
 
     private static Label createSectionLabel(String text) {

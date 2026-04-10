@@ -2,13 +2,12 @@ package com.nhom_01.robot_pathfinding.ui.pages;
 
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
 import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
 import com.nhom_01.robot_pathfinding.ui.theme.PlayToneBackground;
 import com.nhom_01.robot_pathfinding.ui.theme.UITheme;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
@@ -69,7 +68,7 @@ public final class TutorialPageJava {
         title.setEffect(glow);
 
         VBox titleBox = new VBox(4);
-        Text subtitle = new Text("LEARN MOVEMENT, BOMBS, ITEMS, SKILLS, AND ALGORITHM STRATEGY");
+        Text subtitle = new Text("CORE MECHANICS");
         subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 15));
         subtitle.setFill(Color.web("#4F5B62"));
         titleBox.getChildren().addAll(title, subtitle);
@@ -107,7 +106,7 @@ public final class TutorialPageJava {
                     return;
                 }
                 setText(item.title());
-                setFont(Font.font("Orbitron", FontWeight.BOLD, 16));
+                setFont(AppFonts.jersey(16));
                 setTextFill(Color.web("#2D3E50"));
                 String bg = isSelected() ? "rgba(47,128,237,0.18)" : "transparent";
                 setStyle("-fx-background-color: " + bg + "; -fx-padding: 10;");
@@ -165,7 +164,7 @@ public final class TutorialPageJava {
 
         controls.getChildren().addAll(play, pause, stop, sourcePath);
 
-        Text descriptionTitle = new Text("DETAILED GUIDE");
+        Text descriptionTitle = new Text("GUIDE");
         descriptionTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 18));
         descriptionTitle.setFill(Color.web("#2D3E50"));
 
@@ -176,7 +175,7 @@ public final class TutorialPageJava {
         descriptionArea.setStyle(
             "-fx-control-inner-background: rgba(255,255,255,0.95);" +
             "-fx-text-fill: #455A64;" +
-            "-fx-font-family: 'Arial';" +
+            "-fx-font-family: '" + AppFonts.getJerseyFamily().replace("'", "''") + "';" +
             "-fx-font-size: 14px;" +
             "-fx-border-color: rgba(0,0,0,0.12);" +
             "-fx-border-width: 1.2;"
@@ -252,6 +251,7 @@ public final class TutorialPageJava {
         overlay.setMouseTransparent(true);
 
         root.getChildren().addAll(page, overlay);
+        AppFonts.applyTo(root);
         return new Scene(root, VIEW_WIDTH, VIEW_HEIGHT);
     }
 
@@ -297,52 +297,37 @@ public final class TutorialPageJava {
             new TutorialSection(
                 "MOVEMENT",
                 "/image/video/movement.mp4",
-                "Movement controls are grid-based and every arrow-key input represents one deliberate tactical step.\n\n"
-                    + "Best practice:\n"
-                    + "1) Observe the nearest safe corridor before moving.\n"
-                    + "2) Avoid bouncing against walls because every attempted move can waste score momentum.\n"
-                    + "3) Stay centered in open lanes to keep reaction options when bombs or items appear.\n\n"
-                    + "Advanced tip: plan 3-5 cells ahead and commit to low-risk routes instead of short but dangerous shortcuts."
+                "One key press = one step.\n"
+                    + "Avoid walls and plan 2-3 cells ahead.\n"
+                    + "Safer path usually gives better score."
             ),
             new TutorialSection(
                 "BOMB",
                 "/image/video/bomb.mp4",
-                "Bomb cells are high-risk hazards that reduce lives and heavily penalize score.\n\n"
-                    + "How to survive:\n"
-                    + "1) Scan neighboring cells before each step in narrow passages.\n"
-                    + "2) If bomb density appears high, detour even if the route is longer.\n"
-                    + "3) Preserve lives early; late-game recovery options are limited.\n\n"
-                    + "Strategic principle: one avoided bomb is usually worth more than several quick steps toward the goal."
+                "Bomb costs life and score.\n"
+                    + "Check nearby cells before moving.\n"
+                    + "Detour early if route is risky."
             ),
             new TutorialSection(
                 "ITEM",
                 "/image/video/item.mp4",
-                "Items are opportunity nodes that improve survivability or scoring potential through power-ups.\n\n"
-                    + "Collection workflow:\n"
-                    + "1) Reach item cell.\n"
-                    + "2) Pick one power-up from the modal.\n"
-                    + "3) Re-evaluate route according to your new capability.\n\n"
-                    + "Optimization tip: take items when they are on a low-risk route; never force item collection through bomb-heavy branches."
+                "Items open power-up choices.\n"
+                    + "Pick what helps your next route.\n"
+                    + "Do not force risky item grabs."
             ),
             new TutorialSection(
                 "SKILL",
                 "/image/video/t.mp4",
-                "Skills amplify your decision quality and should be used when they change the outcome of a route, not just for convenience.\n\n"
-                    + "Usage model:\n"
-                    + "1) Trigger skill before entering uncertain regions.\n"
-                    + "2) Chain skill benefit with the next 3-4 moves immediately.\n"
-                    + "3) Avoid wasting a skill while standing in already-safe corridors.\n\n"
-                    + "High-level tactic: combine skill timing with score preservation for stronger ranking results."
+                "Use skills before dangerous zones.\n"
+                    + "Chain with next moves immediately.\n"
+                    + "Save skills for key moments."
             ),
             new TutorialSection(
                 "ALGORITHM",
                 "/image/video/algorithm.mp4",
-                "In BOT mode, algorithm choice directly influences path style, exploration breadth, and total efficiency.\n\n"
-                    + "Comparison:\n"
-                    + "- BFS: reliable shortest path on unweighted grids.\n"
-                    + "- DFS: deep exploration, can be faster to discover but may return longer paths.\n"
-                    + "- A*: heuristic-guided search, typically best balance of speed and quality.\n\n"
-                    + "Leaderboard tip: on complex mazes, A* often yields stronger score-to-time performance for total ranking."
+                "BFS: stable shortest path.\n"
+                    + "DFS: deep search, may be longer.\n"
+                    + "A*: usually fastest overall."
             )
         );
     }

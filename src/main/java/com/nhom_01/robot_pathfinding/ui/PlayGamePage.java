@@ -1,22 +1,33 @@
 package com.nhom_01.robot_pathfinding.ui;
 
+import java.util.function.BiConsumer;
+
 import com.nhom_01.robot_pathfinding.ai.AStar;
 import com.nhom_01.robot_pathfinding.ai.BFS;
 import com.nhom_01.robot_pathfinding.ai.DFS;
 import com.nhom_01.robot_pathfinding.ai.SearchAlgorithm;
-import com.nhom_01.robot_pathfinding.core.*;
+import com.nhom_01.robot_pathfinding.core.CellType;
+import com.nhom_01.robot_pathfinding.core.GameSettings;
+import com.nhom_01.robot_pathfinding.core.Maze;
+import com.nhom_01.robot_pathfinding.core.MazeGenerator;
+import com.nhom_01.robot_pathfinding.core.PlayerProfile;
+import com.nhom_01.robot_pathfinding.core.PowerUp;
+import com.nhom_01.robot_pathfinding.core.RankingEntry;
+import com.nhom_01.robot_pathfinding.core.RankingManager;
+import com.nhom_01.robot_pathfinding.core.SearchResult;
+import com.nhom_01.robot_pathfinding.core.State;
 import com.nhom_01.robot_pathfinding.game.GameEngine;
 import com.nhom_01.robot_pathfinding.game.GameState;
 import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
 import com.nhom_01.robot_pathfinding.ui.components.InventoryPanel;
 import com.nhom_01.robot_pathfinding.ui.components.ItemCardSelectionModal;
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
+
 import javafx.animation.AnimationTimer;
 import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
-import javafx.util.Duration;
-import java.util.function.BiConsumer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -25,11 +36,14 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -41,6 +55,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 public class PlayGamePage {
 
@@ -95,6 +110,17 @@ public class PlayGamePage {
 		int[] playerLives = new int[] { Math.max(1, maze.getStart().getLives()) };
 		boolean[] playerFinished = new boolean[] { false };
 		boolean[] selectingPowerUp = new boolean[] { false };
+		long[] mysteryPickupAnimStartMs = new long[] { 0L };
+		int[] mysteryPickupGx = new int[] { 0 };
+		int[] mysteryPickupGy = new int[] { 0 };
+		boolean[] mysteryPickupNeedsModal = new boolean[] { false };
+		final Runnable[] openItemAfterMysteryHold = new Runnable[1];
+		long[] bombTouchAnimStartMs = new long[] { 0L };
+		int[] bombTouchGx = new int[] { 0 };
+		int[] bombTouchGy = new int[] { 0 };
+		long[] moveCommitAtMs = new long[] { 0L };
+		int[] moveCommitX = new int[] { 0 };
+		int[] moveCommitY = new int[] { 0 };
 		boolean[] optionsOpen = new boolean[] { false };
 		// Single-step movement: one key press = one cell. No continuous motion from holding.
 		// (Continuous movement is only used by the AI ASSIST power-up.)
@@ -222,7 +248,9 @@ public class PlayGamePage {
 		// Inventory panel for PLAYER mode
 		VBox inventorySection = new VBox(8);
 		inventorySection.setAlignment(Pos.CENTER_LEFT);
-		inventorySection.setPrefHeight(74);
+		inventorySection.setPrefHeight(176);
+		inventorySection.setMinHeight(176);
+		inventorySection.setFillWidth(true);
 		inventorySection.setStyle(
 			"-fx-background-color: rgba(255,255,255,0.90);" +
 			"-fx-border-color: rgba(0,0,0,0.12);" +
@@ -235,32 +263,39 @@ public class PlayGamePage {
 			Text inventoryLabel = new Text("Collected Items");
 			inventoryLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 			inventoryLabel.setFill(Color.web("#263238"));
-			inventorySection.getChildren().addAll(inventoryLabel, inventory.getContainer());
+			ScrollPane inventoryScroll = new ScrollPane(inventory.getContainer());
+			inventoryScroll.setFitToWidth(true);
+			inventoryScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+			inventoryScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+			inventoryScroll.setPrefViewportHeight(132);
+			inventoryScroll.setMaxHeight(132);
+			inventoryScroll.setStyle("-fx-background-color: transparent; -fx-background-insets: 0;");
+			inventorySection.getChildren().addAll(inventoryLabel, inventoryScroll);
 		} else {
 			inventorySection.setVisible(false);
 			inventorySection.setManaged(false);
 		}
 
 		Text statusText = new Text();
-		statusText.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		statusText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 		statusText.setFill(Color.web("#34495E"));
 		statusText.setWrappingWidth(312);
 
 		Text gameTimerText = new Text(mode == PlayMode.PLAYER ? "⏱  00:00" : "");
-		gameTimerText.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		gameTimerText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 		gameTimerText.setFill(Color.web("#1976D2"));
 
 		Text currentPosText = new Text("Position: -");
-		currentPosText.setFont(Font.font("Arial", FontWeight.BOLD, 15));
+		currentPosText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 		currentPosText.setFill(Color.web("#22303A"));
 
 		HBox actions = new HBox(5);
 		actions.setAlignment(Pos.CENTER_LEFT);
 
 		// Smaller font+padding so all 3 labels fit without truncation inside the 360px panel
-		Button replay        = new NeonButton("RESTART",   Color.web("#4E54E8"), 12, 5, 8, 4);
-		Button optionsButton = new NeonButton("OPTIONS",   Color.web("#2F80ED"), 12, 5, 8, 4);
-		Button backMenu      = new NeonButton("MAIN MENU", Color.web("#BBBBBB"), 12, 5, 8, 4);
+		Button replay        = new NeonButton("RESTART",   Color.web("#4E54E8"), 14, 5, 8, 4);
+		Button optionsButton = new NeonButton("OPTIONS",   Color.web("#2F80ED"), 14, 5, 8, 4);
+		Button backMenu      = new NeonButton("MAIN MENU", Color.web("#BBBBBB"), 14, 5, 8, 4);
 		replay.setMaxWidth(Double.MAX_VALUE);
 		optionsButton.setMaxWidth(Double.MAX_VALUE);
 		backMenu.setMaxWidth(Double.MAX_VALUE);
@@ -269,13 +304,13 @@ public class PlayGamePage {
 		HBox.setHgrow(backMenu,      Priority.ALWAYS);
 
 		Text settingsTitle = new Text("Settings");
-		settingsTitle.setFont(Font.font("Arial", FontWeight.BOLD, 31));
+		settingsTitle.setFont(Font.font("Arial", FontWeight.BOLD, 28));
 		settingsTitle.setFill(Color.web("#1F2D3A"));
 
 		Text subtitle = new Text(mode == PlayMode.BOT
 			? "BOT | " + difficulty + " | " + algorithmName
 			: "PLAYER | " + difficulty);
-		subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 12));
 		subtitle.setFill(Color.web("#4F5B62"));
 
 		Slider delaySlider = new Slider(120, 520, 220);
@@ -283,7 +318,7 @@ public class PlayGamePage {
 		delaySlider.setShowTickMarks(false);
 		delaySlider.setStyle("-fx-accent: #2f80ed;");
 		Text delayText = new Text("Delay: 220ms");
-		delayText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		delayText.setFont(Font.font("Arial", FontWeight.BOLD, 12));
 		delayText.setFill(Color.web("#263238"));
 		delaySlider.valueProperty().addListener((obs, ov, nv) -> {
 			delayText.setText("Delay: " + Math.round(nv.doubleValue()) + "ms");
@@ -291,22 +326,22 @@ public class PlayGamePage {
 		});
 
 		Text stateLabel = createStatText("STATE: " + initialState, Color.web("#1976D2"));
-		stateLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		stateLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 		Text scoreLabel = createStatText(
 			"SCORE: " + (mode == PlayMode.BOT ? engine.getScore() : playerScore[0]),
 			Color.web("#00897B")
 		);
-		scoreLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		scoreLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 		Text pathLabel = createStatText(
 			mode == PlayMode.BOT ? "PATH: " + safeSize(engine.getPath()) : "LIVES: " + playerLives[0],
 			Color.web("#EF6C00")
 		);
-		pathLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		pathLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 		Text exploredLabel = createStatText(
 			mode == PlayMode.BOT ? "EXPLORED: " + safeSize(engine.getExplored()) : "GOAL: FIND EXIT",
 			Color.web("#455A64")
 		);
-		exploredLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		exploredLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 
 		VBox settingsCard = new VBox(10,
 			settingsTitle,
@@ -316,6 +351,8 @@ public class PlayGamePage {
 			actions
 		);
 		settingsCard.setPadding(new Insets(16));
+		settingsCard.setFillWidth(true);
+		settingsCard.setMaxWidth(Double.MAX_VALUE);
 		settingsCard.setStyle(
 			"-fx-background-color: rgba(255,255,255,0.94);" +
 			"-fx-border-color: rgba(0,0,0,0.08);" +
@@ -324,20 +361,31 @@ public class PlayGamePage {
 			"-fx-background-radius: 10;"
 		);
 
-		VBox infoCard = new VBox(8,
-			new Text("Game Info"),
-			currentPosText,
-			stateLabel,
-			scoreLabel,
-			pathLabel,
-			exploredLabel,
-			gameTimerText,
-			statusText,
-			inventorySection
-		);
-		((Text) infoCard.getChildren().get(0)).setFont(Font.font("Arial", FontWeight.BOLD, 28));
-		((Text) infoCard.getChildren().get(0)).setFill(Color.web("#1F2D3A"));
+		Text infoTitle = new Text("Game Info");
+		infoTitle.setFont(Font.font("Arial", FontWeight.BOLD, 25));
+		infoTitle.setFill(Color.web("#1F2D3A"));
+		GridPane infoGrid = new GridPane();
+		infoGrid.setHgap(18);
+		infoGrid.setVgap(6);
+		infoGrid.add(currentPosText, 0, 0);
+		infoGrid.add(stateLabel, 0, 1);
+		infoGrid.add(scoreLabel, 0, 2);
+		infoGrid.add(pathLabel, 0, 3);
+		infoGrid.add(exploredLabel, 1, 0);
+		infoGrid.add(gameTimerText, 1, 1);
+		infoGrid.add(statusText, 1, 2);
+		infoGrid.setMaxWidth(Double.MAX_VALUE);
+		ColumnConstraints ccLeft = new ColumnConstraints();
+		ccLeft.setPercentWidth(50);
+		ColumnConstraints ccRight = new ColumnConstraints();
+		ccRight.setPercentWidth(50);
+		infoGrid.getColumnConstraints().setAll(ccLeft, ccRight);
+		statusText.setWrappingWidth(145);
+
+		VBox infoCard = new VBox(8, infoTitle, infoGrid, inventorySection);
 		infoCard.setPadding(new Insets(16));
+		infoCard.setFillWidth(true);
+		infoCard.setMaxWidth(Double.MAX_VALUE);
 		infoCard.setStyle(
 			"-fx-background-color: rgba(255,255,255,0.94);" +
 			"-fx-border-color: rgba(0,0,0,0.08);" +
@@ -347,12 +395,23 @@ public class PlayGamePage {
 		);
 
 		VBox legendPanel = createLegendPanel();
+		legendPanel.setMaxWidth(Double.MAX_VALUE);
 
 		VBox sideColumn = new VBox(12, settingsCard, infoCard, legendPanel);
+		sideColumn.setFillWidth(true);
 		sideColumn.setPrefWidth(360);
 		sideColumn.setMinWidth(360);
 		sideColumn.setMaxWidth(360);
 		sideColumn.setMaxHeight(Double.MAX_VALUE);
+		ScrollPane sideScroll = new ScrollPane(sideColumn);
+		sideScroll.setFitToWidth(true);
+		sideScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+		sideScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+		sideScroll.setPrefWidth(360);
+		sideScroll.setMinWidth(360);
+		sideScroll.setMaxWidth(360);
+		sideScroll.setStyle("-fx-background-color: transparent; -fx-background-insets: 0;");
+		AppFonts.applyTo(sideColumn);
 
 		// ── Toast notification system ────────────────────────────────────────
 		Timeline[] toastTL = { null };
@@ -422,7 +481,13 @@ public class PlayGamePage {
 					gc, maze,
 					exploredOverlay, pathOverlay,
 					playerRenderX[0], playerRenderY[0],
-					mazeCanvas.getWidth(), mazeCanvas.getHeight()
+					mazeCanvas.getWidth(), mazeCanvas.getHeight(),
+					mysteryPickupAnimStartMs[0],
+					mysteryPickupGx[0],
+					mysteryPickupGy[0],
+					bombTouchAnimStartMs[0],
+					bombTouchGx[0],
+					bombTouchGy[0]
 				);
 			}
 		};
@@ -520,27 +585,25 @@ public class PlayGamePage {
 				renderFrame.run();
 
 				// ── Show result overlay when bot finishes ─────────────────────────
-				if (rankingRecorded[0] && !resultShown[0]) {
+					if (rankingRecorded[0] && !resultShown[0]) {
 					resultShown[0] = true;
 					boolean botWon    = botEngine.getState() == GameState.FINISHED;
 					int     botScore  = botEngine.getScore();
 					int     botSteps  = safeSize(botEngine.getPath());
 					int     botExplrd = safeSize(botEngine.getExplored());
 					long    botElapse = System.currentTimeMillis() - gameStartTime[0];
-					new Timeline(new KeyFrame(Duration.millis(800), ev -> {
-						if (botLoopRef[0] != null) botLoopRef[0].stop();
-						showResultOverlay(
-							root, stage, previousScene, difficulty,
-							botWon, false,
-							botScore, botSteps, botElapse,
-							-(botExplrd + 1), // negative = bot mode; abs()-1 = explored count
-							() -> showBotOnStage(stage, previousScene, difficulty, algorithmName),
-							() -> {
-								stage.setScene(previousScene);
-								MenuAudioManager.startTheme();
-							}
-						);
-					})).play();
+					if (botLoopRef[0] != null) botLoopRef[0].stop();
+					showResultOverlay(
+						root, stage, previousScene, difficulty,
+						botWon, false,
+						botScore, botSteps, botElapse,
+						-(botExplrd + 1), // negative = bot mode; abs()-1 = explored count
+						() -> showBotOnStage(stage, previousScene, difficulty, algorithmName),
+						() -> {
+							stage.setScene(previousScene);
+							MenuAudioManager.startTheme();
+						}
+					);
 				}
 			}
 		};
@@ -549,7 +612,7 @@ public class PlayGamePage {
 		} else {
 			refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
 			statusText.setFill(Color.web("#AEE8FF"));
-			statusText.setText("MOVE WITH ARROW KEYS — REACH THE GOAL!");
+			statusText.setText("MOVE TO GOAL");
 			currentPosText.setText("Position: (" + playerPos[0].getX() + ", " + playerPos[0].getY() + ")");
 			playerRenderX[0] = playerPos[0].getX();
 			playerRenderY[0] = playerPos[0].getY();
@@ -581,7 +644,9 @@ public class PlayGamePage {
 						: remainingMs < 60_000 ? Color.web("#FF8F00") : Color.web("#1976D2"));
 
 					// ── Timeout check ─────────────────────────────────────────────────
-					if (!playerFinished[0] && !selectingPowerUp[0] && remainingMs <= 0) {
+					if (!playerFinished[0] && !selectingPowerUp[0]
+							&& mysteryPickupAnimStartMs[0] == 0
+							&& remainingMs <= 0) {
 						playerFinished[0] = true;
 						playerTimedOut[0] = true;
 						pendingKey[0]     = null;
@@ -616,6 +681,38 @@ public class PlayGamePage {
 					// ── Update active-skill chips bar ─────────────────────────────────
 					updateSkillChips.run();
 
+					if (mysteryPickupAnimStartMs[0] > 0) {
+						long mel = System.currentTimeMillis() - mysteryPickupAnimStartMs[0];
+						if (mel >= MazeRenderer.MYSTERY_OPEN_TOTAL_MS) {
+							int mx = mysteryPickupGx[0];
+							int my = mysteryPickupGy[0];
+							maze.setCell(mx, my, CellType.EMPTY);
+							mysteryPickupAnimStartMs[0] = 0;
+							boolean needModal = mysteryPickupNeedsModal[0];
+							mysteryPickupNeedsModal[0] = false;
+							if (needModal && openItemAfterMysteryHold[0] != null) {
+								openItemAfterMysteryHold[0].run();
+							}
+						}
+					}
+					if (bombTouchAnimStartMs[0] > 0) {
+						long bel = System.currentTimeMillis() - bombTouchAnimStartMs[0];
+						if (bel >= MazeRenderer.BOMB_HIT_TOTAL_MS) {
+							maze.setCell(bombTouchGx[0], bombTouchGy[0], CellType.EMPTY);
+							bombTouchAnimStartMs[0] = 0;
+						}
+					}
+					if (moveCommitAtMs[0] > 0 && System.currentTimeMillis() >= moveCommitAtMs[0]) {
+						playerPos[0] = new State(moveCommitX[0], moveCommitY[0], Math.max(0, playerLives[0]));
+						playerFromX[0] = moveCommitX[0];
+						playerFromY[0] = moveCommitY[0];
+						playerToX[0] = moveCommitX[0];
+						playerToY[0] = moveCommitY[0];
+						playerRenderX[0] = moveCommitX[0];
+						playerRenderY[0] = moveCommitY[0];
+						moveCommitAtMs[0] = 0;
+					}
+
 					// Use dynamic step duration (affected by SPEED_BOOST / SPEED_SLOW)
 					long stepNs = pw.effectiveStepNs;
 
@@ -629,7 +726,10 @@ public class PlayGamePage {
 					if (pw.aiRunning && pw.aiPath != null
 							&& pw.aiPathIdx < pw.aiPath.size()
 							&& pw.aiPathIdx <= 8) {
-						if (playerAccumulatorNanos[0] >= stepNs && !playerFinished[0] && !selectingPowerUp[0]) {
+						if (playerAccumulatorNanos[0] >= stepNs && !playerFinished[0] && !selectingPowerUp[0]
+								&& mysteryPickupAnimStartMs[0] == 0
+								&& bombTouchAnimStartMs[0] == 0
+								&& moveCommitAtMs[0] == 0) {
 							playerAccumulatorNanos[0] -= stepNs;
 							State nextAi = pw.aiPath.get(pw.aiPathIdx++);
 							playerFromX[0] = playerRenderX[0];
@@ -660,7 +760,10 @@ public class PlayGamePage {
 								&& pendingKey[0] != null
 								&& playerAccumulatorNanos[0] >= stepNs
 								&& !playerFinished[0]
-								&& !selectingPowerUp[0]) {
+								&& !selectingPowerUp[0]
+								&& mysteryPickupAnimStartMs[0] == 0
+								&& bombTouchAnimStartMs[0] == 0
+								&& moveCommitAtMs[0] == 0) {
 
 							playerAccumulatorNanos[0] -= stepNs;
 							keyConsumed[0] = true; // mark step as consumed for this press
@@ -675,7 +778,11 @@ public class PlayGamePage {
 								statusText, audio, masterVolume, sfxVolume,
 								inventory, gameScene[0], selectingPowerUp, renderFrame,
 								gameStartTime, stepCounter, rankingRecorded,
-								difficulty, algorithmName, pw
+								difficulty, algorithmName, pw,
+								mysteryPickupAnimStartMs, mysteryPickupGx, mysteryPickupGy,
+								mysteryPickupNeedsModal, openItemAfterMysteryHold,
+								bombTouchAnimStartMs, bombTouchGx, bombTouchGy,
+								moveCommitAtMs, moveCommitX, moveCommitY
 							);
 
 							playerToX[0] = playerPos[0].getX();
@@ -708,18 +815,16 @@ public class PlayGamePage {
 						int  finalScore  = playerScore[0];
 						int  finalSteps  = stepCounter[0];
 						int  finalLives  = playerLives[0];
-						new Timeline(new KeyFrame(Duration.millis(700), ev -> {
-							if (playerLoopRef[0] != null) playerLoopRef[0].stop();
-							showResultOverlay(
-								root, stage, previousScene, difficulty,
-								won, timedOut, finalScore, finalSteps, elapsedResult, finalLives,
-								() -> showPlayerOnStage(stage, previousScene, difficulty),
-								() -> {
-									stage.setScene(previousScene);
-									MenuAudioManager.startTheme();
-								}
-							);
-						})).play();
+						if (playerLoopRef[0] != null) playerLoopRef[0].stop();
+						showResultOverlay(
+							root, stage, previousScene, difficulty,
+							won, timedOut, finalScore, finalSteps, elapsedResult, finalLives,
+							() -> showPlayerOnStage(stage, previousScene, difficulty),
+							() -> {
+								stage.setScene(previousScene);
+								MenuAudioManager.startTheme();
+							}
+						);
 					}
 				}
 			};
@@ -796,7 +901,7 @@ public class PlayGamePage {
 		});
 
 		actions.getChildren().addAll(optionsButton, replay, backMenu);
-		page.getChildren().addAll(mazeBoard, sideColumn);
+		page.getChildren().addAll(mazeBoard, sideScroll);
 
 		Pane overlay = new Pane();
 		overlay.setStyle("-fx-background-color: rgba(0,0,0,0.14);");
@@ -814,6 +919,7 @@ public class PlayGamePage {
 		renderFrame.run();
 
 		Scene scene = new Scene(root, W, H);
+		AppFonts.applyTo(root);
 		gameScene[0] = scene;
 		
 		if (mode == PlayMode.PLAYER) {
@@ -1089,7 +1195,18 @@ public class PlayGamePage {
 		boolean[] rankingRecorded,
 		String difficulty,
 		String algorithmName,
-		PowerUpState pw
+		PowerUpState pw,
+		long[] mysteryPickupAnimStartMs,
+		int[] mysteryPickupGx,
+		int[] mysteryPickupGy,
+		boolean[] mysteryPickupNeedsModal,
+		Runnable[] openItemAfterMysteryHold,
+		long[] bombTouchAnimStartMs,
+		int[] bombTouchGx,
+		int[] bombTouchGy,
+		long[] moveCommitAtMs,
+		int[] moveCommitX,
+		int[] moveCommitY
 	) {
 		if (playerFinished[0] || selectingPowerUp[0]) {
 			return false;
@@ -1131,7 +1248,6 @@ public class PlayGamePage {
 
 		// ── Bomb ──────────────────────────────────────────────────────────────
 		if (nextCell == CellType.BOMB) {
-			maze.setCell(nx, ny, CellType.EMPTY);
 			if (pw.isBombSafe() || pw.safeStep) {
 				// Safe: bomb neutralised
 				pw.safeStep = false;
@@ -1158,16 +1274,30 @@ public class PlayGamePage {
 					}
 				}
 			}
+			bombTouchAnimStartMs[0] = System.currentTimeMillis();
+			bombTouchGx[0] = nx;
+			bombTouchGy[0] = ny;
+			moveCommitAtMs[0] = bombTouchAnimStartMs[0] + MazeRenderer.BOMB_HIT_TOTAL_MS;
+			moveCommitX[0] = nx;
+			moveCommitY[0] = ny;
 
 		// ── Item ─────────────────────────────────────────────────────────────
 		} else if (nextCell == CellType.ITEM) {
 			int reward = pw.isScoreDoubled() ? 360 : 180;
 			playerScore[0] += reward;
-			maze.setCell(nx, ny, CellType.EMPTY);
 			statusText.setFill(Color.web("#9FFFD8"));
-			statusText.setText("ITEM COLLECTED (+" + reward + ") — choose a power-up!");
-
-			if (inventory != null && gameScene != null) {
+			statusText.setText("ITEM COLLECTED (+" + reward + ") — opening mystery box...");
+			mysteryPickupAnimStartMs[0] = System.currentTimeMillis();
+			mysteryPickupGx[0] = nx;
+			mysteryPickupGy[0] = ny;
+			moveCommitAtMs[0] = mysteryPickupAnimStartMs[0] + MazeRenderer.MYSTERY_OPEN_TOTAL_MS;
+			moveCommitX[0] = nx;
+			moveCommitY[0] = ny;
+			mysteryPickupNeedsModal[0] = inventory != null && gameScene != null;
+			openItemAfterMysteryHold[0] = () -> {
+				if (inventory == null || gameScene == null) {
+					return;
+				}
 				boolean shown = ItemCardSelectionModal.showOnScene(gameScene, selectedPowerUp -> {
 					if (selectedPowerUp != null) {
 						inventory.addCollectedPowerUp(selectedPowerUp);
@@ -1179,7 +1309,7 @@ public class PlayGamePage {
 					statusText.setFill(Color.web("#FFD59A"));
 					statusText.setText("ITEM COLLECTED — continue moving");
 				}
-			}
+			};
 
 		// ── Goal ─────────────────────────────────────────────────────────────
 		} else if (nextCell == CellType.GOAL) {
@@ -1192,10 +1322,12 @@ public class PlayGamePage {
 			}
 		} else {
 			statusText.setFill(Color.web("#AEE8FF"));
-			statusText.setText("MOVE WITH ARROW KEYS — REACH THE GOAL!");
+			statusText.setText("MOVE TO GOAL");
 		}
 
-		playerPos[0] = new State(nx, ny, Math.max(0, playerLives[0]));
+		if (nextCell != CellType.BOMB && nextCell != CellType.ITEM) {
+			playerPos[0] = new State(nx, ny, Math.max(0, playerLives[0]));
+		}
 		return true;
 	}
 
@@ -1286,6 +1418,7 @@ public class PlayGamePage {
 		body.getChildren().addAll(descText, effectTag, dismissHint);
 		card.getChildren().addAll(header, body);
 		overlay.getChildren().add(card);
+		AppFonts.applyTo(overlay);
 		root.getChildren().add(overlay);
 
 		// ── Dismiss helper ────────────────────────────────────────────────────
@@ -1397,7 +1530,7 @@ public class PlayGamePage {
 		rankSection.setPadding(new Insets(10, 24, 14, 24));
 		rankSection.setStyle("-fx-background-color: #F0F4FF;");
 
-		Text rankTitle = new Text("TOP SCORES — " + difficulty.toUpperCase());
+		Text rankTitle = new Text("TOP 5 — " + difficulty.toUpperCase());
 		rankTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 13));
 		rankTitle.setFill(Color.web("#1F2D3A"));
 		rankSection.getChildren().add(rankTitle);
@@ -1422,7 +1555,7 @@ public class PlayGamePage {
 			rankSection.getChildren().add(row);
 		}
 		if (maxShow == 0) {
-			Text noData = new Text("No scores recorded yet.");
+			Text noData = new Text("No score yet.");
 			noData.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
 			noData.setFill(Color.web("#607D8B"));
 			rankSection.getChildren().add(noData);
@@ -1452,6 +1585,7 @@ public class PlayGamePage {
 		card.getChildren().addAll(header, statsSection, rankSection, actions);
 
 		overlay.getChildren().add(card);
+		AppFonts.applyTo(overlay);
 		root.getChildren().add(overlay);
 
 		overlay.setOpacity(0);
@@ -1585,25 +1719,31 @@ public class PlayGamePage {
 		);
 
 		Text title = new Text("Legend");
-		title.setFont(Font.font("Arial", FontWeight.BOLD, 31));
+		title.setFont(Font.font("Arial", FontWeight.BOLD, 24));
 		title.setFill(Color.web("#1F2D3A"));
 
-		Text hint = new Text("Quick reference for map objects:");
-		hint.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		Text hint = new Text("Map keys");
+		hint.setFont(Font.font("Arial", FontWeight.BOLD, 12));
 		hint.setFill(Color.web("#4F5B62"));
 
-		VBox rows = new VBox(8,
-			legendRow("/image/vit/Duck.png", "R", Color.web("#FFE082"), "Player / Robot"),
+		GridPane rows = new GridPane();
+		rows.setHgap(18);
+		rows.setVgap(8);
+		javafx.scene.Node[] legendNodes = new javafx.scene.Node[] {
+			legendRow("/image/vit/Duck.png", "R", Color.web("#FFE082"), "Player"),
 			legendRow("/image/vit/FinishLine.png", "F", Color.web("#212121"), "GOAL"),
 			legendRow("/image/vit/Grass.png", "W", Color.web("#A3D977"), "Wall"),
-			legendRow("/image/vit/Water.png", "~", Color.web("#8AE5F6"), "Open path"),
+			legendRow("/image/vit/Water.png", "~", Color.web("#8AE5F6"), "Path"),
 			legendRow("/image/vit/Flag.png", ".", Color.web("#AFC7FF"), "Explored"),
-			legendRow("/image/vit/Vit.png", "+", Color.web("#A5D6A7"), "Solution / Item"),
-			legendRow("/image/vit/Stop.png", "X", Color.web("#FF6B6B"), "Dead end / Hazard")
-		);
+			legendRow("/image/vit/Vit.png", "+", Color.web("#A5D6A7"), "Item"),
+			legendRow("/image/vit/Stop.png", "X", Color.web("#FF6B6B"), "Hazard")
+		};
+		for (int i = 0; i < legendNodes.length; i++) {
+			rows.add(legendNodes[i], i % 2, i / 2);
+		}
 
-		Text foot = new Text("Open OPTIONS to enable path hints during gameplay.");
-		foot.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+		Text foot = new Text("Use OPTIONS for hints.");
+		foot.setFont(Font.font("Arial", FontWeight.NORMAL, 11));
 		foot.setFill(Color.web("#7B8A93"));
 		foot.setWrappingWidth(330);
 
@@ -1615,7 +1755,7 @@ public class PlayGamePage {
 		javafx.scene.Node iconNode = createLegendIcon(imagePath, fallbackSymbol, fallbackColor);
 
 		Text text = new Text(meaning);
-		text.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		text.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 		text.setFill(Color.web("#22303A"));
 
 		HBox row = new HBox(10, iconNode, text);
@@ -1678,7 +1818,7 @@ public class PlayGamePage {
 		title.setFont(Font.font("Orbitron", FontWeight.BOLD, 32));
 		title.setFill(Color.web("#1F2D3A"));
 
-		Text subtitle = new Text("Pause game settings: audio, gameplay support, and quick exit");
+		Text subtitle = new Text("Audio + controls");
 		subtitle.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
 		subtitle.setFill(Color.web("#4F5B62"));
 
@@ -1725,8 +1865,8 @@ public class PlayGamePage {
 
 		HBox actions = new HBox(10);
 		actions.setAlignment(Pos.CENTER_RIGHT);
-		Button resumeBtn = new NeonButton("RESUME", Color.web("#2E7D32"), 13, 7, 14, 6);
-		Button exitBtn = new NeonButton("EXIT TO MENU", Color.web("#D84343"), 13, 7, 14, 6);
+		Button resumeBtn = new NeonButton("RESUME", Color.web("#2E7D32"), 14, 7, 14, 6);
+		Button exitBtn = new NeonButton("EXIT TO MENU", Color.web("#D84343"), 14, 7, 14, 6);
 
 		Runnable closeOverlay = () -> {
 			root.getChildren().remove(overlay);
@@ -1763,6 +1903,7 @@ public class PlayGamePage {
 		);
 
 		overlay.getChildren().add(panel);
+		AppFonts.applyTo(overlay);
 		overlay.setOnKeyPressed(e -> {
 			if (e.getCode() == KeyCode.ESCAPE) {
 				closeOverlay.run();

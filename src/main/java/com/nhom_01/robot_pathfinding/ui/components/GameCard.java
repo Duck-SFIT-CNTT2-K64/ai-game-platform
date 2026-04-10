@@ -2,6 +2,7 @@ package com.nhom_01.robot_pathfinding.ui.components;
 
 import com.nhom_01.robot_pathfinding.ui.theme.UIEffects;
 import com.nhom_01.robot_pathfinding.ui.theme.UITheme;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
 import javafx.animation.ParallelTransition;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -9,8 +10,6 @@ import javafx.scene.Node;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 
 public class GameCard extends VBox {
@@ -47,7 +46,7 @@ public class GameCard extends VBox {
 		setEffect(normalGlow);
 
 		Text heading = new Text(icon + "  " + title);
-		heading.setFont(Font.font("Orbitron", FontWeight.BOLD, 30));
+		heading.setFont(AppFonts.jersey(30));
 		heading.setFill(accent);
 
 		this.body = new VBox(10);
@@ -82,7 +81,7 @@ public class GameCard extends VBox {
 
 	public Text createBodyText(String text, double wrapWidth) {
 		Text line = new Text(text);
-		line.setFont(Font.font("Arial", FontWeight.NORMAL, 15));
+		line.setFont(AppFonts.jersey(15));
 		line.setFill(UITheme.SURFACE_TEXT);
 		line.setWrappingWidth(wrapWidth);
 		return line;
