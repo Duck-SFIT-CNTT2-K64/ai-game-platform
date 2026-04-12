@@ -3,6 +3,8 @@ package com.nhom_01.robot_pathfinding.core;
 public final class PlayerProfile {
 
     private static String currentPlayerName;
+    private static String currentDuckType = "YELLOW"; // Default duck
+
 
     private PlayerProfile() {
     }
@@ -21,6 +23,15 @@ public final class PlayerProfile {
     public static synchronized boolean hasPlayerName() {
         return currentPlayerName != null && !currentPlayerName.isBlank();
     }
+
+    public static synchronized void setCurrentDuckType(String duckType) {
+        currentDuckType = duckType;
+    }
+
+    public static synchronized String getCurrentDuckType() {
+        return currentDuckType;
+    }
+
 
     private static String sanitize(String name) {
         if (name == null) {

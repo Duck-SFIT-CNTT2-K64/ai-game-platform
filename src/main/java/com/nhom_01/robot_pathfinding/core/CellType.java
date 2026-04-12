@@ -1,10 +1,10 @@
 package com.nhom_01.robot_pathfinding.core;
 
 public enum CellType {
-    EMPTY,  // Ô trống
-    WALL,   // Tường
-    BOMB,   // Bom (-1 mạng)
-    ITEM,   // Vật phẩm (+điểm)
-    START,  // Vị trí xuất phát
-    GOAL    // Cửa thoát
+    EMPTY,  // O trong
+    WALL,   // Tuong
+    BOMB,   // Bom (-1 mang)
+    ITEM,   // Vat pham (+diem)
+    START,  // Vi tri xuat phat
+    GOAL    // Cua thoat
 }

@@ -41,9 +41,9 @@ import javafx.scene.control.Slider;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.GridPane;
 import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -160,6 +160,8 @@ public class PlayGamePage {
 		// Power-up runtime state (only meaningful in PLAYER mode)
 		PowerUpState pw = new PowerUpState();
 		Scene[] gameScene = new Scene[1];
+		MazeRenderer.DuckFacing[] botDuckFacing = new MazeRenderer.DuckFacing[] { MazeRenderer.DuckFacing.RIGHT };
+		boolean[] botPastIntroIdle = new boolean[] { false };
 		double[] botRenderX = new double[] { maze.getStart().getX() };
 		double[] botRenderY = new double[] { maze.getStart().getY() };
 		double[] botFromX = new double[] { maze.getStart().getX() };
@@ -168,6 +170,7 @@ public class PlayGamePage {
 		double[] botToY = new double[] { maze.getStart().getY() };
 		long[] botAccumulatorNanos = new long[] { 0L };
 		long[] botLastFrameNanos = new long[] { 0L };
+		MazeRenderer.DuckFacing[] duckFacing = new MazeRenderer.DuckFacing[] { MazeRenderer.DuckFacing.RIGHT };
 		double[] playerRenderX = new double[] { maze.getStart().getX() };
 		double[] playerRenderY = new double[] { maze.getStart().getY() };
 		double[] playerFromX = new double[] { maze.getStart().getX() };
@@ -199,7 +202,7 @@ public class PlayGamePage {
 			Color.web("#00FF9C")
 		);
 		Text pathText = createStatText(
-			mode == PlayMode.BOT ? "PATH: " + safeSize(engine.getPath()) : "LIVES: " + playerLives[0],
+			mode == PlayMode.BOT ? "PATH: " + safeSize(engine.getPath()) + " | LIVES: " + engine.getLives() : "LIVES: " + playerLives[0],
 			Color.web("#FFB800")
 		);
 		Text exploredText = createStatText(
@@ -333,7 +336,7 @@ public class PlayGamePage {
 		);
 		scoreLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
 		Text pathLabel = createStatText(
-			mode == PlayMode.BOT ? "PATH: " + safeSize(engine.getPath()) : "LIVES: " + playerLives[0],
+			mode == PlayMode.BOT ? "PATH: " + safeSize(engine.getPath()) + " | LIVES: " + engine.getLives() : "LIVES: " + playerLives[0],
 			Color.web("#EF6C00")
 		);
 		pathLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
@@ -461,7 +464,15 @@ public class PlayGamePage {
 					gc, maze,
 					botEngine.getExplored(), botEngine.getPath(),
 					botRenderX[0], botRenderY[0],
-					mazeCanvas.getWidth(), mazeCanvas.getHeight()
+					mazeCanvas.getWidth(), mazeCanvas.getHeight(),
+					mysteryPickupAnimStartMs[0],
+					mysteryPickupGx[0],
+					mysteryPickupGy[0],
+					bombTouchAnimStartMs[0],
+					bombTouchGx[0],
+					bombTouchGy[0],
+					botDuckFacing[0],
+					!botPastIntroIdle[0]
 				);
 			} else {
 				// ── Determine visual overlays from active power-ups ──────────
@@ -487,7 +498,9 @@ public class PlayGamePage {
 					mysteryPickupGy[0],
 					bombTouchAnimStartMs[0],
 					bombTouchGx[0],
-					bombTouchGy[0]
+					bombTouchGy[0],
+					duckFacing[0],
+					stepCounter[0] == 0
 				);
 			}
 		};
@@ -531,8 +544,22 @@ public class PlayGamePage {
 						botAccumulatorNanos[0] -= stepDurationNanos;
 
 						State prevPos = botEngine.getRobotPosition();
+						int prevLives = botEngine.getLives();
 						botEngine.update();
 						State nextPos = botEngine.getRobotPosition();
+						int nextLives = botEngine.getLives();
+
+						if (nextLives < prevLives) {
+							bombTouchAnimStartMs[0] = System.currentTimeMillis();
+							if (nextPos != null) {
+								bombTouchGx[0] = nextPos.getX();
+								bombTouchGy[0] = nextPos.getY();
+							} else if (prevPos != null) {
+								bombTouchGx[0] = prevPos.getX();
+								bombTouchGy[0] = prevPos.getY();
+							}
+							showNotif.accept("HIT A BOMB \u2014 -1 LIFE!", Color.web("#FF8DA6"));
+						}
 
 						if (nextPos != null) {
 							// from = last rendered position (no jump even with sub-frame timing)
@@ -549,6 +576,10 @@ public class PlayGamePage {
 
 						if (prevPos != null && nextPos != null
 								&& (prevPos.getX() != nextPos.getX() || prevPos.getY() != nextPos.getY())) {
+							botPastIntroIdle[0] = true;
+							botDuckFacing[0] = MazeRenderer.facingFromGridDelta(
+								nextPos.getX() - prevPos.getX(),
+								nextPos.getY() - prevPos.getY());
 							audio.playFootstep(masterVolume[0], sfxVolume[0]);
 						}
 
@@ -569,6 +600,14 @@ public class PlayGamePage {
 						State pos = botEngine.getRobotPosition();
 						if (pos != null) {
 							currentPosText.setText("Position: (" + pos.getX() + ", " + pos.getY() + ")");
+						}
+					}
+
+					// Process bomb animation expiration so it cleans up correctly
+					if (bombTouchAnimStartMs[0] > 0) {
+						long bel = System.currentTimeMillis() - bombTouchAnimStartMs[0];
+						if (bel >= MazeRenderer.BOMB_HIT_TOTAL_MS) {
+							bombTouchAnimStartMs[0] = 0;
 						}
 					}
 
@@ -734,9 +773,13 @@ public class PlayGamePage {
 							State nextAi = pw.aiPath.get(pw.aiPathIdx++);
 							playerFromX[0] = playerRenderX[0];
 							playerFromY[0] = playerRenderY[0];
+							int prevGx = playerPos[0].getX();
+							int prevGy = playerPos[0].getY();
 							playerPos[0] = new State(nextAi.getX(), nextAi.getY(), playerLives[0]);
 							playerToX[0] = nextAi.getX();
 							playerToY[0] = nextAi.getY();
+							duckFacing[0] = MazeRenderer.facingFromGridDelta(
+								nextAi.getX() - prevGx, nextAi.getY() - prevGy);
 							stepCounter[0]++;
 							playerScore[0] = Math.max(0, playerScore[0] - 3);
 							audio.playFootstep(masterVolume[0], sfxVolume[0]);
@@ -782,7 +825,8 @@ public class PlayGamePage {
 								mysteryPickupAnimStartMs, mysteryPickupGx, mysteryPickupGy,
 								mysteryPickupNeedsModal, openItemAfterMysteryHold,
 								bombTouchAnimStartMs, bombTouchGx, bombTouchGy,
-								moveCommitAtMs, moveCommitX, moveCommitY
+								moveCommitAtMs, moveCommitX, moveCommitY,
+								duckFacing
 							);
 
 							playerToX[0] = playerPos[0].getX();
@@ -1139,12 +1183,14 @@ public class PlayGamePage {
 	) {
 		stateText.setText("STATE: " + engine.getState());
 		scoreText.setText("SCORE: " + engine.getScore());
-		pathText.setText("PATH: " + safeSize(engine.getPath()));
+		pathText.setText("PATH: " + safeSize(engine.getPath()) + " | LIVES: " + engine.getLives());
 		exploredText.setText("EXPLORED: " + safeSize(engine.getExplored()));
 
 		if (engine.getState() == GameState.NO_PATH) {
 			statusText.setFill(Color.web("#FF6B6B"));
-			statusText.setText("NO PATH FOUND - TRY ANOTHER ALGORITHM OR REPLAY");
+			statusText.setText(engine.getLives() <= 0 
+				? "GAME OVER - BOT OUT OF LIVES!" 
+				: "NO PATH FOUND - TRY ANOTHER ALGORITHM OR REPLAY");
 		} else if (engine.getState() == GameState.FINISHED) {
 			statusText.setFill(Color.web("#00FF9C"));
 			statusText.setText("ROBOT REACHED GOAL - FINAL SCORE: " + engine.getScore());
@@ -1206,7 +1252,8 @@ public class PlayGamePage {
 		int[] bombTouchGy,
 		long[] moveCommitAtMs,
 		int[] moveCommitX,
-		int[] moveCommitY
+		int[] moveCommitY,
+		MazeRenderer.DuckFacing[] duckFacing
 	) {
 		if (playerFinished[0] || selectingPowerUp[0]) {
 			return false;
@@ -1219,6 +1266,9 @@ public class PlayGamePage {
 			case LEFT  -> dx = -1;
 			case RIGHT -> dx =  1;
 			default    -> { return false; }
+		}
+		if (duckFacing != null && duckFacing.length > 0) {
+			duckFacing[0] = MazeRenderer.facingFromGridDelta(dx, dy);
 		}
 
 		int nx = playerPos[0].getX() + dx;

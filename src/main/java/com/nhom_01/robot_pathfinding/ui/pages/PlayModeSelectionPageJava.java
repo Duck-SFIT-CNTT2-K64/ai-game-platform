@@ -74,7 +74,9 @@ public final class PlayModeSelectionPageJava {
             "Use keyboard: UP / DOWN / LEFT / RIGHT",
             Color.web("#5EA5FF"),
             () -> ensurePlayerName(stage, stage.getScene(), () ->
-                PlayGamePage.showPlayerOnStage(stage, stage.getScene(), difficulty)
+                ensureDuckType(stage, stage.getScene(), () -> 
+                    PlayGamePage.showPlayerOnStage(stage, stage.getScene(), difficulty)
+                )
             )
         );
 
@@ -85,7 +87,9 @@ public final class PlayModeSelectionPageJava {
             "Useful to observe path quality and compare strategies.",
             "Next step: choose BFS / DFS / A*",
             Color.web("#2BD99F"),
-            () -> AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene(), difficulty)
+            () -> ensureDuckType(stage, stage.getScene(), () ->
+                AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene(), difficulty)
+            )
         );
 
         cards.getChildren().addAll(playerCard, botCard);
@@ -244,5 +248,89 @@ public final class PlayModeSelectionPageJava {
         AppFonts.applyTo(overlay);
         root.getChildren().add(overlay);
         nameField.requestFocus();
+    }
+
+    private static void ensureDuckType(Stage stage, Scene currentScene, Runnable onReady) {
+        if (!(currentScene.getRoot() instanceof StackPane root)) { onReady.run(); return; }
+        if (root.lookup("#duck-type-overlay") != null) return;
+
+        StackPane overlay = new StackPane();
+        overlay.setId("duck-type-overlay");
+        overlay.setStyle("-fx-background-color: rgba(6,4,18,0.72);");
+        overlay.setPickOnBounds(true);
+
+        VBox card = new VBox(0);
+        card.setAlignment(Pos.TOP_LEFT);
+        card.setPrefWidth(420);
+        card.setMaxWidth(420);
+        card.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
+        card.setStyle(
+            "-fx-background-color: #F8FAFF;" +
+            "-fx-border-color: rgba(0,0,0,0.06);" +
+            "-fx-border-width: 1;" +
+            "-fx-border-radius: 16;" +
+            "-fx-background-radius: 16;"
+        );
+        javafx.scene.effect.DropShadow shadow = new javafx.scene.effect.DropShadow();
+        shadow.setColor(Color.color(0, 0, 0, 0.30));
+        shadow.setRadius(32); shadow.setOffsetY(8);
+        card.setEffect(shadow);
+
+        VBox cardHeader = new VBox(5);
+        cardHeader.setAlignment(Pos.CENTER_LEFT);
+        cardHeader.setPadding(new Insets(22, 24, 18, 24));
+        cardHeader.setStyle(
+            "-fx-background-color: linear-gradient(to right, #FFB800, #9C27B0);" +
+            "-fx-background-radius: 16 16 0 0;"
+        );
+        Text headerTag = new Text("🦆  ROBOT MAZE");
+        headerTag.setFont(Font.font("Orbitron", FontWeight.BOLD, 11));
+        headerTag.setFill(Color.color(1, 1, 1, 0.80));
+        Text headerTitle = new Text("Chon nhan vat");
+        headerTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 20));
+        headerTitle.setFill(Color.WHITE);
+        Text headerSub = new Text("Vit vang hay vit tim?");
+        headerSub.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+        headerSub.setFill(Color.color(1.0, 1.0, 1.0, 0.90));
+        cardHeader.getChildren().addAll(headerTag, headerTitle, headerSub);
+
+        VBox cardBody = new VBox(20);
+        cardBody.setPadding(new Insets(24, 24, 24, 24));
+        cardBody.setAlignment(Pos.CENTER);
+
+        HBox options = new HBox(20);
+        options.setAlignment(Pos.CENTER);
+        
+        Button btnYellow = new NeonButton("VIT VANG", Color.web("#FFB800"), 14, 8, 14, 8);
+        btnYellow.setPrefWidth(140);
+        Button btnPurple = new NeonButton("VIT TIM", Color.web("#9C27B0"), 14, 8, 14, 8);
+        btnPurple.setPrefWidth(140);
+
+        btnYellow.setOnAction(e -> {
+            PlayerProfile.setCurrentDuckType("YELLOW");
+            root.getChildren().remove(overlay);
+            onReady.run();
+        });
+
+        btnPurple.setOnAction(e -> {
+            PlayerProfile.setCurrentDuckType("PURPLE");
+            root.getChildren().remove(overlay);
+            onReady.run();
+        });
+
+        options.getChildren().addAll(btnYellow, btnPurple);
+        
+        HBox actions = new HBox(10);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        Button cancel = new NeonButton("HUY", Color.web("#90A4AE"), 12, 6, 14, 7);
+        cancel.setOnAction(e -> root.getChildren().remove(overlay));
+        actions.getChildren().add(cancel);
+
+        cardBody.getChildren().addAll(options, actions);
+        card.getChildren().addAll(cardHeader, cardBody);
+
+        overlay.getChildren().add(card);
+        AppFonts.applyTo(overlay);
+        root.getChildren().add(overlay);
     }
 }

@@ -35,8 +35,14 @@ public class DFS implements SearchAlgorithm {
         int[][] dirs = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}};
         for (int[] d : dirs) {
             int nx = s.getX() + d[0], ny = s.getY() + d[1];
-            if (maze.getCell(nx, ny) != CellType.WALL) {
-                neighbors.add(new State(nx, ny, s.getLives()));
+            CellType cell = maze.getCell(nx, ny);
+            if (cell != CellType.WALL) {
+                int nextLives = s.getLives();
+                if (cell == CellType.BOMB) nextLives--;
+                
+                if (nextLives > 0) {
+                    neighbors.add(new State(nx, ny, nextLives));
+                }
             }
         }
         return neighbors;
