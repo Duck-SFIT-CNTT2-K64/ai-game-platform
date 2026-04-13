@@ -3,16 +3,22 @@ package com.nhom_01.robot_pathfinding.ui.pages;
 import com.nhom_01.robot_pathfinding.core.PlayerProfile;
 import com.nhom_01.robot_pathfinding.ui.PlayGamePage;
 import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
-import com.nhom_01.robot_pathfinding.ui.components.GameCard;
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
 import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
 import com.nhom_01.robot_pathfinding.ui.theme.PlayToneBackground;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
+import javafx.scene.effect.BlendMode;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.image.PixelReader;
+import javafx.scene.image.PixelWriter;
+import javafx.scene.image.WritableImage;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
@@ -22,11 +28,18 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
+import java.util.ArrayDeque;
 
 public final class PlayModeSelectionPageJava {
 
     private static final double VIEW_WIDTH  = javafx.stage.Screen.getPrimary().getVisualBounds().getWidth();
     private static final double VIEW_HEIGHT = javafx.stage.Screen.getPrimary().getVisualBounds().getHeight();
+    private static final String BTN_PLAYER_PATH = "/image/assets/player.jpg";
+    private static final String BTN_BOT_PATH = "/image/assets/bot.jpg";
+    private static final String BTN_BACK_DIFFICULTY_PATH = "/image/assets/BackDifficulty.jpg";
+    private static final String FRAME_BIG_PATH = "/image/assets/frame_big.png";
+    private static final String LEAF_PATH = "/image/assets/la.jpg";
+    private static final String DUCK_PATH = "/image/assets/vit.jpg";
 
     private PlayModeSelectionPageJava() {
     }
@@ -66,26 +79,26 @@ public final class PlayModeSelectionPageJava {
         HBox cards = new HBox(24);
         cards.setAlignment(Pos.CENTER);
 
-        VBox playerCard = createModeCard(
-            "PLAYER",
-            "🕹",
-            "Control robot manually with arrow keys.",
-            "Great for learning maze patterns and reacting to bombs.",
-            "Use keyboard: UP / DOWN / LEFT / RIGHT",
-            Color.web("#5EA5FF"),
-            () -> ensurePlayerName(stage, stage.getScene(), () ->
-                PlayGamePage.showPlayerOnStage(stage, stage.getScene(), difficulty)
-            )
+        StackPane playerCard = createModeCard(
+                "PLAYER",
+                "🕹",
+                "Control robot manually with arrow keys.",
+                "Great for learning maze patterns and reacting to bombs.",
+                "Use keyboard: UP / DOWN / LEFT / RIGHT",
+                BTN_PLAYER_PATH,
+                () -> ensurePlayerName(stage, stage.getScene(), () ->
+                        PlayGamePage.showPlayerOnStage(stage, stage.getScene(), difficulty)
+                )
         );
 
-        VBox botCard = createModeCard(
-            "BOT",
-            "🦆",
-            "AI solves maze automatically based on algorithm.",
-            "Useful to observe path quality and compare strategies.",
-            "Next step: choose BFS / DFS / A*",
-            Color.web("#2BD99F"),
-            () -> AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene(), difficulty)
+        StackPane botCard = createModeCard(
+                "BOT",
+                "🦆",
+                "AI solves maze automatically based on algorithm.",
+                "Useful to observe path quality and compare strategies.",
+                "Next step: choose BFS / DFS / A*",
+                BTN_BOT_PATH,
+                () -> AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene(), difficulty)
         );
 
         cards.getChildren().addAll(playerCard, botCard);
@@ -94,7 +107,7 @@ public final class PlayModeSelectionPageJava {
         actions.setAlignment(Pos.CENTER_RIGHT);
         actions.setMaxWidth(1288);
 
-        Button back = new NeonButton("BACK TO DIFFICULTY", Color.web("#607D8B"), 14, 8, 14, 8);
+        Button back = createImageButton(BTN_BACK_DIFFICULTY_PATH, 300, 74);
         back.setOnAction(e -> stage.setScene(previousScene));
         actions.getChildren().add(back);
 
@@ -109,21 +122,76 @@ public final class PlayModeSelectionPageJava {
         return new Scene(root, VIEW_WIDTH, VIEW_HEIGHT);
     }
 
-    private static VBox createModeCard(String title, String icon, String line1, String line2,
-                                       String line3, Color accent, Runnable onChoose) {
-        GameCard card = new GameCard(title, icon, accent, 540, 360);
+    private static StackPane createModeCard(String title, String icon, String line1, String line2,
+                                            String line3, String buttonImagePath, Runnable onChoose) {
+        final double frameWidth = 540;
+        final double frameHeight = 360;
+        final double horizontalPadding = 34;
+        final double topPadding = 22;
+        final double bottomPadding = 22;
+        final double contentWidth = frameWidth - (horizontalPadding * 2);
 
-        Text l1 = card.createBodyText(line1, 500);
-        Text l2 = card.createBodyText(line2, 500);
-        Text l3 = card.createBodyText(line3, 500);
-        l3.setFill(Color.web("#455A64"));
+        StackPane card = new StackPane();
+        card.setPrefSize(frameWidth, frameHeight);
+        card.setMinSize(frameWidth, frameHeight);
+        card.setMaxSize(frameWidth, frameHeight);
+        card.setStyle("-fx-background-color: transparent; -fx-padding: 0;");
 
-        Button start = new NeonButton("CHOOSE " + title, accent, 15, 9, 16, 8);
-        start.setPrefWidth(210);
-        start.setMinWidth(210);
+        Image rawFrameImage = loadImageResource(FRAME_BIG_PATH);
+        Image frameImage = removeWhiteBackground(rawFrameImage);
+        ImageView bg = new ImageView(frameImage);
+        bg.setViewport(detectFrameViewport(frameImage));
+        bg.setFitWidth(frameWidth);
+        bg.setFitHeight(frameHeight);
+        bg.setPreserveRatio(false);
+        bg.setSmooth(false);
+
+        Text heading = new Text(icon + "  " + title);
+        heading.setFont(Font.font("Orbitron", FontWeight.BOLD, 34));
+        heading.setFill(Color.web("#F3F8FF"));
+        heading.setStroke(Color.web("#243142"));
+        heading.setStrokeWidth(0.9);
+        heading.setWrappingWidth(contentWidth);
+
+        Text l1 = new Text(line1);
+        l1.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
+        l1.setFill(Color.web("#EAF3FA"));
+        l1.setWrappingWidth(contentWidth);
+
+        Text l2 = new Text(line2);
+        l2.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
+        l2.setFill(Color.web("#EAF3FA"));
+        l2.setWrappingWidth(contentWidth);
+
+        Text l3 = new Text(line3);
+        l3.setFont(Font.font("Arial", FontWeight.BOLD, 15));
+        l3.setFill(Color.web("#D2ECFF"));
+        l3.setWrappingWidth(contentWidth);
+
+        Button start = createImageButton(buttonImagePath, 220, 100);
         start.setOnAction(e -> onChoose.run());
 
-        card.addBodyNodes(l1, l2, l3, start);
+        VBox content = new VBox(11, heading, l1, l2, l3, start);
+        content.setPadding(new Insets(topPadding, horizontalPadding, bottomPadding, horizontalPadding));
+        content.setAlignment(Pos.TOP_LEFT);
+
+        ImageView leaf = createDecorSprite(LEAF_PATH, 58, 58);
+        StackPane.setAlignment(leaf, Pos.BOTTOM_RIGHT);
+        StackPane.setMargin(leaf, new Insets(0, 24, 30, 0));
+
+        ImageView leafTop = createDecorSprite(LEAF_PATH, 46, 46);
+        StackPane.setAlignment(leafTop, Pos.TOP_LEFT);
+        StackPane.setMargin(leafTop, new Insets(14, 0, 0, 20));
+
+        ImageView leafMid = createDecorSprite(LEAF_PATH, 42, 42);
+        StackPane.setAlignment(leafMid, Pos.CENTER_RIGHT);
+        StackPane.setMargin(leafMid, new Insets(30, 18, 0, 0));
+
+        ImageView duck = createDecorSprite(DUCK_PATH, 50, 50);
+        StackPane.setAlignment(duck, Pos.BOTTOM_LEFT);
+        StackPane.setMargin(duck, new Insets(0, 0, 24, 24));
+
+        card.getChildren().addAll(bg, leaf, leafTop, leafMid, duck, content);
         return card;
     }
 
@@ -149,11 +217,11 @@ public final class PlayModeSelectionPageJava {
         card.setMaxWidth(420);
         card.setMaxHeight(javafx.scene.layout.Region.USE_PREF_SIZE);
         card.setStyle(
-            "-fx-background-color: #F8FAFF;" +
-            "-fx-border-color: rgba(0,0,0,0.06);" +
-            "-fx-border-width: 1;" +
-            "-fx-border-radius: 16;" +
-            "-fx-background-radius: 16;"
+                "-fx-background-color: #F8FAFF;" +
+                        "-fx-border-color: rgba(0,0,0,0.06);" +
+                        "-fx-border-width: 1;" +
+                        "-fx-border-radius: 16;" +
+                        "-fx-background-radius: 16;"
         );
         javafx.scene.effect.DropShadow shadow = new javafx.scene.effect.DropShadow();
         shadow.setColor(Color.color(0, 0, 0, 0.30));
@@ -165,8 +233,8 @@ public final class PlayModeSelectionPageJava {
         cardHeader.setAlignment(Pos.CENTER_LEFT);
         cardHeader.setPadding(new Insets(22, 24, 18, 24));
         cardHeader.setStyle(
-            "-fx-background-color: linear-gradient(to right, #1565C0, #2F80ED);" +
-            "-fx-background-radius: 16 16 0 0;"
+                "-fx-background-color: linear-gradient(to right, #1565C0, #2F80ED);" +
+                        "-fx-background-radius: 16 16 0 0;"
         );
         Text headerTag = new Text("🦆  ROBOT MAZE");
         headerTag.setFont(Font.font("Orbitron", FontWeight.BOLD, 11));
@@ -190,15 +258,15 @@ public final class PlayModeSelectionPageJava {
         nameField.setPromptText("Nhan vao day de nhap ten...");
         HBox.setHgrow(nameField, javafx.scene.layout.Priority.ALWAYS);
         nameField.setStyle(
-            "-fx-background-color: #EEF2FF;" +
-            "-fx-text-fill: #1F2D3A;" +
-            "-fx-prompt-text-fill: #8A9AA1;" +
-            "-fx-font-size: 14px;" +
-            "-fx-font-family: 'Arial';" +
-            "-fx-border-color: transparent transparent #2F80ED transparent;" +
-            "-fx-border-width: 0 0 2 0;" +
-            "-fx-background-radius: 6 6 0 0;" +
-            "-fx-padding: 9 10 9 10;"
+                "-fx-background-color: #EEF2FF;" +
+                        "-fx-text-fill: #1F2D3A;" +
+                        "-fx-prompt-text-fill: #8A9AA1;" +
+                        "-fx-font-size: 14px;" +
+                        "-fx-font-family: 'Arial';" +
+                        "-fx-border-color: transparent transparent #2F80ED transparent;" +
+                        "-fx-border-width: 0 0 2 0;" +
+                        "-fx-background-radius: 6 6 0 0;" +
+                        "-fx-padding: 9 10 9 10;"
         );
         Text counter = new Text("0 / 24");
         counter.setFont(Font.font("Arial", FontWeight.NORMAL, 11));
@@ -244,5 +312,193 @@ public final class PlayModeSelectionPageJava {
         AppFonts.applyTo(overlay);
         root.getChildren().add(overlay);
         nameField.requestFocus();
+    }
+
+    private static Button createImageButton(String imagePath, double width, double height) {
+        Button button = new Button();
+        button.setPrefWidth(width);
+        button.setMinWidth(width);
+        button.setPrefHeight(height);
+        button.setMinHeight(height);
+        button.setStyle("-fx-background-color: transparent; -fx-padding: 0; -fx-border-color: transparent;");
+
+        Image rawImage = loadImageResource(imagePath);
+        Image cleanedImage = removeCornerBackground(rawImage);
+        ImageView imageView = new ImageView(cleanedImage);
+        imageView.setViewport(detectFrameViewport(cleanedImage));
+        imageView.setFitWidth(width);
+        imageView.setFitHeight(height);
+        imageView.setPreserveRatio(false);
+        imageView.setSmooth(false);
+        button.setGraphic(imageView);
+
+        button.setOnMouseEntered(e -> {
+            button.setScaleX(1.02);
+            button.setScaleY(1.02);
+        });
+        button.setOnMouseExited(e -> {
+            button.setScaleX(1.0);
+            button.setScaleY(1.0);
+        });
+        return button;
+    }
+
+    private static ImageView createDecorSprite(String imagePath, double width, double height) {
+        Image rawImage = loadImageResource(imagePath);
+        Image cleanedImage = removeCornerBackground(rawImage);
+        ImageView sprite = new ImageView(cleanedImage);
+        sprite.setViewport(detectFrameViewport(cleanedImage));
+        sprite.setFitWidth(width);
+        sprite.setFitHeight(height);
+        sprite.setPreserveRatio(true);
+        sprite.setSmooth(false);
+        sprite.setOpacity(0.65);
+        sprite.setBlendMode(BlendMode.MULTIPLY);
+        sprite.setMouseTransparent(true);
+        return sprite;
+    }
+
+    private static Rectangle2D detectFrameViewport(Image image) {
+        PixelReader reader = image.getPixelReader();
+        if (reader == null) {
+            return new Rectangle2D(0, 0, image.getWidth(), image.getHeight());
+        }
+
+        int width = (int) image.getWidth();
+        int height = (int) image.getHeight();
+        int minX = width;
+        int minY = height;
+        int maxX = -1;
+        int maxY = -1;
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int argb = reader.getArgb(x, y);
+                int alpha = (argb >>> 24) & 0xFF;
+                if (alpha < 16) continue;
+
+                int red = (argb >>> 16) & 0xFF;
+                int green = (argb >>> 8) & 0xFF;
+                int blue = argb & 0xFF;
+                boolean nearWhite = red > 245 && green > 245 && blue > 245;
+                if (nearWhite) continue;
+
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x);
+                maxY = Math.max(maxY, y);
+            }
+        }
+
+        if (maxX < minX || maxY < minY) {
+            return new Rectangle2D(0, 0, image.getWidth(), image.getHeight());
+        }
+        return new Rectangle2D(minX, minY, (maxX - minX) + 1, (maxY - minY) + 1);
+    }
+
+    private static Image removeWhiteBackground(Image source) {
+        PixelReader reader = source.getPixelReader();
+        if (reader == null) return source;
+
+        int width = (int) source.getWidth();
+        int height = (int) source.getHeight();
+        WritableImage output = new WritableImage(width, height);
+        PixelWriter writer = output.getPixelWriter();
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int argb = reader.getArgb(x, y);
+                int alpha = (argb >>> 24) & 0xFF;
+                int red = (argb >>> 16) & 0xFF;
+                int green = (argb >>> 8) & 0xFF;
+                int blue = argb & 0xFF;
+                boolean whiteBackground = alpha > 0 && red > 245 && green > 245 && blue > 245;
+                writer.setArgb(x, y, whiteBackground ? 0x00000000 : argb);
+            }
+        }
+        return output;
+    }
+
+    private static Image removeCornerBackground(Image source) {
+        PixelReader reader = source.getPixelReader();
+        if (reader == null) return source;
+
+        int width = (int) source.getWidth();
+        int height = (int) source.getHeight();
+        WritableImage output = new WritableImage(width, height);
+        PixelWriter writer = output.getPixelWriter();
+
+        int corner1 = reader.getArgb(0, 0);
+        int corner2 = reader.getArgb(Math.max(0, width - 1), 0);
+        int corner3 = reader.getArgb(0, Math.max(0, height - 1));
+        int corner4 = reader.getArgb(Math.max(0, width - 1), Math.max(0, height - 1));
+
+        int total = width * height;
+        boolean[] removeMask = new boolean[total];
+        ArrayDeque<Integer> queue = new ArrayDeque<>();
+
+        for (int x = 0; x < width; x++) {
+            queue.add(x);
+            queue.add((height - 1) * width + x);
+        }
+        for (int y = 1; y < height - 1; y++) {
+            queue.add(y * width);
+            queue.add(y * width + (width - 1));
+        }
+
+        while (!queue.isEmpty()) {
+            int idx = queue.poll();
+            if (idx < 0 || idx >= total || removeMask[idx]) continue;
+
+            int x = idx % width;
+            int y = idx / width;
+            int argb = reader.getArgb(x, y);
+            boolean nearCornerBg =
+                    isNearColor(argb, corner1, 20) ||
+                            isNearColor(argb, corner2, 20) ||
+                            isNearColor(argb, corner3, 20) ||
+                            isNearColor(argb, corner4, 20);
+            if (!nearCornerBg) continue;
+
+            removeMask[idx] = true;
+            if (x > 0) queue.add(idx - 1);
+            if (x < width - 1) queue.add(idx + 1);
+            if (y > 0) queue.add(idx - width);
+            if (y < height - 1) queue.add(idx + width);
+        }
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int idx = y * width + x;
+                int argb = reader.getArgb(x, y);
+                writer.setArgb(x, y, removeMask[idx] ? 0x00000000 : argb);
+            }
+        }
+
+        return output;
+    }
+
+    private static boolean isNearColor(int argbA, int argbB, int threshold) {
+        int aA = (argbA >>> 24) & 0xFF;
+        int rA = (argbA >>> 16) & 0xFF;
+        int gA = (argbA >>> 8) & 0xFF;
+        int bA = argbA & 0xFF;
+        int aB = (argbB >>> 24) & 0xFF;
+        int rB = (argbB >>> 16) & 0xFF;
+        int gB = (argbB >>> 8) & 0xFF;
+        int bB = argbB & 0xFF;
+
+        return Math.abs(aA - aB) <= threshold
+                && Math.abs(rA - rB) <= threshold
+                && Math.abs(gA - gB) <= threshold
+                && Math.abs(bA - bB) <= threshold;
+    }
+
+    private static Image loadImageResource(String resourcePath) {
+        var resource = PlayModeSelectionPageJava.class.getResource(resourcePath);
+        if (resource == null) {
+            return new WritableImage(4, 4);
+        }
+        return new Image(resource.toExternalForm());
     }
 }
