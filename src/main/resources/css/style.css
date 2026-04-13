@@ -8,4 +8,19 @@
 
 .root{
     -fx-background-color: black;
+    /* TTF internal name is usually "Jersey 10" (space), not "Jersey10" */
+    -fx-font-family: 'Jersey 10', 'Segoe UI', 'System';
+}
+
+@font-face {
+    font-family: 'Jersey 10';
+    src: url("../font/Jersey10-Regular.ttf");
+}
+
+.button {
+    -fx-font-family: 'Jersey 10', 'Segoe UI', 'System';
+}
+
+.text {
+    -fx-font-family: 'Jersey 10', 'Segoe UI', 'System';
 }

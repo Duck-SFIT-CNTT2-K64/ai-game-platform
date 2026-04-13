@@ -1,5 +1,17 @@
 package com.nhom_01.robot_pathfinding.ui.pages;
 
+import java.net.URL;
+
+import com.nhom_01.robot_pathfinding.ui.animation.ParticleSystem;
+import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
+import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
+import com.nhom_01.robot_pathfinding.ui.theme.PlayToneBackground;
+import com.nhom_01.robot_pathfinding.ui.theme.UITheme;
+
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -18,20 +30,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
-
-import javafx.animation.Animation;
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
 import javafx.util.Duration;
-
-import com.nhom_01.robot_pathfinding.ui.animation.ParticleSystem;
-import com.nhom_01.robot_pathfinding.ui.animation.RobotAnimation;
-import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
-import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
-import com.nhom_01.robot_pathfinding.ui.theme.PlayToneBackground;
-import com.nhom_01.robot_pathfinding.ui.theme.UITheme;
-
-import java.net.URL;
 
 public class MainMenuJava extends Application {
 
@@ -39,6 +38,7 @@ public class MainMenuJava extends Application {
 
 	@Override
 	public void start(Stage stage) {
+		AppFonts.getJerseyFamily(); // register embedded Jersey face before any UI text
 		javafx.geometry.Rectangle2D sb = javafx.stage.Screen.getPrimary().getVisualBounds();
 		double W = sb.getWidth();
 		double H = sb.getHeight();
@@ -82,6 +82,7 @@ public class MainMenuJava extends Application {
 		StackPane.setAlignment(mainContent, Pos.CENTER_LEFT);
 
 		Scene scene = new Scene(root, W, H);
+		AppFonts.applyTo(root);
 		MenuAudioManager.wireScene(scene);
 		MenuAudioManager.startTheme();
 		stage.setTitle("Robot Maze");
@@ -112,7 +113,7 @@ public class MainMenuJava extends Application {
 		double desc = Math.max(12, 17 * sf);
 
 		Text mainTitle = new Text("DUCK");
-		mainTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, big));
+		mainTitle.setFont(AppFonts.jersey(big));
 		mainTitle.setFill(Color.web("#1F2D3A"));
 
 		DropShadow tg = new DropShadow();
@@ -121,7 +122,7 @@ public class MainMenuJava extends Application {
 		mainTitle.setEffect(tg);
 
 		Text subTitle = new Text("MAZE");
-		subTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, big));
+		subTitle.setFont(AppFonts.jersey(big));
 		subTitle.setFill(Color.web("#EF6C00"));
 
 		DropShadow sg = new DropShadow();
@@ -130,7 +131,7 @@ public class MainMenuJava extends Application {
 		subTitle.setEffect(sg);
 
 		Text description = new Text("SMART PATHFINDING · SMOOTH EXPERIENCE");
-		description.setFont(Font.font("Arial", FontWeight.NORMAL, desc));
+		description.setFont(javafx.scene.text.Font.font("Arial", FontWeight.NORMAL, desc));
 		description.setFill(Color.web("#4F5B62"));
 
 		box.getChildren().addAll(mainTitle, subTitle, description);
@@ -184,7 +185,7 @@ public class MainMenuJava extends Application {
 
 		// Label — white with shadow for readability over dark maze background
 		Text label = new Text("RUNNING DUCK PREVIEW");
-		label.setFont(Font.font("Orbitron", FontWeight.BOLD, Math.max(13, 20 * sf)));
+		label.setFont(AppFonts.jersey(Math.max(13, 20 * sf)));
 		label.setFill(Color.web("#FFFFFF"));
 		label.setOpacity(0.95);
 		DropShadow textGlow = new DropShadow();
