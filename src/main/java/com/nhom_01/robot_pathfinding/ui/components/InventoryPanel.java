@@ -2,14 +2,13 @@ package com.nhom_01.robot_pathfinding.ui.components;
 
 import com.nhom_01.robot_pathfinding.core.CollectedPowerUp;
 import com.nhom_01.robot_pathfinding.core.PowerUp;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 
@@ -28,7 +27,7 @@ public class InventoryPanel {
 
         inventoryContainer = new FlowPane(10, 10);
         inventoryContainer.setAlignment(Pos.CENTER_LEFT);
-        inventoryContainer.setPrefWrapLength(800);
+        inventoryContainer.setPrefWrapLength(320);
         inventoryContainer.setStyle(
             "-fx-padding: 10;" +
             "-fx-background-color: rgba(255,255,255,0.92);" +
@@ -88,7 +87,7 @@ public class InventoryPanel {
 
         if (inventory.isEmpty()) {
             Text emptyText = new Text("No items collected yet");
-            emptyText.setFont(Font.font("Arial", 12));
+            emptyText.setFont(AppFonts.jersey(12));
             emptyText.setFill(Color.web("#6B7A82"));
             inventoryContainer.getChildren().add(emptyText);
             return;
@@ -104,8 +103,8 @@ public class InventoryPanel {
     private HBox createInventoryItem(CollectedPowerUp collected, int index) {
         HBox itemBox = new HBox(8);
         itemBox.setAlignment(Pos.CENTER);
-        itemBox.setPrefWidth(120);
-        itemBox.setPrefHeight(80);
+        itemBox.setPrefWidth(96);
+        itemBox.setPrefHeight(74);
         itemBox.setPadding(new Insets(8));
 
         PowerUp powerUp = collected.getPowerUp();
@@ -123,16 +122,16 @@ public class InventoryPanel {
 
         VBox content = new VBox(4);
         content.setAlignment(Pos.CENTER);
-        content.setPrefWidth(104);
+        content.setPrefWidth(82);
 
         Text nameText = new Text(powerUp.getDisplayName());
-        nameText.setFont(Font.font("Arial", FontWeight.BOLD, 11));
+        nameText.setFont(AppFonts.jersey(11));
         nameText.setFill(Color.web("#1F2D3A"));
         nameText.setTextAlignment(TextAlignment.CENTER);
-        nameText.setWrappingWidth(100);
+        nameText.setWrappingWidth(78);
 
         Text statusText = new Text(collected.isActive() ? "ACTIVE" : "READY");
-        statusText.setFont(Font.font("Arial", FontWeight.BOLD, 10));
+        statusText.setFont(AppFonts.jersey(10));
         statusText.setFill(collected.isActive() ? Color.web("#00FF9C") : Color.web("#FFB800"));
 
         content.getChildren().addAll(nameText, statusText);

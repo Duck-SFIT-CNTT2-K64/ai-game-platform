@@ -1,15 +1,28 @@
 package com.nhom_01.robot_pathfinding.ui;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import com.nhom_01.robot_pathfinding.core.CellType;
 import com.nhom_01.robot_pathfinding.core.Maze;
 import com.nhom_01.robot_pathfinding.core.State;
+
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 
-import java.util.List;
-
 public class MazeRenderer {
+
+	/** Visible time per mystery-box frame (2 and 3) after touch; frame 1 is idle. */
+	public static final long MYSTERY_OPEN_FRAME_MS = 280L;
+	public static final long MYSTERY_OPEN_TOTAL_MS = MYSTERY_OPEN_FRAME_MS * 2;
+
+	/** Visible time per bomb hit frame (2 and 3); frame 1 is idle on the map. */
+	public static final long BOMB_HIT_FRAME_MS = 280L;
+	public static final long BOMB_HIT_TOTAL_MS = BOMB_HIT_FRAME_MS * 2;
 
 	private static final Color BG = Color.web("#88E3F3");
 	private static final Color WALL = Color.web("#BDE86E");
@@ -28,25 +41,43 @@ public class MazeRenderer {
 	private static final Image DUCK_HURT = loadImage("/image/pixel_animation/duck_hurt.png");
 	
 	private static final Image GRASS_1 = loadImage("/image/pixel_animation/Grass_1.png");
-	private static final Image WATER = loadImage("/image/pixel_animation/Water.png");
-	private static final Image[] FINISH_LINE = new Image[3];
+	private static final Image WATER = loadImage("/image/pixel_animation/water.gif");
+	/** Bomb_1 = idle on map; Bomb_2/3 = touch animation (per-frame PNGs). */
+	private static final Image[] BOMB_FRAMES = new Image[4];
 	
+	private static final Image[] FINISH_LINE = new Image[3];
+
 	private static final Image STOP_IMAGE = loadImage("/image/pixel_animation/Stop.png");
-	private static final Image ITEM_IMAGE = loadImage("/image/pixel_animation/Item.png");
-	private static final Image FLAG_IMAGE = loadImage("/image/pixel_animation/Flag.png");
+	private static final Image ITEM_IMAGE = loadImage("/image/pixel_animation/mysterybox_fr1.png");
+	private static final Image[] MYSTERY_FRAMES = new Image[3];
+	private static final Image FLAG_IMAGE = loadImage("/image/pixel_animation/flag.png");
 
 	static {
 		for (int i = 0; i < 4; i++) {
 			DUCK_IDLE[i] = loadImage(String.format("/image/pixel_animation/duck_idle_frames/idle_%02d.png", i));
 			DUCK_WALK[i] = loadImage(String.format("/image/pixel_animation/duck_walk_frames/walk_%02d.png", i));
 		}
+		// Use flag sprites for the finish line (flag, flag_left, flag_right)
+		FINISH_LINE[0] = loadImage("/image/pixel_animation/FinishLine_1.png");
+		FINISH_LINE[1] = loadImage("/image/pixel_animation/FinishLine_2.png");
+		FINISH_LINE[2] = loadImage("/image/pixel_animation/FinishLine_3.png");
+
+		// Mystery box: fr1 idle, fr2–fr3 play on pickup
 		for (int i = 0; i < 3; i++) {
-			FINISH_LINE[i] = loadImage(String.format("/image/pixel_animation/FinishLine_%d.png", i + 1));
+			MYSTERY_FRAMES[i] = loadImage(String.format("/image/pixel_animation/mysterybox_fr%d.png", i + 1));
 		}
+		for (int i = 0; i < 4; i++) {
+			BOMB_FRAMES[i] = loadImage("/image/pixel_animation/Bomb_" + (i + 1) + ".png");
+		}
+		// Using single animated GIF (`water.gif`) for in-play water; no frame array needed
 	}
 
 	private MazeRenderer() {
 	}
+
+	// Track bomb positions and explosion animations
+	private static final Set<String> LAST_BOMB_POS = new HashSet<>();
+	private static final Map<String, Long> BOMB_EXPLODE_TS = new HashMap<>();
 
 	public static void render(
 		GraphicsContext gc,
@@ -59,7 +90,7 @@ public class MazeRenderer {
 	) {
 		double robotGridX = robotPosition == null ? Double.NaN : robotPosition.getX();
 		double robotGridY = robotPosition == null ? Double.NaN : robotPosition.getY();
-		render(gc, maze, explored, path, robotGridX, robotGridY, width, height);
+		render(gc, maze, explored, path, robotGridX, robotGridY, width, height, 0L, -1, -1, 0L, -1, -1);
 	}
 
 	public static void render(
@@ -71,6 +102,30 @@ public class MazeRenderer {
 		double robotGridY,
 		double width,
 		double height
+	) {
+		render(gc, maze, explored, path, robotGridX, robotGridY, width, height, 0L, -1, -1, 0L, -1, -1);
+	}
+
+	/**
+	 * @param mysteryOpenStartMs {@code System.currentTimeMillis()} when pickup started, or {@code 0} if none
+	 * @param mysteryOpenGx      grid column of opening box (ignored if start is 0)
+	 * @param mysteryOpenGy      grid row of opening box
+	 */
+	public static void render(
+		GraphicsContext gc,
+		Maze maze,
+		List<State> explored,
+		List<State> path,
+		double robotGridX,
+		double robotGridY,
+		double width,
+		double height,
+		long mysteryOpenStartMs,
+		int mysteryOpenGx,
+		int mysteryOpenGy,
+		long bombTouchStartMs,
+		int bombTouchGx,
+		int bombTouchGy
 	) {
 		gc.setFill(BG);
 		gc.fillRect(0, 0, width, height);
@@ -85,12 +140,14 @@ public class MazeRenderer {
 
 		long time = System.currentTimeMillis();
 
+		// Draw base cells and collect bomb positions
+		Set<String> currentBombs = new HashSet<>();
 		for (int x = 0; x < mazeW; x++) {
 			for (int y = 0; y < mazeH; y++) {
 				CellType type = maze.getCell(x, y);
 				double px = offsetX + x * cellSize;
 				double py = offsetY + y * cellSize;
-				
+
 				if (type == CellType.WALL) {
 					if (GRASS_1 != null && !GRASS_1.isError()) {
 						// Grass tiles fill the entire cell in pixel style
@@ -107,8 +164,19 @@ public class MazeRenderer {
 						gc.fillRect(px, py, cellSize, cellSize);
 					}
 				}
+
+				if (type == CellType.BOMB) currentBombs.add(x + "," + y);
 			}
 		}
+
+		// detect bombs that were removed this frame -> start explode animation
+		Set<String> removedBombs = new HashSet<>(LAST_BOMB_POS);
+		removedBombs.removeAll(currentBombs);
+		long now = System.currentTimeMillis();
+		for (String k : removedBombs) {
+			BOMB_EXPLODE_TS.put(k, now);
+		}
+		LAST_BOMB_POS.clear(); LAST_BOMB_POS.addAll(currentBombs);
 
 		if (explored != null) {
 			gc.setFill(EXPLORED);
@@ -136,8 +204,30 @@ public class MazeRenderer {
 
 		for (int x = 0; x < mazeW; x++) {
 			for (int y = 0; y < mazeH; y++) {
-				drawCellIcon(gc, maze.getCell(x, y), offsetX + x * cellSize, offsetY + y * cellSize, cellSize, time);
+				drawCellIcon(
+					gc, maze.getCell(x, y), x, y,
+					offsetX + x * cellSize, offsetY + y * cellSize, cellSize, time,
+					mysteryOpenStartMs, mysteryOpenGx, mysteryOpenGy,
+					bombTouchStartMs, bombTouchGx, bombTouchGy
+				);
 			}
+		}
+
+		// Draw explosion animations for bombs that were removed this frame
+		long now2 = System.currentTimeMillis();
+		java.util.Iterator<Map.Entry<String, Long>> bit = BOMB_EXPLODE_TS.entrySet().iterator();
+		while (bit.hasNext()) {
+			Map.Entry<String, Long> e = bit.next();
+			long start = e.getValue();
+			long elapsed = now2 - start;
+			if (elapsed >= BOMB_HIT_TOTAL_MS) { bit.remove(); continue; }
+			int imgIdx = elapsed < BOMB_HIT_FRAME_MS ? 1 : 2;
+			String[] parts = e.getKey().split(",");
+			int bx = Integer.parseInt(parts[0]);
+			int by = Integer.parseInt(parts[1]);
+			double bxp = offsetX + bx * cellSize;
+			double byp = offsetY + by * cellSize;
+			drawBombPngFrame(gc, bxp, byp, cellSize, imgIdx);
 		}
 
 		if (!Double.isNaN(robotGridX) && !Double.isNaN(robotGridY)) {
@@ -147,15 +237,48 @@ public class MazeRenderer {
 		}
 	}
 
-	private static void drawCellIcon(GraphicsContext gc, CellType type, double x, double y, double size, long time) {
+	private static void drawCellIcon(
+		GraphicsContext gc, CellType type, int gx, int gy, double x, double y, double size, long time,
+		long mysteryOpenStartMs, int mysteryOpenGx, int mysteryOpenGy,
+		long bombTouchStartMs, int bombTouchGx, int bombTouchGy
+	) {
 		switch (type) {
-			case BOMB -> drawBomb(gc, x, y, size);
-			case ITEM -> drawItem(gc, x, y, size);
+			case BOMB -> {
+				int idx = 0;
+				if (bombTouchStartMs > 0 && gx == bombTouchGx && gy == bombTouchGy) {
+					long elapsed = System.currentTimeMillis() - bombTouchStartMs;
+					if (elapsed < BOMB_HIT_FRAME_MS) {
+						idx = 1;
+					} else if (elapsed < BOMB_HIT_TOTAL_MS) {
+						idx = 2;
+					}
+				}
+				if (BOMB_FRAMES[idx] != null && !BOMB_FRAMES[idx].isError()) {
+					gc.drawImage(BOMB_FRAMES[idx], x + size * 0.10, y + size * 0.10, size * 0.80, size * 0.80);
+				} else {
+					drawBomb(gc, x, y, size);
+				}
+			}
+			case ITEM -> drawItem(gc, x, y, size, gx, gy, mysteryOpenStartMs, mysteryOpenGx, mysteryOpenGy);
 			case GOAL -> drawGoal(gc, x, y, size, time);
 			case START -> drawStart(gc, x, y, size);
 			default -> {
 			}
 		}
+	}
+
+	/** @param imageIndex 1 = Bomb_2, 2 = Bomb_3 (0-based array index) */
+	private static void drawBombPngFrame(GraphicsContext gc, double x, double y, double size, int imageIndex) {
+		if (imageIndex < 0 || imageIndex >= BOMB_FRAMES.length) {
+			drawBomb(gc, x, y, size);
+			return;
+		}
+		Image img = BOMB_FRAMES[imageIndex];
+		if (img != null && !img.isError()) {
+			gc.drawImage(img, x + size * 0.10, y + size * 0.10, size * 0.80, size * 0.80);
+			return;
+		}
+		drawBomb(gc, x, y, size);
 	}
 
 	private static void drawBomb(GraphicsContext gc, double x, double y, double size) {
@@ -177,7 +300,26 @@ public class MazeRenderer {
 		gc.fillOval(cx + r * 0.8, cy - r * 1.65, size * 0.08, size * 0.08);
 	}
 
-	private static void drawItem(GraphicsContext gc, double x, double y, double size) {
+	private static void drawItem(
+		GraphicsContext gc, double x, double y, double size,
+		int gx, int gy, long mysteryOpenStartMs, int mysteryOpenGx, int mysteryOpenGy
+	) {
+		if (MYSTERY_FRAMES[0] != null && !MYSTERY_FRAMES[0].isError()) {
+			int idx = 0;
+			if (mysteryOpenStartMs > 0 && gx == mysteryOpenGx && gy == mysteryOpenGy) {
+				long elapsed = System.currentTimeMillis() - mysteryOpenStartMs;
+				if (elapsed < MYSTERY_OPEN_FRAME_MS) {
+					idx = 1;
+				} else if (elapsed < MYSTERY_OPEN_TOTAL_MS) {
+					idx = 2;
+				}
+			}
+			Image fr = MYSTERY_FRAMES[idx];
+			if (fr != null && !fr.isError()) {
+				gc.drawImage(fr, x + size * 0.10, y + size * 0.10, size * 0.80, size * 0.80);
+				return;
+			}
+		}
 		if (ITEM_IMAGE != null && !ITEM_IMAGE.isError()) {
 			gc.drawImage(ITEM_IMAGE, x + size * 0.10, y + size * 0.10, size * 0.80, size * 0.80);
 			return;

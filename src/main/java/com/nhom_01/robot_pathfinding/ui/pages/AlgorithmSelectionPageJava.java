@@ -3,6 +3,9 @@ package com.nhom_01.robot_pathfinding.ui.pages;
 import com.nhom_01.robot_pathfinding.core.PlayerProfile;
 import com.nhom_01.robot_pathfinding.ui.PlayGamePage;
 import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
+import com.nhom_01.robot_pathfinding.ui.components.GameCard;
+import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
 import com.nhom_01.robot_pathfinding.ui.theme.PlayToneBackground;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -156,6 +159,7 @@ public final class AlgorithmSelectionPageJava {
         overlay.setMouseTransparent(true);
 
         root.getChildren().addAll(page, overlay);
+        AppFonts.applyTo(root);
         return new Scene(root, VIEW_WIDTH, VIEW_HEIGHT);
     }
 

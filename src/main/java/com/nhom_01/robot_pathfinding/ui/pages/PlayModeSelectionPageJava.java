@@ -4,13 +4,12 @@ import com.nhom_01.robot_pathfinding.core.PlayerProfile;
 import com.nhom_01.robot_pathfinding.ui.PlayGamePage;
 import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
 import com.nhom_01.robot_pathfinding.ui.theme.PlayToneBackground;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
-import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
 import javafx.scene.effect.BlendMode;
@@ -70,7 +69,7 @@ public final class PlayModeSelectionPageJava {
         titleGlow.setRadius(14);
         title.setEffect(titleGlow);
 
-        Text subtitle = new Text("DIFFICULTY: " + difficulty + "  |  PLAY YOURSELF OR LET AI HANDLE IT");
+        Text subtitle = new Text("DIFFICULTY: " + difficulty);
         subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 17));
         subtitle.setFill(Color.web("#4F5B62"));
 
@@ -119,6 +118,7 @@ public final class PlayModeSelectionPageJava {
         overlay.setMouseTransparent(true);
 
         root.getChildren().addAll(page, overlay);
+        AppFonts.applyTo(root);
         return new Scene(root, VIEW_WIDTH, VIEW_HEIGHT);
     }
 
@@ -242,7 +242,7 @@ public final class PlayModeSelectionPageJava {
         Text headerTitle = new Text("Nhap ten nguoi choi");
         headerTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 20));
         headerTitle.setFill(Color.WHITE);
-        Text headerSub = new Text("Ten se xuat hien trong bang xep hang.");
+        Text headerSub = new Text("Ten hien thi tren BXH.");
         headerSub.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
         headerSub.setFill(Color.color(0.80, 0.90, 1.0, 0.70));
         cardHeader.getChildren().addAll(headerTag, headerTitle, headerSub);
@@ -309,6 +309,7 @@ public final class PlayModeSelectionPageJava {
         card.getChildren().addAll(cardHeader, cardBody);
 
         overlay.getChildren().add(card);
+        AppFonts.applyTo(overlay);
         root.getChildren().add(overlay);
         nameField.requestFocus();
     }

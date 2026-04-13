@@ -1,6 +1,7 @@
 package com.nhom_01.robot_pathfinding.ui.pages;
 
 import com.nhom_01.robot_pathfinding.ui.components.NeonButton;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
 import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
 import com.nhom_01.robot_pathfinding.ui.theme.PlayToneBackground;
 import javafx.geometry.Insets;
@@ -133,6 +134,7 @@ public final class PlayDifficultyPageJava {
         overlay.setMouseTransparent(true);
 
         root.getChildren().addAll(page, overlay);
+        AppFonts.applyTo(root);
         return new Scene(root, VIEW_WIDTH, VIEW_HEIGHT);
     }
 
