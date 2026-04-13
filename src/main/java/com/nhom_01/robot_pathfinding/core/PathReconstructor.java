@@ -7,13 +7,13 @@ public class PathReconstructor {
         List<State> path = new ArrayList<>();
         State current = goal;
 
-        // Đi ngược từ Goal về đầu
+        // Di nguoc tu Goal ve dau
         while (current != null) {
             path.add(current);
             current = cameFrom.get(current);
         }
 
-        // Đảo ngược danh sách để có thứ tự từ Start -> Goal
+        // Dao nguoc danh sach de co thu tu tu Start -> Goal
         Collections.reverse(path);
         return path;
     }

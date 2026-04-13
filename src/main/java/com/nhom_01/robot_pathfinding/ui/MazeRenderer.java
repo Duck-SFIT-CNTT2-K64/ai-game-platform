@@ -16,6 +16,30 @@ import javafx.scene.paint.Color;
 
 public class MazeRenderer {
 
+	/** Sprite heading; order matches {@code duck_devil_<name>_1-removebg-preview.png} in {@link #DUCK_FRAMES}. */
+	public enum DuckFacing {
+		UP,
+		DOWN,
+		LEFT,
+		RIGHT
+	}
+
+	public static DuckFacing facingFromGridDelta(int dx, int dy) {
+		if (dx > 0) {
+			return DuckFacing.RIGHT;
+		}
+		if (dx < 0) {
+			return DuckFacing.LEFT;
+		}
+		if (dy > 0) {
+			return DuckFacing.DOWN;
+		}
+		if (dy < 0) {
+			return DuckFacing.UP;
+		}
+		return DuckFacing.RIGHT;
+	}
+
 	/** Visible time per mystery-box frame (2 and 3) after touch; frame 1 is idle. */
 	public static final long MYSTERY_OPEN_FRAME_MS = 280L;
 	public static final long MYSTERY_OPEN_TOTAL_MS = MYSTERY_OPEN_FRAME_MS * 2;
@@ -35,12 +59,12 @@ public class MazeRenderer {
 	private static final Color PATH = Color.color(0.62, 0.86, 0.64, 0.45);
 	private static final Color ROBOT = Color.web("#F9D648");
 
-	// Pre-load all Animated / Static assets
-	private static final Image[] DUCK_IDLE = new Image[4];
-	private static final Image[] DUCK_WALK = new Image[4];
+	// Pre-load duck frames for both selection types
+	private static final Image[] YELLOW_DUCK_FRAMES = new Image[4];
+	private static final Image[] PURPLE_DUCK_FRAMES = new Image[4];
 	private static final Image DUCK_HURT = loadImage("/image/pixel_animation/duck_hurt.png");
 	
-	private static final Image GRASS_1 = loadImage("/image/pixel_animation/Grass_1.png");
+	private static final Image GRASS_1 = loadImage("/image/vit/Grass.png");
 	private static final Image WATER = loadImage("/image/pixel_animation/water.gif");
 	/** Bomb_1 = idle on map; Bomb_2/3 = touch animation (per-frame PNGs). */
 	private static final Image[] BOMB_FRAMES = new Image[4];
@@ -53,9 +77,12 @@ public class MazeRenderer {
 	private static final Image FLAG_IMAGE = loadImage("/image/pixel_animation/flag.png");
 
 	static {
-		for (int i = 0; i < 4; i++) {
-			DUCK_IDLE[i] = loadImage(String.format("/image/pixel_animation/duck_idle_frames/idle_%02d.png", i));
-			DUCK_WALK[i] = loadImage(String.format("/image/pixel_animation/duck_walk_frames/walk_%02d.png", i));
+		String[] names = { "up", "down", "left", "right" };
+		for (int d = 0; d < 4; d++) {
+			PURPLE_DUCK_FRAMES[d] = loadImage(String.format(
+				"/image/pixel_animation/duck_devil_%s_1-removebg-preview.png", names[d]));
+			YELLOW_DUCK_FRAMES[d] = loadImage(String.format(
+				"/image/pixel_animation/duck_%s_1.png", names[d]));
 		}
 		// Use flag sprites for the finish line (flag, flag_left, flag_right)
 		FINISH_LINE[0] = loadImage("/image/pixel_animation/FinishLine_1.png");
@@ -90,7 +117,8 @@ public class MazeRenderer {
 	) {
 		double robotGridX = robotPosition == null ? Double.NaN : robotPosition.getX();
 		double robotGridY = robotPosition == null ? Double.NaN : robotPosition.getY();
-		render(gc, maze, explored, path, robotGridX, robotGridY, width, height, 0L, -1, -1, 0L, -1, -1);
+		render(gc, maze, explored, path, robotGridX, robotGridY, width, height,
+			0L, -1, -1, 0L, -1, -1, DuckFacing.RIGHT, true);
 	}
 
 	public static void render(
@@ -101,15 +129,20 @@ public class MazeRenderer {
 		double robotGridX,
 		double robotGridY,
 		double width,
-		double height
+		double height,
+		DuckFacing duckFacing,
+		boolean duckIntroRightIdle
 	) {
-		render(gc, maze, explored, path, robotGridX, robotGridY, width, height, 0L, -1, -1, 0L, -1, -1);
+		render(gc, maze, explored, path, robotGridX, robotGridY, width, height,
+			0L, -1, -1, 0L, -1, -1, duckFacing, duckIntroRightIdle);
 	}
 
 	/**
 	 * @param mysteryOpenStartMs {@code System.currentTimeMillis()} when pickup started, or {@code 0} if none
 	 * @param mysteryOpenGx      grid column of opening box (ignored if start is 0)
 	 * @param mysteryOpenGy      grid row of opening box
+	 * @param duckFacing         current heading (after first move, idle uses this)
+	 * @param duckIntroRightIdle when true and duck is idle, force right-facing idle (start of level)
 	 */
 	public static void render(
 		GraphicsContext gc,
@@ -125,7 +158,9 @@ public class MazeRenderer {
 		int mysteryOpenGy,
 		long bombTouchStartMs,
 		int bombTouchGx,
-		int bombTouchGy
+		int bombTouchGy,
+		DuckFacing duckFacing,
+		boolean duckIntroRightIdle
 	) {
 		gc.setFill(BG);
 		gc.fillRect(0, 0, width, height);
@@ -233,7 +268,10 @@ public class MazeRenderer {
 		if (!Double.isNaN(robotGridX) && !Double.isNaN(robotGridY)) {
 			// determine if walking or idle based on fractional position
 			boolean isMoving = (robotGridX % 1.0 != 0) || (robotGridY % 1.0 != 0);
-			drawRobot(gc, offsetX + robotGridX * cellSize, offsetY + robotGridY * cellSize, cellSize, time, isMoving);
+			drawRobot(
+				gc, offsetX + robotGridX * cellSize, offsetY + robotGridY * cellSize, cellSize,
+				isMoving, duckFacing, duckIntroRightIdle
+			);
 		}
 	}
 
@@ -378,20 +416,29 @@ public class MazeRenderer {
 		gc.fillText("S", x + size * 0.43, y + size * 0.65);
 	}
 
-	private static void drawRobot(GraphicsContext gc, double x, double y, double size, long time, boolean isMoving) {
-		Image duckFrame = null;
-		
-		if (isMoving) {
-			int frame = (int) ((time / 120) % 4);
-			duckFrame = DUCK_WALK[frame];
-		} else {
-			int frame = (int) ((time / 200) % 4);
-			duckFrame = DUCK_IDLE[frame];
+	private static void drawRobot(
+		GraphicsContext gc, double x, double y, double size,
+		boolean isMoving, DuckFacing facing, boolean introRightIdle
+	) {
+		DuckFacing useFacing = facing;
+		if (!isMoving && introRightIdle) {
+			useFacing = DuckFacing.RIGHT;
 		}
-		
+		int dir = useFacing.ordinal();
+		Image duckFrame = null;
+		Image[] targetFrames = "YELLOW".equals(com.nhom_01.robot_pathfinding.core.PlayerProfile.getCurrentDuckType()) 
+			? YELLOW_DUCK_FRAMES 
+			: PURPLE_DUCK_FRAMES;
+
+		if (dir >= 0 && dir < targetFrames.length) {
+			duckFrame = targetFrames[dir];
+		}
+
 		if (duckFrame != null && !duckFrame.isError()) {
-			// make the duck sprite fill the cell roughly
-			gc.drawImage(duckFrame, x, y - size * 0.10, size, size * 1.10);
+			// make the duck sprite larger than the cell
+			double duckW = size * 1.5;
+			double duckH = size * 1.65;
+			gc.drawImage(duckFrame, x - size * 0.25, y - size * 0.65, duckW, duckH);
 			return;
 		}
 

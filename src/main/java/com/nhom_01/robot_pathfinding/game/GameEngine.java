@@ -15,6 +15,7 @@ public class GameEngine {
     private RobotController robot;
     private GameState state;
     private int score;
+    private int lives;
     private List<State> explored;
 
     public GameEngine(Maze maze, State start, State goal, SearchAlgorithm algorithm) {
@@ -25,15 +26,16 @@ public class GameEngine {
         this.robot = new RobotController();
         this.robot.setPath(java.util.List.of(start));
         this.state = GameState.READY;
-        this.score = 1000; // Điểm khởi đầu, sẽ trừ dần theo thời gian/bước đi
+        this.score = 1000; // Diem khoi dau, se tru dan theo thoi gian/buoc di
+        this.lives = Math.max(1, start.getLives());
     }
 
-    // Thêm vào trong class GameEngine.java
+    // Them vao trong class GameEngine.java
 //    public void updateManually() {
-//        // Chỉ đơn giản là thông báo Engine đang hoạt động
+//        // Chi don gian la thong bao Engine dang hoat dong
 //        this.state = GameState.MOVING;
 //
-//        // Kiểm tra nếu dẫm vào ô Đích
+//        // Kiem tra neu dam vao o Dich
 //        State pos = robot.getCurrentPosition();
 //        if (pos.getX() == goal.getX() && pos.getY() == goal.getY()) {
 //            this.state = GameState.FINISHED;
@@ -56,18 +58,27 @@ public class GameEngine {
         if (state == GameState.MOVING) {
             boolean moved = robot.moveNext();
 
-            // 16. Score system: Mỗi bước đi trừ 10 điểm
+            // 16. Score system: Moi buoc di tru 10 diem
             score -= 10;
 
-            // Kiểm tra vật phẩm (Item) để cộng điểm
+            // Kiem tra vat pham (Item) de cong diem
             State pos = robot.getCurrentPosition();
             if (maze.getCell(pos.getX(), pos.getY()) == CellType.ITEM) {
                 score += 200;
-                maze.setCell(pos.getX(), pos.getY(), CellType.EMPTY); // Ăn rồi thì mất
+                maze.setCell(pos.getX(), pos.getY(), CellType.EMPTY); // An roi thi mat
+            } else if (maze.getCell(pos.getX(), pos.getY()) == CellType.BOMB) {
+                lives--;
+                score = Math.max(0, score - 120);
+                maze.setCell(pos.getX(), pos.getY(), CellType.EMPTY);
+                
+                if (lives <= 0) {
+                    this.state = GameState.NO_PATH; // NO_PATH dong vai tro la Game Over cho Bot
+                    return;
+                }
             }
 
             if (!moved || robot.isFinished()) {
-                this.state = GameState.FINISHED; // 13. Win detection
+                this.state = GameState.FINISHED; // Win detection
             }
         }
     }
@@ -78,11 +89,12 @@ public class GameEngine {
         return (robot != null) ? robot.getCurrentPosition() : null;
     }
     public int getScore() { return Math.max(0, score); }
+    public int getLives() { return Math.max(0, lives); }
     public GameState getState() { return state; }
     public RobotController getRobot() { return robot; }
     public List<State> getExplored() { return explored; }
     public Maze getMaze() { return maze; }
-    /* Khi nào tạo GUI thì thêm đoạn này vào (loop update để robot di chuyển tự động)
+    /* Khi nao tao GUI thi them doan nay vao (loop update de robot di chuyen tu dong)
     Timeline loop = new Timeline(
         new KeyFrame(Duration.millis(300), e -> {
             engine.update();

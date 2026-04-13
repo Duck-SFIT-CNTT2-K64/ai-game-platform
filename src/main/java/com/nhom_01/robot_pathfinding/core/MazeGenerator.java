@@ -13,16 +13,26 @@ public class MazeGenerator {
         BOT
     }
 
+    private static java.util.List<int[]> currentSafePath = null;
+    
+    private static boolean isProtectedFromBomb(int x, int y) {
+        if (currentSafePath == null) return false;
+        for (int[] p : currentSafePath) {
+            if (p[0] == x && p[1] == y) return true;
+        }
+        return false;
+    }
+
     public static Maze generate(String difficulty) {
         return generate(difficulty, GameMode.PLAYER);
     }
 
     public static Maze generate(String difficulty, GameMode mode) {
         int width, height, bombCount, itemCount;
-        int startingLives = 5; // Robot có 3 mạng
+        int startingLives = 5; // Robot co 3 mang
 
 
-        // 1. Cấu hình theo độ khó (Kích thước luôn phải là số lẻ để DFS chạy chuẩn)
+        // 1. Cau hinh theo do kho (Kich thuoc luon phai la so le de DFS chay chuan)
         switch (difficulty.toUpperCase()) {
             case "EASY":
                 width = 15; height = 11; bombCount = 3; itemCount = 3; break;
@@ -36,31 +46,36 @@ public class MazeGenerator {
 
         Maze maze = new Maze(width, height);
 
-        // 2. Sinh đường đi (Recursive Backtracking)
+        // 2. Sinh duong di (Recursive Backtracking)
         carvePassagesFrom(1, 1, maze);
 
-        // 3. Đặt Start và Goal
+        // 3. Dat Start va Goal
         placeStartAndGoal(maze, startingLives);
 
-        // 4. Rải vật phẩm và bom chỉ khi mode là PLAYER
-        if (mode == GameMode.PLAYER) {
+        // 4. Get the guaranteed safe path BEFORE we punch holes and place random stuff
+        currentSafePath = findPath(maze, maze.getStart().getX(), maze.getStart().getY(), maze.getGoal().getX(), maze.getGoal().getY());
+
+        if (mode == GameMode.PLAYER || mode == GameMode.BOT) {
+            // First random bomb and items (using placeEntities) - they will now respect currentSafePath
             placeEntities(maze, CellType.BOMB, bombCount);
             placeEntities(maze, CellType.ITEM, itemCount);
 
-            // 5. Thêm một số ô trống ngẫu nhiên (Đục bớt tường) để tạo ra nhiều đường đi phụ (Multiple paths)
-            // Nếu không đục bớt, maze chỉ có duy nhất 1 đường đúng (Perfect Maze).
+            // 5. Them mot so o trong ngau nhien (Duc bot tuong) de tao ra nhieu duong di phu (Multiple paths)
             openRandomWalls(maze, (width * height) / 15);
 
-            /* bom trên đường chính nhưng không giết người chơi */
+            /* bom tren duong chinh nhung khong giet nguoi choi (Bombs strictly < lives) */
             placeBombsOnMainPath(maze, startingLives);
 
-            /* bom phụ */
+            /* bom phu */
             placeBombInDeadEnds(maze, bombCount / 3);
             placeEntities(maze, CellType.BOMB, bombCount / 3);
 
-            /* vật phẩm */
+            /* vat pham */
             placeEntities(maze, CellType.ITEM, itemCount);
         }
+        
+        // Reset 
+        currentSafePath = null;
         return maze;
     }
     private static List<int[]> findPath(Maze maze, int sx, int sy, int gx, int gy) {
@@ -143,7 +158,9 @@ public class MazeGenerator {
 
         if (!addBombs) return;
 
-        int bombCount = random.nextInt(lives) + 1;
+        int maxSurvivable = Math.max(1, lives - 1);
+        int bombCount = random.nextInt(maxSurvivable) + 1;
+        if (bombCount >= lives) bombCount = lives - 1;
 
         Collections.shuffle(path, random);
 
@@ -230,7 +247,7 @@ public class MazeGenerator {
 
             if (nx > 0 && nx < maze.getWidth() - 1 && ny > 0 && ny < maze.getHeight() - 1) {
                 if (maze.getCell(nx, ny) == CellType.WALL) {
-                    maze.setCell(x + dir[0] / 2, y + dir[1] / 2, CellType.EMPTY); // Phá tường ở giữa
+                    maze.setCell(x + dir[0] / 2, y + dir[1] / 2, CellType.EMPTY); // Pha tuong o giua
                     carvePassagesFrom(nx, ny, maze);
                 }
             }
@@ -239,11 +256,17 @@ public class MazeGenerator {
 
     private static void placeEntities(Maze maze, CellType type, int count) {
         int placed = 0;
-        while (placed < count) {
+        int maxAttempts = count * 20; // To prevent infinite loops if maze is too small
+        int attempts = 0;
+        
+        while (placed < count && attempts < maxAttempts) {
+            attempts++;
             int x = random.nextInt(maze.getWidth() - 2) + 1;
             int y = random.nextInt(maze.getHeight() - 2) + 1;
 
-            // Chỉ đặt vào ô trống, không đè lên Start/Goal
+            if (type == CellType.BOMB && isProtectedFromBomb(x, y)) continue;
+
+            // Chi dat vao o trong, khong de len Start/Goal
             if (maze.getCell(x, y) == CellType.EMPTY && !isNearEntity(maze, x, y)) {
                 maze.setCell(x, y, type);
                 placed++;
@@ -283,8 +306,10 @@ public class MazeGenerator {
                 if (maze.getCell(x, y - 1) != CellType.WALL) paths++;
 
                 if (paths == 1) { // dead end
-                    maze.setCell(x, y, CellType.BOMB);
-                    placed++;
+                    if (!isProtectedFromBomb(x, y)) {
+                        maze.setCell(x, y, CellType.BOMB);
+                        placed++;
+                    }
 
                     if (placed >= count)
                         return;
