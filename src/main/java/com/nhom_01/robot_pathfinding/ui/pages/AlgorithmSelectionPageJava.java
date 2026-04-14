@@ -32,6 +32,9 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import java.util.ArrayDeque;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class AlgorithmSelectionPageJava {
 
@@ -45,6 +48,11 @@ public final class AlgorithmSelectionPageJava {
     private static final String FRAME_LONG_PATH = "/image/assets/frame_long.jpg";
     private static final String LEAF_PATH = "/image/assets/la.jpg";
     private static final String DUCK_PATH = "/image/assets/vit.jpg";
+    private static final Map<String, Image> IMAGE_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, Image> WHITE_BG_REMOVED_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, Image> CORNER_BG_REMOVED_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, Rectangle2D> VIEWPORT_CACHE = new ConcurrentHashMap<>();
+    private static final AtomicBoolean PRELOADED = new AtomicBoolean(false);
 
     private AlgorithmSelectionPageJava() {
     }
@@ -163,6 +171,23 @@ public final class AlgorithmSelectionPageJava {
         return new Scene(root, VIEW_WIDTH, VIEW_HEIGHT);
     }
 
+    public static void preloadAssets() {
+        if (!PRELOADED.compareAndSet(false, true)) {
+            return;
+        }
+        String[] whiteAssets = {FRAME_BIG_PATH, FRAME_LONG_PATH};
+        for (String path : whiteAssets) {
+            Image cleaned = whiteBgRemoved(path);
+            viewportFor("white:" + path, cleaned);
+        }
+
+        String[] cornerAssets = {BTN_BFS_PATH, BTN_DFS_PATH, BTN_ASTAR_PATH, BTN_BACK_DIFFICULTY_PATH, LEAF_PATH, DUCK_PATH};
+        for (String path : cornerAssets) {
+            Image cleaned = cornerBgRemoved(path);
+            viewportFor("corner:" + path, cleaned);
+        }
+    }
+
     private static Pane createFuturisticBackground() {
         return PlayToneBackground.create(VIEW_WIDTH, VIEW_HEIGHT, AlgorithmSelectionPageJava.class);
     }
@@ -184,9 +209,9 @@ public final class AlgorithmSelectionPageJava {
         card.setMaxSize(frameWidth, frameHeight);
         card.setStyle("-fx-background-color: transparent; -fx-padding: 0;");
 
-        Image frameImage = removeWhiteBackground(loadImageResource(FRAME_BIG_PATH));
+        Image frameImage = whiteBgRemoved(FRAME_BIG_PATH);
         ImageView bg = new ImageView(frameImage);
-        bg.setViewport(detectFrameViewport(frameImage));
+        bg.setViewport(viewportFor("white:" + FRAME_BIG_PATH, frameImage));
         bg.setFitWidth(frameWidth);
         bg.setFitHeight(frameHeight);
         bg.setPreserveRatio(false);
@@ -266,9 +291,9 @@ public final class AlgorithmSelectionPageJava {
         panel.setMaxSize(frameWidth, frameHeight);
         panel.setStyle("-fx-background-color: transparent; -fx-padding: 0;");
 
-        Image frameImage = removeWhiteBackground(loadImageResource(FRAME_LONG_PATH));
+        Image frameImage = whiteBgRemoved(FRAME_LONG_PATH);
         ImageView bg = new ImageView(frameImage);
-        bg.setViewport(detectFrameViewport(frameImage));
+        bg.setViewport(viewportFor("white:" + FRAME_LONG_PATH, frameImage));
         bg.setFitWidth(frameWidth);
         bg.setFitHeight(frameHeight);
         bg.setPreserveRatio(false);
@@ -309,10 +334,9 @@ public final class AlgorithmSelectionPageJava {
         button.setCursor(Cursor.HAND);
         button.setStyle("-fx-background-color: transparent; -fx-padding: 0; -fx-border-color: transparent;");
 
-        Image rawImage = loadImageResource(imagePath);
-        Image cleanedImage = removeCornerBackground(rawImage);
+        Image cleanedImage = cornerBgRemoved(imagePath);
         ImageView imageView = new ImageView(cleanedImage);
-        imageView.setViewport(detectFrameViewport(cleanedImage));
+        imageView.setViewport(viewportFor("corner:" + imagePath, cleanedImage));
         imageView.setFitWidth(width);
         imageView.setFitHeight(height);
         imageView.setPreserveRatio(false);
@@ -331,10 +355,9 @@ public final class AlgorithmSelectionPageJava {
     }
 
     private static ImageView createDecorSprite(String imagePath, double width, double height) {
-        Image rawImage = loadImageResource(imagePath);
-        Image cleanedImage = removeCornerBackground(rawImage);
+        Image cleanedImage = cornerBgRemoved(imagePath);
         ImageView sprite = new ImageView(cleanedImage);
-        sprite.setViewport(detectFrameViewport(cleanedImage));
+        sprite.setViewport(viewportFor("corner:" + imagePath, cleanedImage));
         sprite.setFitWidth(width);
         sprite.setFitHeight(height);
         sprite.setPreserveRatio(true);
@@ -378,6 +401,10 @@ public final class AlgorithmSelectionPageJava {
             return new Rectangle2D(0, 0, image.getWidth(), image.getHeight());
         }
         return new Rectangle2D(minX, minY, (maxX - minX) + 1, (maxY - minY) + 1);
+    }
+
+    private static Rectangle2D viewportFor(String cacheKey, Image image) {
+        return VIEWPORT_CACHE.computeIfAbsent(cacheKey, ignored -> detectFrameViewport(image));
     }
 
     private static Image removeWhiteBackground(Image source) {
@@ -471,10 +498,20 @@ public final class AlgorithmSelectionPageJava {
     }
 
     private static Image loadImageResource(String resourcePath) {
-        var resource = AlgorithmSelectionPageJava.class.getResource(resourcePath);
-        if (resource == null) {
-            return new WritableImage(4, 4);
-        }
-        return new Image(resource.toExternalForm());
+        return IMAGE_CACHE.computeIfAbsent(resourcePath, path -> {
+            var resource = AlgorithmSelectionPageJava.class.getResource(path);
+            if (resource == null) {
+                return new WritableImage(4, 4);
+            }
+            return new Image(resource.toExternalForm());
+        });
+    }
+
+    private static Image whiteBgRemoved(String resourcePath) {
+        return WHITE_BG_REMOVED_CACHE.computeIfAbsent(resourcePath, path -> removeWhiteBackground(loadImageResource(path)));
+    }
+
+    private static Image cornerBgRemoved(String resourcePath) {
+        return CORNER_BG_REMOVED_CACHE.computeIfAbsent(resourcePath, path -> removeCornerBackground(loadImageResource(path)));
     }
 }
