@@ -1,6 +1,7 @@
 package com.nhom_01.robot_pathfinding.ui.pages;
 
 import java.net.URL;
+import java.util.concurrent.CompletableFuture;
 
 import com.nhom_01.robot_pathfinding.ui.animation.ParticleSystem;
 import com.nhom_01.robot_pathfinding.ui.audio.MenuAudioManager;
@@ -89,6 +90,15 @@ public class MainMenuJava extends Application {
 		stage.setMaximized(true);
 		stage.setScene(scene);
 		stage.show();
+		preloadNavigationAssets();
+	}
+
+	private void preloadNavigationAssets() {
+		CompletableFuture.runAsync(() -> {
+			PlayDifficultyPageJava.preloadAssets();
+			PlayModeSelectionPageJava.preloadAssets();
+			AlgorithmSelectionPageJava.preloadAssets();
+		});
 	}
 
 	// ── Left column: title + buttons ──────────────────────────────────────────
