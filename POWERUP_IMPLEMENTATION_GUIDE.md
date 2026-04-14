@@ -26,26 +26,22 @@ Maze botMaze = MazeGenerator.generate("EASY", MazeGenerator.GameMode.BOT);
 
 | # | Tên | Mô Tả | Hiệu Ứng | Độ Khó |
 |---|---|---|---|---|
-| 1 | Speed Boost | Robot di chuyển nhanh | Robot nhanh hơn | Easy |
-| 2 | Shield | Chặn 1 lần bomb nổ | Gặp bomb không chết | Easy |
+| 1 | Speed Boost | Di chuyển 2 bước 1 lần | Nhấn 1 phím nhảy 2 ô + Bóng mờ | Easy |
+| 2 | Shield | Bảo vệ trong 10 giây | Bất tử 10s + Đếm ngược chung | Easy |
 | 3 | Reveal Path | Hiển thị đường đi | Thấy đường tới goal | Medium |
 | 4 | Extra Life | Thêm 1 mạng | +1 life | Easy |
 | 5 | Bomb Detector | Phát hiện bomb gần | Hiện vị trí bomb | Medium |
 | 6 | Teleport | Dịch chuyển tức thời | Teleport ngẫu nhiên | Medium |
 | 7 | Remove Wall | Xóa 1 bức tường | Phá tường 1 lần | Medium |
-| 8 | Slow Bombs | Bomb kích hoạt chậm | Bomb delay | Medium |
-| 9 | Double Score | Nhân đôi điểm | x2 score | Easy |
-| 10 | Freeze Time | Đông băng bomb | Bomb không nổ | Medium |
-| 11 | Reveal Map | Hiển thị toàn map | Thấy toàn bộ mê | Easy |
-| 12 | AI Assist | Trợ giúp AI | Auto solve đoạn | Medium |
-| 13 | Shortest Path Mode | Ưu tiên đường ngắn | BFS/A* priority | Medium |
-| 14 | Bomb Immunity | Miễn nhiễm bomb | Thời gian 5s | Easy |
-| 15 | Speed Slow | Chậm nhưng an toàn | Robot chậm | Easy |
-| 16 | Lucky Find | Tìm items tốt hơn | Tăng spawn item | Medium |
-| 17 | Double Choice | Chọn 2 skill cùng lúc | 2 skills | Hard |
-| 18 | Safe Step | Bước tiếp an toàn | Next step safe | Medium |
-| 19 | Time Bonus | Thêm thời gian | +30 giây | Easy |
-| 20 | Vision Boost | Tầm nhìn xa hơn | 2x vision | Medium |
+| 8 | Double Score | Nhân đôi điểm số hiện tại | x2 score ngay lập tức | Easy |
+| 9 | Freeze Time | Đóng băng bom (Đi xuyên) | Đi qua bom mà không nổ | Medium |
+| 10 | AI Assist | Trợ giúp AI | Auto solve đoạn | Medium |
+| 11 | Shortest Path Mode | Ưu tiên đường ngắn | BFS/A* priority | Medium |
+| 12 | Speed Slow | Chậm nhưng an toàn | Robot chậm | Easy |
+| 13 | Lucky Find | Hộp quà may mắn | Kích hoạt hiệu ứng ngẫu nhiên | Medium |
+| 14 | Another Options | Thay đổi lựa chọn | Chọn lại bộ 3 items | Hard |
+| 15 | Time Bonus | Thêm thời gian (+15s) | Thêm 15 giây vào đồng hồ | Easy |
+| 16 | Sonar Radar | Siêu Radar (Magnetic) | Hiện đường đi + Hút item + x2 Score | Hard |
 
 ---
 
@@ -252,11 +248,22 @@ modal.show(selectedPowerUp -> {
 
 ## ⚠️ Ghi Chú Quan Trọng
 
-1. **Bot Mode Clean**: Items/Bombs HOÀN TOÀN bị loại bỏ để clear visualization
-2. **Modal Blocking**: Khi player nhặt item, modal hiện ra (game tạm pause tile input)
-3. **Single Use**: Một số power-ups (EXTRA_LIFE, SHIELD, v.v.) tự deactivate sau dùng
-4. **Duration-Based**: Một số power-ups có thời gian (BOMB_IMMUNITY = 5s)
-5. **Inventory Unlimited**: Không giới hạn số lượng items nhặt được
+1. **Bot Mode Clean**: Items/Bombs HOÀN TOÀN bị loại bỏ để clear visualization.
+2. **Modal Blocking**: Khi player nhặt item, modal hiện ra (game tạm pause input).
+3. **Hệ thống Timer thông minh (Unified UI)**: 
+    - **Thanh HUD (Trên cùng)**: Hiển thị danh sách tất cả các item đang kích hoạt kèm theo tên và thời gian đếm ngược chi tiết cho từng cái (ví dụ: `🛡 Shield: 10s`, `⚡ Speed: 5s`).
+    - **Đầu Robot**: Chỉ hiển thị bộ đếm giây của item **sắp hết hạn nhất**. Khi item đó hết hiệu lực, hệ thống tự động chuyển sang hiển thị thời gian của item tiếp theo sắp hết.
+4. **Speed Boost (2-Step)**: Nhấn một phím di chuyển sẽ giúp robot nhảy 2 ô cùng lúc (nếu không bị chặn bởi tường). Có hiệu ứng bóng mờ khi di chuyển.
+5. **Freeze Time (Non-destructive)**: Cho phép đi xuyên qua bom mà bom không biến mất và không nổ.
+6. **Time Bonus**: Cộng trực tiếp **15 giây** vào đồng hồ đếm ngược của màn chơi.
+7. **Lucky Find (Mystery Box)**: Nhặt được một vật phẩm ngẫu nhiên và thêm vào túi đồ thay vì kích hoạt ngay lập tức.
+8. **Smart Sonar Radar (Hard Tier)**: 
+    - **Reveal Path**: Hiển thị đường đi ngắn nhất tới Goal dưới dạng overlay xanh lá.
+    - **Magnetic Vacuum**: Tự động thu thập (hút) tất cả các item trong bán kính 2 ô Manhattan xung quanh Robot (không cần đi đè lên item).
+    - **Combo x2 Score**: Tự động kích hoạt trạng thái nhân đôi điểm số trong suốt 15 giây hiệu lực của Radar.
+    - **Pulse Effect**: Hiệu ứng sóng radar tỏa ra từ robot.
+9. **AI Assist Victory**: Cho phép robot tự động về đích và kết thúc trò chơi với chiến thắng nếu AI đi tới ô Goal.
+10. **Double Score (Instant)**: Nhân đôi số điểm hiện tại của người chơi ngay khi kích hoạt (item rời).
 
 ---
 
@@ -287,6 +294,6 @@ modal.show(selectedPowerUp -> {
 
 ---
 
-**Phiên bản**: 1.0  
-**Ngày cập nhật**: 2026-03-18  
+**Phiên bản**: 1.1
+**Ngày cập nhật**: 2026-04-15
 **Status**: ✅ Ready for Testing

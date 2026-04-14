@@ -13,6 +13,8 @@ import com.nhom_01.robot_pathfinding.core.State;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
+import javafx.scene.text.FontWeight;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
 
 public class MazeRenderer {
 
@@ -48,6 +50,10 @@ public class MazeRenderer {
 	public static final long BOMB_HIT_FRAME_MS = 280L;
 	public static final long BOMB_HIT_TOTAL_MS = BOMB_HIT_FRAME_MS * 2;
 
+	/** Visible time per teleport frame (1, 2, 3). */
+	public static final long TELEPORT_FRAME_MS = 150L;
+	public static final long TELEPORT_TOTAL_MS = TELEPORT_FRAME_MS * 3;
+
 	private static final Color BG = Color.web("#88E3F3");
 	private static final Color WALL = Color.web("#BDE86E");
 	private static final Color EMPTY = Color.web("#88E3F3");
@@ -75,6 +81,9 @@ public class MazeRenderer {
 	private static final Image ITEM_IMAGE = loadImage("/image/pixel_animation/mysterybox_fr1.png");
 	private static final Image[] MYSTERY_FRAMES = new Image[3];
 	private static final Image FLAG_IMAGE = loadImage("/image/pixel_animation/flag.png");
+	private static final Image BUBBLE1_IMAGE = loadImage("/image/pixel_animation/bubble1.png");
+	private static final Image BUBBLE2_IMAGE = loadImage("/image/pixel_animation/bubble2.png");
+	private static final Image[] TELEPORT_FRAMES = new Image[3];
 
 	static {
 		String[] names = { "up", "down", "left", "right" };
@@ -95,6 +104,9 @@ public class MazeRenderer {
 		}
 		for (int i = 0; i < 4; i++) {
 			BOMB_FRAMES[i] = loadImage("/image/pixel_animation/Bomb_" + (i + 1) + ".png");
+		}
+		for (int i = 0; i < 3; i++) {
+			TELEPORT_FRAMES[i] = loadImage("/image/pixel_animation/teleport_" + (i + 1) + ".png");
 		}
 		// Using single animated GIF (`water.gif`) for in-play water; no frame array needed
 	}
@@ -118,7 +130,7 @@ public class MazeRenderer {
 		double robotGridX = robotPosition == null ? Double.NaN : robotPosition.getX();
 		double robotGridY = robotPosition == null ? Double.NaN : robotPosition.getY();
 		render(gc, maze, explored, path, robotGridX, robotGridY, width, height,
-			0L, -1, -1, 0L, -1, -1, DuckFacing.RIGHT, true);
+			0L, -1, -1, 0L, -1, -1, DuckFacing.RIGHT, true, false, false, 1.0, false, -1L, false, 0L, -1, -1);
 	}
 
 	public static void render(
@@ -134,7 +146,7 @@ public class MazeRenderer {
 		boolean duckIntroRightIdle
 	) {
 		render(gc, maze, explored, path, robotGridX, robotGridY, width, height,
-			0L, -1, -1, 0L, -1, -1, duckFacing, duckIntroRightIdle);
+			0L, -1, -1, 0L, -1, -1, duckFacing, duckIntroRightIdle, false, false, 1.0, false, -1L, false, 0L, -1, -1);
 	}
 
 	/**
@@ -160,7 +172,16 @@ public class MazeRenderer {
 		int bombTouchGx,
 		int bombTouchGy,
 		DuckFacing duckFacing,
-		boolean duckIntroRightIdle
+		boolean duckIntroRightIdle,
+		boolean freezeTimeActive,
+		boolean bombDetectorActive,
+		double speedMultiplier,
+		boolean shieldVisible,
+		long activeTimerMs,
+		boolean visionBoostActive,
+		long teleportStartMs,
+		int teleportGx,
+		int teleportGy
 	) {
 		gc.setFill(BG);
 		gc.fillRect(0, 0, width, height);
@@ -172,6 +193,10 @@ public class MazeRenderer {
 		double drawH = mazeH * cellSize;
 		double offsetX = (width - drawW) / 2.0;
 		double offsetY = (height - drawH) / 2.0;
+
+		if (visionBoostActive) {
+			drawSonarWave(gc, offsetX, offsetY, robotGridX, robotGridY, cellSize, width, height);
+		}
 
 		long time = System.currentTimeMillis();
 
@@ -243,7 +268,8 @@ public class MazeRenderer {
 					gc, maze.getCell(x, y), x, y,
 					offsetX + x * cellSize, offsetY + y * cellSize, cellSize, time,
 					mysteryOpenStartMs, mysteryOpenGx, mysteryOpenGy,
-					bombTouchStartMs, bombTouchGx, bombTouchGy
+					bombTouchStartMs, bombTouchGx, bombTouchGy,
+					freezeTimeActive, bombDetectorActive, visionBoostActive
 				);
 			}
 		}
@@ -265,20 +291,53 @@ public class MazeRenderer {
 			drawBombPngFrame(gc, bxp, byp, cellSize, imgIdx);
 		}
 
+		// --- Draw Teleport Animation if active ---
+		if (teleportStartMs > 0 && teleportGx >= 0 && teleportGy >= 0) {
+			long elapsedTP = now - teleportStartMs;
+			if (elapsedTP < TELEPORT_TOTAL_MS) {
+				int frameTP = (int)(elapsedTP / TELEPORT_FRAME_MS);
+				if (frameTP >= 0 && frameTP < 3) {
+					gc.drawImage(TELEPORT_FRAMES[frameTP],
+						offsetX + teleportGx * cellSize, offsetY + teleportGy * cellSize, cellSize, cellSize);
+				}
+			}
+		}
+
 		if (!Double.isNaN(robotGridX) && !Double.isNaN(robotGridY)) {
 			// determine if walking or idle based on fractional position
 			boolean isMoving = (robotGridX % 1.0 != 0) || (robotGridY % 1.0 != 0);
+
+			boolean isTeleporting = false;
+			if (teleportStartMs > 0) {
+				long elapsed = now - teleportStartMs;
+				if (elapsed < TELEPORT_TOTAL_MS) {
+					isTeleporting = true;
+				}
+			}
+
 			drawRobot(
 				gc, offsetX + robotGridX * cellSize, offsetY + robotGridY * cellSize, cellSize,
-				isMoving, duckFacing, duckIntroRightIdle
+				isMoving, duckFacing, duckIntroRightIdle, shieldVisible, activeTimerMs, speedMultiplier, isTeleporting
 			);
+		}
+
+		// Draw speed-based vignette/border
+		if (speedMultiplier != 1.0) {
+			gc.setLineWidth(5);
+			if (speedMultiplier < 1.0) {
+				gc.setStroke(Color.web("#00E5FF", 0.4)); // Speed boost (Cyan)
+			} else {
+				gc.setStroke(Color.web("#546E7A", 0.4)); // SLOW mode (Slate Blue)
+			}
+			gc.strokeRect(offsetX + 2.5, offsetY + 2.5, drawW - 5, drawH - 5);
 		}
 	}
 
 	private static void drawCellIcon(
 		GraphicsContext gc, CellType type, int gx, int gy, double x, double y, double size, long time,
 		long mysteryOpenStartMs, int mysteryOpenGx, int mysteryOpenGy,
-		long bombTouchStartMs, int bombTouchGx, int bombTouchGy
+		long bombTouchStartMs, int bombTouchGx, int bombTouchGy,
+		boolean freezeTimeActive, boolean bombDetectorActive, boolean visionBoostActive
 	) {
 		switch (type) {
 			case BOMB -> {
@@ -291,14 +350,46 @@ public class MazeRenderer {
 						idx = 2;
 					}
 				}
+				
+				double drawSize = size;
+				if (bombDetectorActive && idx == 0) {
+					// Pulsate the bomb scale for detector clarity
+					double pulse = Math.sin(System.currentTimeMillis() * 0.008) * 0.12;
+					drawSize = size * (1.0 + pulse);
+					x -= (drawSize - size) / 2;
+					y -= (drawSize - size) / 2;
+				}
+
+				if (freezeTimeActive) gc.setGlobalAlpha(0.55);
 				if (BOMB_FRAMES[idx] != null && !BOMB_FRAMES[idx].isError()) {
-					gc.drawImage(BOMB_FRAMES[idx], x + size * 0.10, y + size * 0.10, size * 0.80, size * 0.80);
+					gc.drawImage(BOMB_FRAMES[idx], x + drawSize * 0.10, y + drawSize * 0.10, drawSize * 0.80, drawSize * 0.80);
 				} else {
-					drawBomb(gc, x, y, size);
+					drawBomb(gc, x, y, drawSize);
+				}
+				if (freezeTimeActive) gc.setGlobalAlpha(1.0);
+			}
+			case ITEM -> {
+				if (visionBoostActive) {
+					double pulse = Math.abs(Math.sin(System.currentTimeMillis() * 0.005));
+					gc.setGlobalAlpha(0.6 + 0.4 * pulse);
+					javafx.scene.effect.DropShadow sonar = new javafx.scene.effect.DropShadow(20 * pulse, Color.CYAN);
+					gc.setEffect(sonar);
+				}
+				drawItem(gc, x, y, size, gx, gy, mysteryOpenStartMs, mysteryOpenGx, mysteryOpenGy);
+				if (visionBoostActive) {
+					gc.setGlobalAlpha(1.0);
+					gc.setEffect(null);
 				}
 			}
-			case ITEM -> drawItem(gc, x, y, size, gx, gy, mysteryOpenStartMs, mysteryOpenGx, mysteryOpenGy);
-			case GOAL -> drawGoal(gc, x, y, size, time);
+			case GOAL -> {
+				if (visionBoostActive) {
+					double pulse = Math.abs(Math.sin(System.currentTimeMillis() * 0.007));
+					javafx.scene.effect.DropShadow sonar = new javafx.scene.effect.DropShadow(30 * pulse, Color.GOLD);
+					gc.setEffect(sonar);
+				}
+				drawGoal(gc, x, y, size, time);
+				if (visionBoostActive) gc.setEffect(null);
+			}
 			case START -> drawStart(gc, x, y, size);
 			default -> {
 			}
@@ -412,14 +503,17 @@ public class MazeRenderer {
 		gc.setLineWidth(Math.max(1.0, size * 0.05));
 		gc.strokeRect(x + pad, y + pad, size - pad * 2, size - pad * 2);
 		gc.setFill(Color.web("#D6E6FF"));
-		gc.setFont(javafx.scene.text.Font.font(Math.max(9, size * 0.42)));
+		gc.setFont(AppFonts.vt323(Math.max(9, size * 0.42)));
 		gc.fillText("S", x + size * 0.43, y + size * 0.65);
 	}
 
 	private static void drawRobot(
 		GraphicsContext gc, double x, double y, double size,
-		boolean isMoving, DuckFacing facing, boolean introRightIdle
+		boolean isMoving, DuckFacing facing, boolean introRightIdle,
+		boolean shieldVisible, long activeTimerMs, double speedMultiplier,
+		boolean isTeleporting
 	) {
+		if (isTeleporting) return; // Skip duck rendering during teleport animation
 		DuckFacing useFacing = facing;
 		if (!isMoving && introRightIdle) {
 			useFacing = DuckFacing.RIGHT;
@@ -438,7 +532,43 @@ public class MazeRenderer {
 			// make the duck sprite larger than the cell
 			double duckW = size * 1.5;
 			double duckH = size * 1.65;
-			gc.drawImage(duckFrame, x - size * 0.25, y - size * 0.65, duckW, duckH);
+			double duckX = x - size * 0.25;
+			double duckY = y - size * 0.65;
+
+			if (shieldVisible) {
+				long now = System.currentTimeMillis();
+				long switchTime = (activeTimerMs > 0 && activeTimerMs < 2000) ? 100 : 300;
+				boolean frameIndex = (now / switchTime) % 2 == 0;
+				Image bubble = frameIndex ? BUBBLE1_IMAGE : BUBBLE2_IMAGE;
+				
+				if (bubble != null && !bubble.isError()) {
+					double bSize = duckW * 1.35;
+					gc.drawImage(bubble, duckX - (bSize - duckW) / 2, duckY - (bSize - duckH) / 2 + size * 0.1, bSize, bSize);
+				}
+			}
+
+			// Render shared countdown timer for any active powerup
+			if (activeTimerMs > 0) {
+				int secs = (int)((activeTimerMs + 999) / 1000);
+				gc.setFont(AppFonts.vt323(Math.max(12, size * 0.5)));
+				gc.setFill(Color.YELLOW);
+				gc.setStroke(Color.BLACK);
+				gc.setLineWidth(1);
+				String txt = secs + "s";
+				gc.strokeText(txt, duckX + duckW / 2 - size * 0.2, duckY - size * 0.1);
+				gc.fillText(txt, duckX + duckW / 2 - size * 0.2, duckY - size * 0.1);
+			}
+
+			// Add speed trail if speed is high
+			if (speedMultiplier > 1.1) {
+				gc.setGlobalAlpha(0.3);
+				// Draw a faint ghost behind the current position
+				double trailOff = size * 0.15;
+				gc.drawImage(duckFrame, duckX - trailOff, duckY + trailOff * 0.5, duckW, duckH);
+				gc.setGlobalAlpha(1.0);
+			}
+
+			gc.drawImage(duckFrame, duckX, duckY, duckW, duckH);
 			return;
 		}
 
@@ -480,5 +610,23 @@ public class MazeRenderer {
 		} catch (Exception ex) {
 			return null;
 		}
+	}
+
+	private static void drawSonarWave(GraphicsContext gc, double ox, double oy, double gx, double gy, double cellSize, double w, double h) {
+		if (Double.isNaN(gx)) return;
+		long time = System.currentTimeMillis();
+		double centerX = ox + gx * cellSize + cellSize / 2;
+		double centerY = oy + gy * cellSize + cellSize / 2;
+		
+		double duration = 2000.0;
+		double progress = (time % (long)duration) / duration;
+		double radius = progress * Math.max(w, h) * 1.2;
+		
+		gc.save();
+		// Start colored, fade out as it expands
+		gc.setStroke(Color.CYAN.deriveColor(0, 1, 1, 1.0 - progress));
+		gc.setLineWidth(4.0);
+		gc.strokeOval(centerX - radius, centerY - radius, radius * 2, radius * 2);
+		gc.restore();
 	}
 }

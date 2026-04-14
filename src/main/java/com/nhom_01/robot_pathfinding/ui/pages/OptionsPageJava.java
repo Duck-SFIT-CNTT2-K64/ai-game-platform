@@ -33,7 +33,7 @@ public final class OptionsPageJava {
     private static final double VIEW_WIDTH  = javafx.stage.Screen.getPrimary().getVisualBounds().getWidth();
     private static final double VIEW_HEIGHT = javafx.stage.Screen.getPrimary().getVisualBounds().getHeight();
     private static final double CARD_WIDTH  = 415;
-    private static final double CARD_HEIGHT = 330;
+    private static final double CARD_HEIGHT = 500;
 
     private OptionsPageJava() {
     }
@@ -65,12 +65,12 @@ public final class OptionsPageJava {
         titleBox.setAlignment(Pos.CENTER);
 
         Text title = new Text("OPTIONS");
-        title.setFont(Font.font("Orbitron", FontWeight.BOLD, 62));
-        title.setFill(Color.web("#1F2D3A"));
+        title.setFont(AppFonts.vt323(48));
+        title.setFill(Color.WHITE);
 
         Text subtitle = new Text("ESSENTIAL SETTINGS");
-        subtitle.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
-        subtitle.setFill(Color.web("#4F5B62"));
+        subtitle.setFont(AppFonts.vt323(15));
+        subtitle.setFill(Color.WHITE);
 
         DropShadow titleGlow = new DropShadow();
         titleGlow.setColor(Color.color(0.18, 0.50, 0.93, 0.24));
@@ -283,8 +283,8 @@ public final class OptionsPageJava {
         card.setMinSize(CARD_WIDTH, CARD_HEIGHT);
         card.setAlignment(Pos.TOP_LEFT);
         card.setStyle(
-            "-fx-background-color: rgba(255,255,255,0.94);" +
-            "-fx-border-color: rgba(0,0,0,0.10);" +
+            "-fx-background-color: rgba(30, 41, 59, 0.85);" +
+            "-fx-border-color: rgba(255,255,255,0.15);" +
             "-fx-border-width: 1.6;" +
             "-fx-border-radius: 12;" +
             "-fx-background-radius: 12;"
@@ -296,8 +296,8 @@ public final class OptionsPageJava {
         card.setEffect(glow);
 
         Label heading = new Label(title);
-        heading.setTextFill(Color.web("#1F2D3A"));
-        heading.setFont(Font.font("Orbitron", FontWeight.BOLD, 24));
+        heading.setTextFill(Color.WHITE);
+        heading.setFont(AppFonts.vt323(34));
         card.getChildren().add(heading);
 
         return card;
@@ -305,8 +305,8 @@ public final class OptionsPageJava {
 
     private static Label createSectionLabel(String text) {
         Label section = new Label(text);
-        section.setTextFill(Color.web("#546E7A"));
-        section.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+        section.setTextFill(Color.WHITE);
+        section.setFont(AppFonts.vt323(13));
         return section;
     }
 
@@ -315,8 +315,8 @@ public final class OptionsPageJava {
         row.setAlignment(Pos.CENTER_LEFT);
 
         Label rowLabel = new Label(label + "  " + formatPercent(slider.getValue()));
-        rowLabel.setTextFill(Color.web("#455A64"));
-        rowLabel.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        rowLabel.setTextFill(Color.WHITE);
+        rowLabel.setFont(AppFonts.vt323(14));
 
         slider.valueProperty().addListener((obs, oldVal, newVal) ->
             rowLabel.setText(label + "  " + formatPercent(newVal.doubleValue()))
@@ -344,8 +344,8 @@ public final class OptionsPageJava {
 
     private static CheckBox createToggle(String text) {
         CheckBox box = new CheckBox(text);
-        box.setTextFill(Color.web("#455A64"));
-        box.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
+        box.setTextFill(Color.WHITE);
+        box.setFont(AppFonts.vt323(14));
         box.setCursor(Cursor.HAND);
         box.setStyle(
             "-fx-mark-color: #2F80ED;" +

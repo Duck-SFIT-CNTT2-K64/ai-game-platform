@@ -15,6 +15,7 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
+import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
 
@@ -52,7 +53,7 @@ public class ItemCardSelectionModal {
 
         // ── Title (white text floating on dark backdrop) ────────────────────
         Text title = new Text("⚡  CHON POWER-UP");
-        title.setFont(AppFonts.jersey(34));
+        title.setFont(AppFonts.vt323(34));
         title.setFill(Color.WHITE);
         DropShadow glow = new DropShadow();
         glow.setColor(Color.color(0.35, 0.62, 1.0, 0.90));
@@ -60,7 +61,7 @@ public class ItemCardSelectionModal {
         title.setEffect(glow);
 
         Text subtitle = new Text("Chon 1 trong 3 power-up de tang cuong co hoi chien thang!");
-        subtitle.setFont(AppFonts.jersey(15));
+        subtitle.setFont(AppFonts.vt323(15));
         subtitle.setFill(Color.color(0.72, 0.80, 1.0, 0.78));
 
         VBox titleBlock = new VBox(7, title, subtitle);
@@ -82,7 +83,7 @@ public class ItemCardSelectionModal {
         }
 
         Text escHint = new Text("Nhan  ESC  de bo qua");
-        escHint.setFont(AppFonts.jersey(13));
+        escHint.setFont(AppFonts.vt323(13));
         escHint.setFill(Color.color(0.55, 0.60, 0.72, 0.55));
 
         VBox content = new VBox(16, titleBlock, cardsRow, escHint);
@@ -154,11 +155,11 @@ public class ItemCardSelectionModal {
         );
 
         Text badge = new Text("▸ " + pu.getDifficulty().toString());
-        badge.setFont(AppFonts.jersey(12));
+        badge.setFont(AppFonts.vt323(12));
         badge.setFill(Color.color(1, 1, 1, 0.68));
 
         Text nameText = new Text(pu.getDisplayName());
-        nameText.setFont(AppFonts.jersey(22));
+        nameText.setFont(AppFonts.vt323(22));
         nameText.setFill(Color.WHITE);
         nameText.setTextAlignment(TextAlignment.CENTER);
         nameText.setWrappingWidth(272);
@@ -173,7 +174,7 @@ public class ItemCardSelectionModal {
         VBox.setVgrow(body, Priority.ALWAYS);
 
         Text descText = new Text(pu.getEnglishDescription());
-        descText.setFont(AppFonts.jersey(15));
+        descText.setFont(AppFonts.vt323(15));
         descText.setFill(Color.web("#2D3E50"));
         descText.setTextAlignment(TextAlignment.CENTER);
         descText.setWrappingWidth(264);
@@ -187,7 +188,7 @@ public class ItemCardSelectionModal {
             "-fx-background-radius: 8;"
         );
         Text effectText = new Text("✦  " + pu.getVietnameseDescription());
-        effectText.setFont(AppFonts.jersey(14));
+        effectText.setFont(AppFonts.vt323(14));
         effectText.setFill(diffColor);
         effectText.setTextAlignment(TextAlignment.CENTER);
         effectText.setWrappingWidth(252);
@@ -235,12 +236,31 @@ public class ItemCardSelectionModal {
     }
 
     private static List<PowerUp> generateRandomPowerUps(int count) {
-        PowerUp[] all = PowerUp.values();
         List<PowerUp> selected = new ArrayList<>();
         Random rng = new Random();
-        while (selected.size() < count && selected.size() < all.length) {
-            PowerUp pu = all[rng.nextInt(all.length)];
-            if (!selected.contains(pu)) selected.add(pu);
+        
+        while (selected.size() < count) {
+            // 1. Roll for difficulty based on weights: Easy (50%), Medium (30%), Hard (20%)
+            int roll = rng.nextInt(100);
+            PowerUp.Difficulty diff;
+            if (roll < 50) {
+                diff = PowerUp.Difficulty.EASY;
+            } else if (roll < 80) {
+                diff = PowerUp.Difficulty.MEDIUM;
+            } else {
+                diff = PowerUp.Difficulty.HARD;
+            }
+            
+            // 2. Get a random power-up of that difficulty
+            PowerUp pu = PowerUp.getRandomByDifficulty(diff);
+            
+            // 3. Avoid duplicates across the 3 cards
+            if (!selected.contains(pu)) {
+                selected.add(pu);
+            }
+            
+            // Safety break if we somehow run out of items (shouldn't happen with current enum)
+            if (selected.size() >= PowerUp.values().length) break;
         }
         return selected;
     }

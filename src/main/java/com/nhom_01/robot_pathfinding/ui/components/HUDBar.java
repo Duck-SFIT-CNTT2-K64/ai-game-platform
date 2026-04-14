@@ -7,6 +7,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import com.nhom_01.robot_pathfinding.ui.theme.AppFonts;
 
 public final class HUDBar {
 
@@ -35,7 +36,7 @@ public final class HUDBar {
 
 	private static Text createHudText(String value, javafx.scene.paint.Color color) {
 		Text text = new Text(value);
-		text.setFont(Font.font("Orbitron", FontWeight.BOLD, 14));
+		text.setFont(AppFonts.vt323(30));
 		text.setFill(color);
 		return text;
 	}

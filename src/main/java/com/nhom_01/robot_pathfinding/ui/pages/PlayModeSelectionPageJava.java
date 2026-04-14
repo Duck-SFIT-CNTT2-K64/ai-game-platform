@@ -69,7 +69,7 @@ public final class PlayModeSelectionPageJava {
         page.setAlignment(Pos.TOP_CENTER);
 
         Text title = new Text("CHOOSE PLAY MODE");
-        title.setFont(Font.font("Orbitron", FontWeight.BOLD, 56));
+        title.setFont(AppFonts.vt323(56));
         title.setFill(Color.web("#1F2D3A"));
 
         DropShadow titleGlow = new DropShadow();
@@ -78,8 +78,8 @@ public final class PlayModeSelectionPageJava {
         title.setEffect(titleGlow);
 
         Text subtitle = new Text("DIFFICULTY: " + difficulty);
-        subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 17));
-        subtitle.setFill(Color.web("#4F5B62"));
+        subtitle.setFont(AppFonts.vt323(14));
+        subtitle.setFill(Color.WHITE);
 
         VBox heading = new VBox(8, title, subtitle);
         heading.setAlignment(Pos.CENTER);
@@ -95,8 +95,10 @@ public final class PlayModeSelectionPageJava {
                 "Great for learning maze patterns and reacting to bombs.",
                 "Use keyboard: UP / DOWN / LEFT / RIGHT",
                 BTN_PLAYER_PATH,
-                () -> ensurePlayerName(stage, stage.getScene(), () ->
+                () -> ensureDuckType(stage, stage.getScene(), () ->
+                    ensurePlayerName(stage, stage.getScene(), () ->
                         PlayGamePage.showPlayerOnStage(stage, stage.getScene(), difficulty)
+                    )
                 )
         );
 
@@ -107,7 +109,9 @@ public final class PlayModeSelectionPageJava {
                 "Useful to observe path quality and compare strategies.",
                 "Next step: choose BFS / DFS / A*",
                 BTN_BOT_PATH,
-                () -> AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene(), difficulty)
+                () -> ensureDuckType(stage, stage.getScene(), () ->
+                    AlgorithmSelectionPageJava.showOnStage(stage, stage.getScene(), difficulty)
+                )
         );
 
         cards.getChildren().addAll(playerCard, botCard);
@@ -169,24 +173,24 @@ public final class PlayModeSelectionPageJava {
         bg.setSmooth(false);
 
         Text heading = new Text(icon + "  " + title);
-        heading.setFont(Font.font("Orbitron", FontWeight.BOLD, 34));
+        heading.setFont(AppFonts.vt323(44));
         heading.setFill(Color.web("#F3F8FF"));
         heading.setStroke(Color.web("#243142"));
         heading.setStrokeWidth(0.9);
         heading.setWrappingWidth(contentWidth);
 
         Text l1 = new Text(line1);
-        l1.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
+        l1.setFont(AppFonts.vt323(16));
         l1.setFill(Color.web("#EAF3FA"));
         l1.setWrappingWidth(contentWidth);
 
         Text l2 = new Text(line2);
-        l2.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
+        l2.setFont(AppFonts.vt323(16));
         l2.setFill(Color.web("#EAF3FA"));
         l2.setWrappingWidth(contentWidth);
 
         Text l3 = new Text(line3);
-        l3.setFont(Font.font("Arial", FontWeight.BOLD, 15));
+        l3.setFont(AppFonts.vt323(15));
         l3.setFill(Color.web("#D2ECFF"));
         l3.setWrappingWidth(contentWidth);
 
@@ -259,14 +263,14 @@ public final class PlayModeSelectionPageJava {
                         "-fx-background-radius: 16 16 0 0;"
         );
         Text headerTag = new Text("🦆  ROBOT MAZE");
-        headerTag.setFont(Font.font("Orbitron", FontWeight.BOLD, 11));
+        headerTag.setFont(AppFonts.vt323(11));
         headerTag.setFill(Color.color(1, 1, 1, 0.60));
         Text headerTitle = new Text("Nhap ten nguoi choi");
-        headerTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 20));
+        headerTitle.setFont(AppFonts.vt323(20));
         headerTitle.setFill(Color.WHITE);
         Text headerSub = new Text("Ten hien thi tren BXH.");
-        headerSub.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
-        headerSub.setFill(Color.color(0.80, 0.90, 1.0, 0.70));
+        headerSub.setFont(AppFonts.vt323(12));
+        headerSub.setFill(Color.WHITE);
         cardHeader.getChildren().addAll(headerTag, headerTitle, headerSub);
 
         // ── Body ─────────────────────────────────────────────────────────────
@@ -291,7 +295,7 @@ public final class PlayModeSelectionPageJava {
                         "-fx-padding: 9 10 9 10;"
         );
         Text counter = new Text("0 / 24");
-        counter.setFont(Font.font("Arial", FontWeight.NORMAL, 11));
+        counter.setFont(AppFonts.vt323(11));
         counter.setFill(Color.web("#7A8DA0"));
         nameField.textProperty().addListener((obs, ov, nv) -> {
             if (nv != null && nv.length() > 24) {
@@ -305,7 +309,7 @@ public final class PlayModeSelectionPageJava {
         inputRow.getChildren().addAll(nameField, counter);
 
         Text error = new Text("");
-        error.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+        error.setFont(AppFonts.vt323(12));
         error.setFill(Color.web("#FF5252"));
 
         HBox actions = new HBox(10);
@@ -370,13 +374,13 @@ public final class PlayModeSelectionPageJava {
             "-fx-background-radius: 16 16 0 0;"
         );
         Text headerTag = new Text("🦆  ROBOT MAZE");
-        headerTag.setFont(Font.font("Orbitron", FontWeight.BOLD, 11));
+        headerTag.setFont(AppFonts.vt323(11));
         headerTag.setFill(Color.color(1, 1, 1, 0.80));
         Text headerTitle = new Text("Chon nhan vat");
-        headerTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 20));
+        headerTitle.setFont(AppFonts.vt323(20));
         headerTitle.setFill(Color.WHITE);
         Text headerSub = new Text("Vit vang hay vit tim?");
-        headerSub.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+        headerSub.setFont(AppFonts.vt323(12));
         headerSub.setFill(Color.color(1.0, 1.0, 1.0, 0.90));
         cardHeader.getChildren().addAll(headerTag, headerTitle, headerSub);
 

@@ -10,9 +10,9 @@ PowerUp {
     ),
     SHIELD(
         "Shield",
-        "Ignore one bomb explosion.",
-        "Gap bomb khong chet 1 lan",
-        Difficulty.EASY
+        "Invincibility against bombs for 10 seconds.",
+        "Khien bao ve trong 10 giay",
+        Difficulty.MEDIUM
     ),
     REVEAL_PATH(
         "Reveal Path",
@@ -44,12 +44,6 @@ PowerUp {
         "Xoa 1 tuong",
         Difficulty.MEDIUM
     ),
-    SLOW_BOMBS(
-        "Slow Bombs",
-        "Bombs activate slower.",
-        "Bomb delay",
-        Difficulty.MEDIUM
-    ),
     DOUBLE_SCORE(
         "Double Score",
         "Double score for this run.",
@@ -61,12 +55,6 @@ PowerUp {
         "Stop all bombs for a moment.",
         "Bomb khong no trong vai giay",
         Difficulty.MEDIUM
-    ),
-    REVEAL_MAP(
-        "Reveal Map",
-        "Show the whole maze.",
-        "Hien toan map",
-        Difficulty.EASY
     ),
     AI_ASSIST(
         "AI Assist",
@@ -80,12 +68,6 @@ PowerUp {
         "Uu tien BFS/A*",
         Difficulty.MEDIUM
     ),
-    BOMB_IMMUNITY(
-        "Bomb Immunity",
-        "Ignore bombs for 5 seconds.",
-        "Mien nhiem bomb",
-        Difficulty.EASY
-    ),
     SPEED_SLOW(
         "Speed Slow",
         "Move slower but safer.",
@@ -98,16 +80,10 @@ PowerUp {
         "Tang spawn item",
         Difficulty.MEDIUM
     ),
-    DOUBLE_CHOICE(
-        "Double Choice",
-        "Choose 2 skills instead of 1.",
-        "Chon 2 skill",
-        Difficulty.HARD
-    ),
-    SAFE_STEP(
-        "Safe Step",
-        "Next step cannot be a bomb.",
-        "Buoc tiep theo luon an toan",
+    ANOTHER_OPTIONS(
+        "Another Options",
+        "Pick an additional power-up from mystery boxes.",
+        "Nhan them 1 vat pham khi mo hop bi an",
         Difficulty.MEDIUM
     ),
     TIME_BONUS(
@@ -117,10 +93,10 @@ PowerUp {
         Difficulty.EASY
     ),
     VISION_BOOST(
-        "Vision Boost",
-        "See further around robot.",
-        "Hien vung lon hon",
-        Difficulty.MEDIUM
+        "Sonar Radar",
+        "Reveal map and pulse item locations for 15 seconds.",
+        "Radar quet vat pham trong 15 giay",
+        Difficulty.HARD
     );
 
     public enum Difficulty {

@@ -71,7 +71,7 @@ public final class PlayDifficultyPageJava {
         page.setAlignment(Pos.TOP_CENTER);
 
         Text title = new Text("CHOOSE DIFFICULTY");
-        title.setFont(Font.font("Press Start 2P", FontWeight.BOLD, 44));
+        title.setFont(AppFonts.vt323(42));
         title.setFill(Color.web("#FFD15A"));
         title.setStroke(Color.web("#6B4518"));
         title.setStrokeWidth(1.8);
@@ -82,7 +82,7 @@ public final class PlayDifficultyPageJava {
         title.setEffect(titleGlow);
 
         Text subtitle = new Text("PICK THE CHALLENGE LEVEL BEFORE ENTERING THE MAZE");
-        subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+        subtitle.setFont(AppFonts.vt323(13));
         subtitle.setFill(Color.web("#F5E7C4"));
 
         VBox heading = new VBox(8, title, subtitle);
@@ -192,23 +192,23 @@ public final class PlayDifficultyPageJava {
         bg.setSmooth(false);
 
         Text heading = new Text(icon + "  " + level);
-        heading.setFont(Font.font("Orbitron", FontWeight.BOLD, 30));
+        heading.setFont(AppFonts.vt323(20));
         heading.setFill(accent);
         heading.setWrappingWidth(contentWidth);
 
         Text l1 = new Text(line1);
-        l1.setFont(Font.font("Arial", FontWeight.NORMAL, 15));
-        l1.setFill(Color.web("#4F5B62"));
+        l1.setFont(AppFonts.vt323(15));
+        l1.setFill(Color.WHITE);
         l1.setWrappingWidth(contentWidth);
 
         Text l2 = new Text(line2);
-        l2.setFont(Font.font("Arial", FontWeight.NORMAL, 15));
-        l2.setFill(Color.web("#4F5B62"));
+        l2.setFont(AppFonts.vt323(15));
+        l2.setFill(Color.WHITE);
         l2.setWrappingWidth(contentWidth);
 
         Text eta = new Text(duration);
-        eta.setFont(Font.font("Arial", FontWeight.BOLD, 15));
-        eta.setFill(Color.web("#4F5B62"));
+        eta.setFont(AppFonts.vt323(15));
+        eta.setFill(Color.WHITE);
         eta.setWrappingWidth(contentWidth);
 
         String buttonImagePath = switch (level) {
@@ -297,12 +297,12 @@ public final class PlayDifficultyPageJava {
         content.setAlignment(Pos.TOP_LEFT);
 
         Text heading = new Text(headingText);
-        heading.setFont(Font.font("Press Start 2P", FontWeight.BOLD, 14));
+        heading.setFont(AppFonts.vt323(14));
         heading.setFill(headingColor);
         heading.setWrappingWidth(contentWidth);
 
         Text body = new Text(bodyText);
-        body.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
+        body.setFont(AppFonts.vt323(14));
         body.setFill(Color.WHITE);
         body.setWrappingWidth(contentWidth);
         body.setLineSpacing(2);

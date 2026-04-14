@@ -39,7 +39,7 @@ public class MainMenuJava extends Application {
 
 	@Override
 	public void start(Stage stage) {
-		AppFonts.getJerseyFamily(); // register embedded Jersey face before any UI text
+		AppFonts.getFamily(); // register embedded face before any UI text
 		javafx.geometry.Rectangle2D sb = javafx.stage.Screen.getPrimary().getVisualBounds();
 		double W = sb.getWidth();
 		double H = sb.getHeight();
@@ -123,7 +123,7 @@ public class MainMenuJava extends Application {
 		double desc = Math.max(12, 17 * sf);
 
 		Text mainTitle = new Text("DUCK");
-		mainTitle.setFont(AppFonts.jersey(big));
+		mainTitle.setFont(AppFonts.vt323(big));
 		mainTitle.setFill(Color.web("#1F2D3A"));
 
 		DropShadow tg = new DropShadow();
@@ -132,8 +132,8 @@ public class MainMenuJava extends Application {
 		mainTitle.setEffect(tg);
 
 		Text subTitle = new Text("MAZE");
-		subTitle.setFont(AppFonts.jersey(big));
-		subTitle.setFill(Color.web("#EF6C00"));
+		subTitle.setFont(AppFonts.vt323(big));
+		subTitle.setFill(Color.WHITE);
 
 		DropShadow sg = new DropShadow();
 		sg.setColor(Color.color(0.94, 0.42, 0.00, 0.22));
@@ -141,8 +141,8 @@ public class MainMenuJava extends Application {
 		subTitle.setEffect(sg);
 
 		Text description = new Text("SMART PATHFINDING · SMOOTH EXPERIENCE");
-		description.setFont(javafx.scene.text.Font.font("Arial", FontWeight.NORMAL, desc));
-		description.setFill(Color.web("#4F5B62"));
+		description.setFont(AppFonts.vt323(desc));
+		description.setFill(Color.WHITE);
 
 		box.getChildren().addAll(mainTitle, subTitle, description);
 		return box;
@@ -195,7 +195,7 @@ public class MainMenuJava extends Application {
 
 		// Label — white with shadow for readability over dark maze background
 		Text label = new Text("RUNNING DUCK PREVIEW");
-		label.setFont(AppFonts.jersey(Math.max(13, 20 * sf)));
+		label.setFont(AppFonts.vt323(Math.max(13, 20 * sf)));
 		label.setFill(Color.web("#FFFFFF"));
 		label.setOpacity(0.95);
 		DropShadow textGlow = new DropShadow();
@@ -289,7 +289,7 @@ public class MainMenuJava extends Application {
 			duckAnim.play();
 		} else {
 			Text fallback = new Text("\uD83E\uDD86");
-			fallback.setFont(Font.font("Arial", FontWeight.BOLD, duckSize * 0.7));
+			fallback.setFont(AppFonts.vt323(duckSize * 0.7));
 			fallback.setFill(Color.web("#FBC02D"));
 			duck.getChildren().add(fallback);
 		}
@@ -388,7 +388,7 @@ public class MainMenuJava extends Application {
 		);
 
 		Text t = new Text(text);
-		t.setFont(Font.font("Arial", FontWeight.BOLD, Math.max(10, 13 * sf)));
+		t.setFont(AppFonts.vt323(Math.max(10, 13 * sf)));
 		t.setFill(Color.web(textColor));
 		c.getChildren().add(t);
 		return c;
@@ -427,12 +427,12 @@ public class MainMenuJava extends Application {
 		dialog.setEffect(dg);
 
 		Text title = new Text("EXIT CONFIRMATION");
-		title.setFont(Font.font("Orbitron", FontWeight.BOLD, Math.max(20, 28 * sf)));
+		title.setFont(AppFonts.vt323(Math.max(20, 28 * sf)));
 		title.setFill(Color.web("#1F2D3A"));
 
 		Text message = new Text("Do you want to exit?");
-		message.setFont(Font.font("Arial", FontWeight.NORMAL, Math.max(14, 18 * sf)));
-		message.setFill(Color.web("#4F5B62"));
+		message.setFont(AppFonts.vt323(Math.max(14, 18 * sf)));
+		message.setFill(Color.WHITE);
 
 		HBox actions = new HBox(14);
 		actions.setAlignment(Pos.CENTER);
