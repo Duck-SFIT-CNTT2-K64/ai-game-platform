@@ -10,6 +10,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
+import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
 import java.util.ArrayList;
@@ -87,7 +88,7 @@ public class InventoryPanel {
 
         if (inventory.isEmpty()) {
             Text emptyText = new Text("No items collected yet");
-            emptyText.setFont(AppFonts.jersey(12));
+            emptyText.setFont(AppFonts.vt323(12));
             emptyText.setFill(Color.web("#6B7A82"));
             inventoryContainer.getChildren().add(emptyText);
             return;
@@ -125,13 +126,13 @@ public class InventoryPanel {
         content.setPrefWidth(82);
 
         Text nameText = new Text(powerUp.getDisplayName());
-        nameText.setFont(AppFonts.jersey(11));
+        nameText.setFont(AppFonts.vt323(11));
         nameText.setFill(Color.web("#1F2D3A"));
         nameText.setTextAlignment(TextAlignment.CENTER);
         nameText.setWrappingWidth(78);
 
         Text statusText = new Text(collected.isActive() ? "ACTIVE" : "READY");
-        statusText.setFont(AppFonts.jersey(10));
+        statusText.setFont(AppFonts.vt323(10));
         statusText.setFill(collected.isActive() ? Color.web("#00FF9C") : Color.web("#FFB800"));
 
         content.getChildren().addAll(nameText, statusText);

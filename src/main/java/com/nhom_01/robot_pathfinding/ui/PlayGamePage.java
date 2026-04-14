@@ -7,6 +7,7 @@ import com.nhom_01.robot_pathfinding.ai.BFS;
 import com.nhom_01.robot_pathfinding.ai.DFS;
 import com.nhom_01.robot_pathfinding.ai.SearchAlgorithm;
 import com.nhom_01.robot_pathfinding.core.CellType;
+import com.nhom_01.robot_pathfinding.core.CollectedPowerUp;
 import com.nhom_01.robot_pathfinding.core.GameSettings;
 import com.nhom_01.robot_pathfinding.core.Maze;
 import com.nhom_01.robot_pathfinding.core.MazeGenerator;
@@ -137,6 +138,12 @@ public class PlayGamePage {
 		
 		// Ranking tracking
 		long[] gameStartTime = new long[] { System.currentTimeMillis() };
+		
+		// Teleport Animation State
+		long[] teleportAnimStartMs = new long[] { 0L };
+		int[] teleportGx = new int[] { -1 };
+		int[] teleportGy = new int[] { -1 };
+		final State[] pendingTeleportPos = new State[1];
 		int[] stepCounter = new int[] { 0 };
 		boolean[] rankingRecorded = new boolean[] { false };
 
@@ -225,12 +232,12 @@ public class PlayGamePage {
 		);
 
 		// ── HUD overlay (skill chips + toast) — non-blocking, on top of canvas ──
-		HBox skillChipsBox = new HBox(5);
+		HBox skillChipsBox = new HBox(10);
 		skillChipsBox.setAlignment(Pos.CENTER);
 		skillChipsBox.setPickOnBounds(false);
 
 		Text toastMsgText = new Text();
-		toastMsgText.setFont(Font.font("Arial", FontWeight.BOLD, 16));
+		toastMsgText.setFont(AppFonts.vt323(16));
 		toastMsgText.setFill(Color.WHITE);
 		HBox toastBox = new HBox(8);
 		toastBox.setAlignment(Pos.CENTER);
@@ -264,7 +271,7 @@ public class PlayGamePage {
 		);
 		if (mode == PlayMode.PLAYER) {
 			Text inventoryLabel = new Text("Collected Items");
-			inventoryLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+			inventoryLabel.setFont(AppFonts.vt323(13));
 			inventoryLabel.setFill(Color.web("#263238"));
 			ScrollPane inventoryScroll = new ScrollPane(inventory.getContainer());
 			inventoryScroll.setFitToWidth(true);
@@ -280,16 +287,16 @@ public class PlayGamePage {
 		}
 
 		Text statusText = new Text();
-		statusText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		statusText.setFont(AppFonts.vt323(13));
 		statusText.setFill(Color.web("#34495E"));
 		statusText.setWrappingWidth(312);
 
 		Text gameTimerText = new Text(mode == PlayMode.PLAYER ? "⏱  00:00" : "");
-		gameTimerText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		gameTimerText.setFont(AppFonts.vt323(13));
 		gameTimerText.setFill(Color.web("#1976D2"));
 
 		Text currentPosText = new Text("Position: -");
-		currentPosText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		currentPosText.setFont(AppFonts.vt323(13));
 		currentPosText.setFill(Color.web("#22303A"));
 
 		HBox actions = new HBox(5);
@@ -307,13 +314,13 @@ public class PlayGamePage {
 		HBox.setHgrow(backMenu,      Priority.ALWAYS);
 
 		Text settingsTitle = new Text("Settings");
-		settingsTitle.setFont(Font.font("Arial", FontWeight.BOLD, 28));
+		settingsTitle.setFont(AppFonts.vt323(28));
 		settingsTitle.setFill(Color.web("#1F2D3A"));
 
 		Text subtitle = new Text(mode == PlayMode.BOT
 			? "BOT | " + difficulty + " | " + algorithmName
 			: "PLAYER | " + difficulty);
-		subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+		subtitle.setFont(AppFonts.vt323(12));
 		subtitle.setFill(Color.web("#4F5B62"));
 
 		Slider delaySlider = new Slider(120, 520, 220);
@@ -321,7 +328,7 @@ public class PlayGamePage {
 		delaySlider.setShowTickMarks(false);
 		delaySlider.setStyle("-fx-accent: #2f80ed;");
 		Text delayText = new Text("Delay: 220ms");
-		delayText.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+		delayText.setFont(AppFonts.vt323(12));
 		delayText.setFill(Color.web("#263238"));
 		delaySlider.valueProperty().addListener((obs, ov, nv) -> {
 			delayText.setText("Delay: " + Math.round(nv.doubleValue()) + "ms");
@@ -329,22 +336,22 @@ public class PlayGamePage {
 		});
 
 		Text stateLabel = createStatText("STATE: " + initialState, Color.web("#1976D2"));
-		stateLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		stateLabel.setFont(AppFonts.vt323(13));
 		Text scoreLabel = createStatText(
 			"SCORE: " + (mode == PlayMode.BOT ? engine.getScore() : playerScore[0]),
 			Color.web("#00897B")
 		);
-		scoreLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		scoreLabel.setFont(AppFonts.vt323(13));
 		Text pathLabel = createStatText(
 			mode == PlayMode.BOT ? "PATH: " + safeSize(engine.getPath()) + " | LIVES: " + engine.getLives() : "LIVES: " + playerLives[0],
 			Color.web("#EF6C00")
 		);
-		pathLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		pathLabel.setFont(AppFonts.vt323(13));
 		Text exploredLabel = createStatText(
 			mode == PlayMode.BOT ? "EXPLORED: " + safeSize(engine.getExplored()) : "GOAL: FIND EXIT",
 			Color.web("#455A64")
 		);
-		exploredLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		exploredLabel.setFont(AppFonts.vt323(13));
 
 		VBox settingsCard = new VBox(10,
 			settingsTitle,
@@ -365,7 +372,7 @@ public class PlayGamePage {
 		);
 
 		Text infoTitle = new Text("Game Info");
-		infoTitle.setFont(Font.font("Arial", FontWeight.BOLD, 25));
+		infoTitle.setFont(AppFonts.vt323(25));
 		infoTitle.setFill(Color.web("#1F2D3A"));
 		GridPane infoGrid = new GridPane();
 		infoGrid.setHgap(18);
@@ -435,26 +442,23 @@ public class PlayGamePage {
 		Runnable updateSkillChips = () -> {
 			skillChipsBox.getChildren().clear();
 			long nowMs = System.currentTimeMillis();
-			if (pw.bombImmune  && nowMs < pw.immuneUntil)
-				skillChipsBox.getChildren().add(makeSkillChip("🛡 IMMUNITY "    + ((pw.immuneUntil    - nowMs + 999) / 1000) + "s", "#00ACC1"));
 			if (pw.doubleScore && nowMs < pw.dblScoreUntil)
-				skillChipsBox.getChildren().add(makeSkillChip("✨ x2 SCORE "    + ((pw.dblScoreUntil  - nowMs + 999) / 1000) + "s", "#F9A825"));
+				skillChipsBox.getChildren().add(makeSkillChip("✨ Double Score: "    + ((pw.dblScoreUntil  - nowMs + 999) / 1000) + "s", "#F9A825"));
 			if (pw.revealPath  && nowMs < pw.revealPathUntil)
-				skillChipsBox.getChildren().add(makeSkillChip("🗺 PATH "        + ((pw.revealPathUntil - nowMs + 999) / 1000) + "s", "#43A047"));
-			if (pw.revealMap   && nowMs < pw.revealMapUntil)
-				skillChipsBox.getChildren().add(makeSkillChip("👁 MAP "         + ((pw.revealMapUntil - nowMs + 999) / 1000) + "s", "#558B2F"));
+				skillChipsBox.getChildren().add(makeSkillChip("🗺 Path Reveal: "        + ((pw.revealPathUntil - nowMs + 999) / 1000) + "s", "#43A047"));
 			if (pw.bombDetect  && nowMs < pw.detectUntil)
-				skillChipsBox.getChildren().add(makeSkillChip("🔍 BOMB "        + ((pw.detectUntil   - nowMs + 999) / 1000) + "s", "#EF6C00"));
+				skillChipsBox.getChildren().add(makeSkillChip("🔍 Bomb Detector: "        + ((pw.detectUntil   - nowMs + 999) / 1000) + "s", "#EF6C00"));
 			if (pw.effectiveStepNs != PLAYER_STEP_NANOS && nowMs < pw.speedUntil) {
 				boolean fast = pw.effectiveStepNs < PLAYER_STEP_NANOS;
 				skillChipsBox.getChildren().add(makeSkillChip(
-					(fast ? "⚡ SPEED+ " : "🐢 SLOW ") + ((pw.speedUntil - nowMs + 999) / 1000) + "s",
+					(fast ? "⚡ Speed Boost: " : "🐢 Slow Mode: ") + ((pw.speedUntil - nowMs + 999) / 1000) + "s",
 					fast ? "#0097A7" : "#78909C"
 				));
 			}
-			if (pw.shield)      skillChipsBox.getChildren().add(makeSkillChip("🛡 SHIELD",     "#1E88E5"));
-			if (pw.wallRemoval) skillChipsBox.getChildren().add(makeSkillChip("⛏ WALL -1",    "#E64A19"));
-			if (pw.safeStep)    skillChipsBox.getChildren().add(makeSkillChip("👣 SAFE STEP",  "#2E7D32"));
+			if (pw.visionBoost && nowMs < pw.visionUntil)
+				skillChipsBox.getChildren().add(makeSkillChip("📡 Sonar Radar: " + ((pw.visionUntil - nowMs + 999) / 1000) + "s", "#00ACC1"));
+			if (pw.shield)      skillChipsBox.getChildren().add(makeSkillChip("🛡 Shield Active",     "#1E88E5"));
+			if (pw.wallRemoval) skillChipsBox.getChildren().add(makeSkillChip("⛏ Wall Removal Readyt",    "#E64A19"));
 			if (pw.aiRunning)   skillChipsBox.getChildren().add(makeSkillChip("🤖 AI ASSIST",  "#00695C"));
 		};
 
@@ -472,21 +476,40 @@ public class PlayGamePage {
 					bombTouchGx[0],
 					bombTouchGy[0],
 					botDuckFacing[0],
-					!botPastIntroIdle[0]
+					!botPastIntroIdle[0],
+					false, false, 1.0, false, -1L, false, 0L, -1, -1
 				);
 			} else {
 				// ── Determine visual overlays from active power-ups ──────────
 				java.util.List<State> pathOverlay     = null;
 				java.util.List<State> exploredOverlay = null;
 
-				if (pw.isRevealingMap()) {
-					exploredOverlay = allWalkable(maze);
-				} else if (pw.isDetectingBombs()) {
+				if (pw.isDetectingBombs()) {
 					exploredOverlay = bombPositions(maze);
 				}
 				if (pw.isRevealingPath() || pw.aiRunning) {
 					pathOverlay = computePathToGoal(maze, playerPos[0]);
 				}
+
+				long now = System.currentTimeMillis();
+				long minTimer = Long.MAX_VALUE;
+				long[] timers = {
+					pw.shield ? pw.shieldUntil : 0,
+					pw.freezeTime ? pw.freezeUntil : 0,
+					pw.speedUntil,
+					pw.revealPath ? pw.revealPathUntil : 0,
+					pw.bombDetect ? pw.detectUntil : 0,
+					pw.visionBoost ? pw.visionUntil : 0
+				};
+				boolean anyActive = false;
+				for (long t : timers) {
+					if (t > now) {
+						long rem = t - now;
+						if (rem < minTimer) minTimer = rem;
+						anyActive = true;
+					}
+				}
+				long finalHeadTimer = anyActive ? minTimer : -1L;
 
 				MazeRenderer.render(
 					gc, maze,
@@ -500,7 +523,15 @@ public class PlayGamePage {
 					bombTouchGx[0],
 					bombTouchGy[0],
 					duckFacing[0],
-					stepCounter[0] == 0
+					stepCounter[0] == 0,
+					pw.isFrozen(), pw.isDetectingBombs(),
+					(double)pw.effectiveStepNs / (double)PLAYER_STEP_NANOS,
+					calculateShieldVisible(pw),
+					finalHeadTimer,
+					pw.isVisionBoostActive(),
+					teleportAnimStartMs[0],
+					teleportGx[0],
+					teleportGy[0]
 				);
 			}
 		};
@@ -697,21 +728,15 @@ public class PlayGamePage {
 					}
 
 					// ── Detect skill expirations → show toast ─────────────────────────
-					boolean wasImmune  = pw.bombImmune;
 					boolean wasDbl     = pw.doubleScore;
 					boolean wasPath    = pw.revealPath;
-					boolean wasMap     = pw.revealMap;
 					boolean wasDetect  = pw.bombDetect;
 					boolean wasSpeed   = pw.effectiveStepNs != PLAYER_STEP_NANOS;
 					pw.tickExpiry();
-					if (wasImmune  && !pw.bombImmune)
-						showNotif.accept("🛡 Bomb Immunity has expired!", Color.web("#80DEEA"));
 					if (wasDbl     && !pw.doubleScore)
 						showNotif.accept("✨ Double Score has ended.", Color.web("#FFD54F"));
 					if (wasPath    && !pw.revealPath)
 						showNotif.accept("🗺 Path Reveal has ended.", Color.web("#A5D6A7"));
-					if (wasMap     && !pw.revealMap)
-						showNotif.accept("👁 Map Reveal has ended.", Color.web("#C5E1A5"));
 					if (wasDetect  && !pw.bombDetect)
 						showNotif.accept("🔍 Bomb Detector has ended.", Color.web("#FFCC80"));
 					if (wasSpeed   && pw.effectiveStepNs == PLAYER_STEP_NANOS)
@@ -741,15 +766,38 @@ public class PlayGamePage {
 							bombTouchAnimStartMs[0] = 0;
 						}
 					}
+
+					if (teleportAnimStartMs[0] > 0) {
+						long tel = System.currentTimeMillis() - teleportAnimStartMs[0];
+						if (tel >= MazeRenderer.TELEPORT_TOTAL_MS) {
+							teleportAnimStartMs[0] = 0;
+							State newPos = pendingTeleportPos[0];
+							if (newPos != null) {
+								playerPos[0] = new State(newPos.getX(), newPos.getY(), playerLives[0]);
+								playerRenderX[0] = newPos.getX(); playerRenderY[0] = newPos.getY();
+								playerFromX[0] = newPos.getX(); playerFromY[0] = newPos.getY();
+								playerToX[0]   = newPos.getX(); playerToY[0]   = newPos.getY();
+								refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
+								currentPosText.setText("Position: (" + newPos.getX() + ", " + newPos.getY() + ")");
+								statusText.setFill(Color.web("#CE93D8"));
+								statusText.setText("TELEPORTED to a safe location!");
+								pendingTeleportPos[0] = null;
+								root.requestFocus();
+							}
+						}
+					}
 					if (moveCommitAtMs[0] > 0 && System.currentTimeMillis() >= moveCommitAtMs[0]) {
-						playerPos[0] = new State(moveCommitX[0], moveCommitY[0], Math.max(0, playerLives[0]));
-						playerFromX[0] = moveCommitX[0];
-						playerFromY[0] = moveCommitY[0];
-						playerToX[0] = moveCommitX[0];
-						playerToY[0] = moveCommitY[0];
-						playerRenderX[0] = moveCommitX[0];
-						playerRenderY[0] = moveCommitY[0];
-						moveCommitAtMs[0] = 0;
+						int cx = moveCommitX[0];
+						int cy = moveCommitY[0];
+						moveCommitAtMs[0] = 0; // reset first to prevent re-triggering logic
+
+						processCellLanding(cx, cy, maze, playerPos, playerScore, playerLives, playerFinished,
+							statusText, audio, masterVolume, sfxVolume, inventory, gameScene, selectingPowerUp,
+							renderFrame, gameStartTime, stepCounter, rankingRecorded, difficulty, algorithmName, pw,
+							mysteryPickupAnimStartMs, mysteryPickupGx, mysteryPickupGy, mysteryPickupNeedsModal,
+							openItemAfterMysteryHold, bombTouchAnimStartMs, bombTouchGx, bombTouchGy,
+							moveCommitAtMs, moveCommitX, moveCommitY, duckFacing,
+							playerFromX, playerFromY, playerToX, playerToY, playerRenderX, playerRenderY);
 					}
 
 					// Use dynamic step duration (affected by SPEED_BOOST / SPEED_SLOW)
@@ -793,6 +841,15 @@ public class PlayGamePage {
 								statusText.setFill(Color.web("#A5D6A7"));
 								statusText.setText("AI ASSIST complete — resume moving!");
 							}
+
+							// ── Check if AI reached the GOAL ─────────────────────────
+							if (maze.getCell(nextAi.getX(), nextAi.getY()) == CellType.GOAL) {
+								playerFinished[0] = true;
+								pw.aiRunning      = false;
+								pw.aiPath         = null;
+								statusText.setFill(Color.web("#00FF9C"));
+								statusText.setText("AI ASSIST REACHED THE GOAL! 🏆");
+							}
 						}
 					// ── Single-step player movement ──────────────────────────────────
 					// One key press fires exactly one step. Key-repeat is ignored.
@@ -819,15 +876,42 @@ public class PlayGamePage {
 								pendingKey[0],
 								maze, playerPos, playerScore, playerLives, playerFinished,
 								statusText, audio, masterVolume, sfxVolume,
-								inventory, gameScene[0], selectingPowerUp, renderFrame,
+								inventory, gameScene, selectingPowerUp, renderFrame,
 								gameStartTime, stepCounter, rankingRecorded,
 								difficulty, algorithmName, pw,
 								mysteryPickupAnimStartMs, mysteryPickupGx, mysteryPickupGy,
 								mysteryPickupNeedsModal, openItemAfterMysteryHold,
 								bombTouchAnimStartMs, bombTouchGx, bombTouchGy,
 								moveCommitAtMs, moveCommitX, moveCommitY,
-								duckFacing
+								duckFacing,
+								playerFromX, playerFromY, playerToX, playerToY, playerRenderX, playerRenderY
 							);
+
+							// ── SPEED BOOST: Handle double step ─────────────────────
+							if (moved && pw.speedUntil > System.currentTimeMillis() && pw.effectiveStepNs < PLAYER_STEP_NANOS) {
+								// Small delay before second step to make it visible
+								moveCommitAtMs[0] = System.currentTimeMillis() + (stepNs / 1_000_000 / 2);
+								
+								// Calculate second position based on direction
+								int dx = 0, dy = 0;
+								if (pendingKey[0] == KeyCode.UP || pendingKey[0] == KeyCode.W) dy = -1;
+								else if (pendingKey[0] == KeyCode.DOWN || pendingKey[0] == KeyCode.S) dy = 1;
+								else if (pendingKey[0] == KeyCode.LEFT || pendingKey[0] == KeyCode.A) dx = -1;
+								else if (pendingKey[0] == KeyCode.RIGHT || pendingKey[0] == KeyCode.D) dx = 1;
+								
+								int nextX = playerPos[0].getX() + dx;
+								int nextY = playerPos[0].getY() + dy;
+								
+								// Validate second step
+								if (nextX >= 0 && nextX < maze.getWidth() && nextY >= 0 && nextY < maze.getHeight() 
+										&& maze.getCell(nextX, nextY) != CellType.WALL) {
+									moveCommitX[0] = nextX;
+									moveCommitY[0] = nextY;
+									// The actual handlePlayerMove processing for the 2nd cell will happen 
+									// when moveCommitAtMs is reached in the loop, or we can just call it now
+									// with a small cheat to make it follow path logic.
+								}
+							}
 
 							playerToX[0] = playerPos[0].getX();
 							playerToY[0] = playerPos[0].getY();
@@ -848,6 +932,32 @@ public class PlayGamePage {
 					playerRenderY[0] = playerFromY[0] + (playerToY[0] - playerFromY[0]) * progress;
 
 					renderFrame.run();
+
+					// ── SONAR RADAR: MAGNETIC ITEM ATTRACTION (Hard Perk) ──
+					if (pw.visionBoost && System.currentTimeMillis() % 150 < 20) {
+						int px = (int)Math.round(playerRenderX[0]);
+						int py = (int)Math.round(playerRenderY[0]);
+						for (int dx = -2; dx <= 2; dx++) {
+							for (int dy = -2; dy <= 2; dy++) {
+								if (Math.abs(dx) + Math.abs(dy) > 2) continue; // Manhattan distance 2
+								int tx = px + dx; int ty = py + dy;
+								if (tx >= 0 && tx < maze.getWidth() && ty >= 0 && ty < maze.getHeight()) {
+									if (maze.getCell(tx, ty) == com.nhom_01.robot_pathfinding.core.CellType.ITEM) {
+										// Magnetic pull!
+										maze.setCell(tx, ty, com.nhom_01.robot_pathfinding.core.CellType.EMPTY);
+										int rwd = pw.doubleScore ? 360 : 180;
+										playerScore[0] += rwd;
+										statusText.setFill(Color.web("#9FFFD8"));
+										statusText.setText("RADAR VACUUM: Item collected! (+" + rwd + ")");
+										// Open mystery modal
+										if (openItemAfterMysteryHold[0] != null) {
+											openItemAfterMysteryHold[0].run();
+										}
+									}
+								}
+							}
+						}
+					}
 
 					// ── Show result overlay on win/lose/timeout ───────────────────────
 					if (playerFinished[0] && !resultShown[0]) {
@@ -1006,143 +1116,14 @@ public class PlayGamePage {
 				inventory.setOnActivateCallback(collected -> {
 					if (collected == null || !collected.isActive()) return;
 					PowerUp type = collected.getPowerUp();
-					long NOW = System.currentTimeMillis();
+					handlePowerUpActivation(type, pw, playerScore, playerLives, playerPos, 
+						stateLabel, scoreLabel, pathLabel, exploredLabel, statusText, countdownEndMs, 
+						maze, playerRenderX, playerRenderY, playerFromX, playerFromY, playerToX, playerToY,
+						currentPosText, playerAccumulatorNanos, inventory, root, gameScene, selectingPowerUp,
+						teleportAnimStartMs, teleportGx, teleportGy, pendingTeleportPos);
 
-					switch (type) {
-						case EXTRA_LIFE -> {
-							playerLives[0] = Math.min(playerLives[0] + 1, 9);
-							statusText.setFill(Color.web("#00FF9C"));
-							statusText.setText("EXTRA LIFE! Lives remaining: " + playerLives[0]);
-							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
-						}
-						case SHIELD -> {
-							pw.shield = true;
-							statusText.setFill(Color.web("#64B5F6"));
-							statusText.setText("SHIELD active — next bomb will be blocked!");
-						}
-						case BOMB_IMMUNITY -> {
-							pw.bombImmune = true; pw.immuneUntil = NOW + 8_000;
-							statusText.setFill(Color.web("#80DEEA"));
-							statusText.setText("BOMB IMMUNITY for 8 seconds!");
-						}
-						case FREEZE_TIME, SLOW_BOMBS -> {
-							pw.bombImmune = true; pw.immuneUntil = NOW + 6_000;
-							statusText.setFill(Color.web("#B3E5FC"));
-							statusText.setText("BOMBS FROZEN for 6 seconds!");
-						}
-						case DOUBLE_SCORE -> {
-							pw.doubleScore = true; pw.dblScoreUntil = NOW + 15_000;
-							statusText.setFill(Color.web("#FFD54F"));
-							statusText.setText("DOUBLE SCORE for 15 seconds!");
-						}
-						case REVEAL_PATH, SHORTEST_PATH_MODE -> {
-							pw.revealPath = true; pw.revealPathUntil = NOW + 20_000;
-							statusText.setFill(Color.web("#A5D6A7"));
-							statusText.setText("PATH REVEALED for 20 seconds!");
-						}
-						case REVEAL_MAP -> {
-							pw.revealMap = true; pw.revealMapUntil = NOW + 20_000;
-							statusText.setFill(Color.web("#C5E1A5"));
-							statusText.setText("FULL MAP revealed for 20 seconds!");
-						}
-						case BOMB_DETECTOR -> {
-							pw.bombDetect = true; pw.detectUntil = NOW + 15_000;
-							statusText.setFill(Color.web("#FFCC80"));
-							statusText.setText("BOMB DETECTOR for 15 seconds!");
-						}
-						case SPEED_BOOST -> {
-							pw.effectiveStepNs = PLAYER_STEP_NANOS / 2;
-							pw.speedUntil = NOW + 8_000;
-							// reset accumulator so new speed takes effect immediately
-							playerAccumulatorNanos[0] = pw.effectiveStepNs;
-							statusText.setFill(Color.web("#80DEEA"));
-							statusText.setText("SPEED BOOST x2 for 8 seconds!");
-						}
-						case SPEED_SLOW -> {
-							pw.effectiveStepNs = PLAYER_STEP_NANOS * 2;
-							pw.speedUntil = NOW + 8_000;
-							playerAccumulatorNanos[0] = pw.effectiveStepNs;
-							statusText.setFill(Color.web("#BCAAA4"));
-							statusText.setText("SLOW MODE — safer movement for 8 seconds!");
-						}
-						case TELEPORT -> {
-							com.nhom_01.robot_pathfinding.core.State newPos =
-								findRandomSafeCell(maze, playerPos[0]);
-							if (newPos != null) {
-								playerPos[0] = new State(newPos.getX(), newPos.getY(), playerLives[0]);
-								playerRenderX[0] = newPos.getX(); playerRenderY[0] = newPos.getY();
-								playerFromX[0] = newPos.getX(); playerFromY[0] = newPos.getY();
-								playerToX[0]   = newPos.getX(); playerToY[0]   = newPos.getY();
-								refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
-								currentPosText.setText("Vi tri hien tai: (" + newPos.getX() + ", " + newPos.getY() + ")");
-								statusText.setFill(Color.web("#CE93D8"));
-								statusText.setText("TELEPORTED to a safe location!");
-							}
-						}
-						case REMOVE_WALL -> {
-							pw.wallRemoval = true;
-							statusText.setFill(Color.web("#FFAB91"));
-							statusText.setText("WALL REMOVAL ready — walk into a wall to break it!");
-						}
-						case SAFE_STEP -> {
-							pw.safeStep = true;
-							statusText.setFill(Color.web("#A5D6A7"));
-							statusText.setText("SAFE STEP ready — next bomb cell is neutralized!");
-						}
-						case TIME_BONUS -> {
-							playerScore[0] += 500;
-							statusText.setFill(Color.web("#FFD54F"));
-							statusText.setText("+500 SCORE BONUS!");
-							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
-						}
-						case LUCKY_FIND -> {
-							playerScore[0] += 300;
-							statusText.setFill(Color.web("#FFF176"));
-							statusText.setText("+300 LUCKY SCORE!");
-							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
-						}
-						case AI_ASSIST -> {
-							java.util.List<com.nhom_01.robot_pathfinding.core.State> aiPath =
-								computePathToGoal(maze, playerPos[0]);
-							if (aiPath != null && aiPath.size() > 1) {
-								pw.aiRunning = true;
-								pw.aiPath = aiPath;
-								pw.aiPathIdx = 1;
-								pendingKey[0]  = null; // AI takes over, clear any pending manual step
-						keyConsumed[0] = false;
-								statusText.setFill(Color.web("#80CBC4"));
-								statusText.setText("AI ASSIST — auto-moving 8 steps!");
-							} else {
-								statusText.setFill(Color.web("#FFAB91"));
-								statusText.setText("AI ASSIST — no path found from here.");
-							}
-						}
-						case DOUBLE_CHOICE -> {
-							if (gameScene[0] != null) {
-								ItemCardSelectionModal.showOnScene(gameScene[0], extra -> {
-									if (extra != null) inventory.addCollectedPowerUp(extra);
-								}, () -> {});
-								statusText.setFill(Color.web("#CE93D8"));
-								statusText.setText("DOUBLE CHOICE — pick a bonus item!");
-							}
-						}
-						case VISION_BOOST -> {
-							pw.revealMap = true; pw.revealMapUntil = NOW + 15_000;
-							statusText.setFill(Color.web("#B3E5FC"));
-							statusText.setText("VISION BOOST for 15 seconds!");
-						}
-						default -> {
-							statusText.setFill(Color.web("#FFD59A"));
-							statusText.setText(type.getDisplayName() + " ACTIVATED!");
-						}
-					}
-					// Show full-screen activation overlay (skip for DOUBLE_CHOICE
-					// which already opens its own item-selection modal)
-					if (type != PowerUp.DOUBLE_CHOICE) {
-						showActivationNotif(root, type);
-					}
 					renderFrame.run();
-					// Note: inventory.updateDisplay() is already called inside activatePowerUp
+					root.requestFocus();
 				});
 			}
 
@@ -1168,7 +1149,7 @@ public class PlayGamePage {
 
 	private static Text createStatText(String text, Color color) {
 		Text node = new Text(text);
-		node.setFont(Font.font("Orbitron", FontWeight.BOLD, 15));
+		node.setFont(AppFonts.vt323(15));
 		node.setFill(color);
 		return node;
 	}
@@ -1233,7 +1214,7 @@ public class PlayGamePage {
 		double[] masterVolume,
 		double[] sfxVolume,
 		InventoryPanel inventory,
-		Scene gameScene,
+		Scene[] gameScene,
 		boolean[] selectingPowerUp,
 		Runnable renderFrame,
 		long[] gameStartTime,
@@ -1253,9 +1234,12 @@ public class PlayGamePage {
 		long[] moveCommitAtMs,
 		int[] moveCommitX,
 		int[] moveCommitY,
-		MazeRenderer.DuckFacing[] duckFacing
+		MazeRenderer.DuckFacing[] duckFacing,
+		double[] playerFromX, double[] playerFromY,
+		double[] playerToX, double[] playerToY,
+		double[] playerRenderX, double[] playerRenderY
 	) {
-		if (playerFinished[0] || selectingPowerUp[0]) {
+		if (playerFinished[0] || (selectingPowerUp != null && selectingPowerUp[0])) {
 			return false;
 		}
 
@@ -1291,25 +1275,71 @@ public class PlayGamePage {
 			}
 		}
 
-		// Each step costs 3 score (unchanged if double-score active on losses)
+		// Each step costs 3 score
 		playerScore[0] = Math.max(0, playerScore[0] - 3);
 		stepCounter[0]++;
 		audio.playFootstep(masterVolume[0], sfxVolume[0]);
 
+		processCellLanding(nx, ny, maze, playerPos, playerScore, playerLives, playerFinished,
+			statusText, audio, masterVolume, sfxVolume, inventory, gameScene, selectingPowerUp,
+			renderFrame, gameStartTime, stepCounter, rankingRecorded, difficulty, algorithmName, pw,
+			mysteryPickupAnimStartMs, mysteryPickupGx, mysteryPickupGy, mysteryPickupNeedsModal,
+			openItemAfterMysteryHold, bombTouchAnimStartMs, bombTouchGx, bombTouchGy,
+			moveCommitAtMs, moveCommitX, moveCommitY, duckFacing,
+			playerFromX, playerFromY, playerToX, playerToY, playerRenderX, playerRenderY);
+
+		return true;
+	}
+
+	/** Core logic for what happens when a player arrives at (or jumps onto) a specific grid cell. */
+	private static void processCellLanding(
+		int nx, int ny,
+		Maze maze,
+		State[] playerPos,
+		int[] playerScore,
+		int[] playerLives,
+		boolean[] playerFinished,
+		Text statusText,
+		InGameAudio audio,
+		double[] masterVolume,
+		double[] sfxVolume,
+		InventoryPanel inventory,
+		Scene[] gameScene,
+		boolean[] selectingPowerUp,
+		Runnable renderFrame,
+		long[] gameStartTime,
+		int[] stepCounter,
+		boolean[] rankingRecorded,
+		String difficulty,
+		String algorithmName,
+		PowerUpState pw,
+		long[] mysteryPickupAnimStartMs,
+		int[] mysteryPickupGx,
+		int[] mysteryPickupGy,
+		boolean[] mysteryPickupNeedsModal,
+		Runnable[] openItemAfterMysteryHold,
+		long[] bombTouchAnimStartMs,
+		int[] bombTouchGx,
+		int[] bombTouchGy,
+		long[] moveCommitAtMs,
+		int[] moveCommitX,
+		int[] moveCommitY,
+		MazeRenderer.DuckFacing[] duckFacing,
+		double[] playerFromX, double[] playerFromY,
+		double[] playerToX, double[] playerToY,
+		double[] playerRenderX, double[] playerRenderY
+	) {
+		CellType cell = maze.getCell(nx, ny);
+
 		// ── Bomb ──────────────────────────────────────────────────────────────
-		if (nextCell == CellType.BOMB) {
-			if (pw.isBombSafe() || pw.safeStep) {
-				// Safe: bomb neutralised
-				pw.safeStep = false;
-				statusText.setFill(Color.web("#A5D6A7"));
-				statusText.setText("BOMB neutralized by power-up!");
+		if (cell == CellType.BOMB) {
+			if (pw.freezeTime) {
+				statusText.setFill(Color.web("#B3E5FC"));
+				statusText.setText("PASSING through frozen bomb...");
 			} else if (pw.shield) {
-				// Shield absorbs 1 bomb
-				pw.shield = false;
 				statusText.setFill(Color.web("#64B5F6"));
-				statusText.setText("SHIELD blocked the bomb!");
+				statusText.setText("SHIELD active — passing through bomb safely!");
 			} else {
-				// Normal damage
 				playerLives[0]--;
 				playerScore[0] = Math.max(0, playerScore[0] - 120);
 				statusText.setFill(Color.web("#FF8DA6"));
@@ -1332,8 +1362,8 @@ public class PlayGamePage {
 			moveCommitY[0] = ny;
 
 		// ── Item ─────────────────────────────────────────────────────────────
-		} else if (nextCell == CellType.ITEM) {
-			int reward = pw.isScoreDoubled() ? 360 : 180;
+		} else if (cell == CellType.ITEM) {
+			int reward = pw.doubleScore ? 360 : 180;
 			playerScore[0] += reward;
 			statusText.setFill(Color.web("#9FFFD8"));
 			statusText.setText("ITEM COLLECTED (+" + reward + ") — opening mystery box...");
@@ -1343,18 +1373,17 @@ public class PlayGamePage {
 			moveCommitAtMs[0] = mysteryPickupAnimStartMs[0] + MazeRenderer.MYSTERY_OPEN_TOTAL_MS;
 			moveCommitX[0] = nx;
 			moveCommitY[0] = ny;
-			mysteryPickupNeedsModal[0] = inventory != null && gameScene != null;
+			mysteryPickupNeedsModal[0] = inventory != null && gameScene != null && gameScene.length > 0 && gameScene[0] != null;
 			openItemAfterMysteryHold[0] = () -> {
-				if (inventory == null || gameScene == null) {
-					return;
-				}
-				boolean shown = ItemCardSelectionModal.showOnScene(gameScene, selectedPowerUp -> {
-					if (selectedPowerUp != null) {
-						inventory.addCollectedPowerUp(selectedPowerUp);
-					}
+				if (inventory == null || gameScene == null || gameScene.length == 0 || gameScene[0] == null) return;
+				boolean shown = ItemCardSelectionModal.showOnScene(gameScene[0], selectedPowerUp -> {
+					if (selectedPowerUp != null) inventory.addCollectedPowerUp(selectedPowerUp);
 					if (renderFrame != null) renderFrame.run();
-				}, () -> selectingPowerUp[0] = false);
-				selectingPowerUp[0] = shown;
+				}, () -> {
+					if (selectingPowerUp != null) selectingPowerUp[0] = false;
+					gameScene[0].getRoot().requestFocus();
+				});
+				if (selectingPowerUp != null) selectingPowerUp[0] = shown;
 				if (!shown) {
 					statusText.setFill(Color.web("#FFD59A"));
 					statusText.setText("ITEM COLLECTED — continue moving");
@@ -1362,7 +1391,7 @@ public class PlayGamePage {
 			};
 
 		// ── Goal ─────────────────────────────────────────────────────────────
-		} else if (nextCell == CellType.GOAL) {
+		} else if (cell == CellType.GOAL) {
 			playerFinished[0] = true;
 			statusText.setFill(Color.web("#00FF9C"));
 			statusText.setText("GOAL REACHED! Final score: " + Math.max(0, playerScore[0]));
@@ -1375,10 +1404,12 @@ public class PlayGamePage {
 			statusText.setText("MOVE TO GOAL");
 		}
 
-		if (nextCell != CellType.BOMB && nextCell != CellType.ITEM) {
+		if (cell != CellType.BOMB && cell != CellType.ITEM) {
 			playerPos[0] = new State(nx, ny, Math.max(0, playerLives[0]));
+			playerFromX[0] = nx; playerFromY[0] = ny;
+			playerToX[0] = nx; playerToY[0] = ny;
+			playerRenderX[0] = nx; playerRenderY[0] = ny;
 		}
-		return true;
 	}
 
 	// ── Power-up activation notification overlay ─────────────────────────────
@@ -1424,11 +1455,11 @@ public class PlayGamePage {
 		                "-fx-background-radius: 16 16 0 0;");
 
 		Text badge = new Text("⚡  POWER-UP ACTIVATED");
-		badge.setFont(Font.font("Arial", FontWeight.BOLD, 11));
+		badge.setFont(AppFonts.vt323(11));
 		badge.setFill(Color.color(1, 1, 1, 0.70));
 
 		Text nameText = new Text(powerUp.getDisplayName());
-		nameText.setFont(Font.font("Orbitron", FontWeight.BOLD, 24));
+		nameText.setFont(AppFonts.vt323(24));
 		nameText.setFill(Color.WHITE);
 		nameText.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
 		nameText.setWrappingWidth(406);
@@ -1443,7 +1474,7 @@ public class PlayGamePage {
 		              "-fx-background-radius: 0 0 16 16;");
 
 		Text descText = new Text(powerUp.getEnglishDescription());
-		descText.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
+		descText.setFont(AppFonts.vt323(14));
 		descText.setFill(Color.web("#344456"));
 		descText.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
 		descText.setWrappingWidth(398);
@@ -1455,14 +1486,14 @@ public class PlayGamePage {
 		effectTag.setStyle("-fx-background-color: " + diffBgRgba + ";" +
 		                   "-fx-background-radius: 8;");
 		Text effectText = new Text("✦  " + powerUp.getVietnameseDescription());
-		effectText.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		effectText.setFont(AppFonts.vt323(13));
 		effectText.setFill(diffColor);
 		effectText.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
 		effectText.setWrappingWidth(388);
 		effectTag.getChildren().add(effectText);
 
 		Text dismissHint = new Text("Click anywhere or wait to dismiss");
-		dismissHint.setFont(Font.font("Arial", FontWeight.NORMAL, 11));
+		dismissHint.setFont(AppFonts.vt323(11));
 		dismissHint.setFill(Color.color(0.50, 0.55, 0.62, 0.58));
 
 		body.getChildren().addAll(descText, effectTag, dismissHint);
@@ -1476,7 +1507,10 @@ public class PlayGamePage {
 			FadeTransition ft = new FadeTransition(Duration.millis(320), overlay);
 			ft.setFromValue(overlay.getOpacity());
 			ft.setToValue(0);
-			ft.setOnFinished(e -> root.getChildren().remove(overlay));
+			ft.setOnFinished(e -> {
+				root.getChildren().remove(overlay);
+				root.requestFocus();
+			});
 			ft.play();
 		};
 		overlay.setOnMouseClicked(e -> dismiss.run());
@@ -1546,11 +1580,11 @@ public class PlayGamePage {
 		header.setStyle("-fx-background-color: " + headerHex + "; -fx-background-radius: 16 16 0 0;");
 
 		Text titleText = new Text(titleLabel);
-		titleText.setFont(Font.font("Orbitron", FontWeight.BOLD, 26));
+		titleText.setFont(AppFonts.vt323(26));
 		titleText.setFill(Color.WHITE);
 
 		Text subText = new Text(subLabel);
-		subText.setFont(Font.font("Arial", FontWeight.NORMAL, 13));
+		subText.setFont(AppFonts.vt323(13));
 		subText.setFill(Color.color(1, 1, 1, 0.75));
 		header.getChildren().addAll(titleText, subText);
 
@@ -1581,7 +1615,7 @@ public class PlayGamePage {
 		rankSection.setStyle("-fx-background-color: #F0F4FF;");
 
 		Text rankTitle = new Text("TOP 5 — " + difficulty.toUpperCase());
-		rankTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 13));
+		rankTitle.setFont(AppFonts.vt323(13));
 		rankTitle.setFill(Color.web("#1F2D3A"));
 		rankSection.getChildren().add(rankTitle);
 
@@ -1594,19 +1628,19 @@ public class PlayGamePage {
 			HBox row = new HBox(8);
 			row.setAlignment(Pos.CENTER_LEFT);
 			Text rankNum = new Text(medal + "  " + e.getPlayerName());
-			rankNum.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+			rankNum.setFont(AppFonts.vt323(13));
 			rankNum.setFill(Color.web("#263238"));
 			javafx.scene.layout.Region sp = new Region();
 			HBox.setHgrow(sp, Priority.ALWAYS);
 			Text scoreVal = new Text(String.valueOf(e.getScore()));
-			scoreVal.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+			scoreVal.setFont(AppFonts.vt323(13));
 			scoreVal.setFill(Color.web("#1565C0"));
 			row.getChildren().addAll(rankNum, sp, scoreVal);
 			rankSection.getChildren().add(row);
 		}
 		if (maxShow == 0) {
 			Text noData = new Text("No score yet.");
-			noData.setFont(Font.font("Arial", FontWeight.NORMAL, 12));
+			noData.setFont(AppFonts.vt323(12));
 			noData.setFill(Color.web("#607D8B"));
 			rankSection.getChildren().add(noData);
 		}
@@ -1655,10 +1689,10 @@ public class PlayGamePage {
 			"-fx-background-radius: 10;"
 		);
 		Text val = new Text(value);
-		val.setFont(Font.font("Orbitron", FontWeight.BOLD, 20));
+		val.setFont(AppFonts.vt323(20));
 		val.setFill(Color.web(colorHex));
 		Text lbl = new Text(label);
-		lbl.setFont(Font.font("Arial", FontWeight.NORMAL, 11));
+		lbl.setFont(AppFonts.vt323(11));
 		lbl.setFill(Color.web("#607D8B"));
 		box.getChildren().addAll(val, lbl);
 		return box;
@@ -1668,10 +1702,10 @@ public class PlayGamePage {
 	private static HBox makeSkillChip(String label, String bgHex) {
 		HBox chip = new HBox();
 		chip.setAlignment(Pos.CENTER);
-		chip.setPadding(new Insets(4, 10, 4, 10));
+		chip.setPadding(new Insets(4, 18, 4, 18));
 		chip.setStyle("-fx-background-color: " + bgHex + "; -fx-background-radius: 12;");
 		Text t = new Text(label);
-		t.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+		t.setFont(AppFonts.vt323(12));
 		t.setFill(Color.WHITE);
 		chip.getChildren().add(t);
 		return chip;
@@ -1769,11 +1803,11 @@ public class PlayGamePage {
 		);
 
 		Text title = new Text("Legend");
-		title.setFont(Font.font("Arial", FontWeight.BOLD, 24));
+		title.setFont(AppFonts.vt323(24));
 		title.setFill(Color.web("#1F2D3A"));
 
 		Text hint = new Text("Map keys");
-		hint.setFont(Font.font("Arial", FontWeight.BOLD, 12));
+		hint.setFont(AppFonts.vt323(12));
 		hint.setFill(Color.web("#4F5B62"));
 
 		GridPane rows = new GridPane();
@@ -1793,7 +1827,7 @@ public class PlayGamePage {
 		}
 
 		Text foot = new Text("Use OPTIONS for hints.");
-		foot.setFont(Font.font("Arial", FontWeight.NORMAL, 11));
+		foot.setFont(AppFonts.vt323(11));
 		foot.setFill(Color.web("#7B8A93"));
 		foot.setWrappingWidth(330);
 
@@ -1805,7 +1839,7 @@ public class PlayGamePage {
 		javafx.scene.Node iconNode = createLegendIcon(imagePath, fallbackSymbol, fallbackColor);
 
 		Text text = new Text(meaning);
-		text.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		text.setFont(AppFonts.vt323(13));
 		text.setFill(Color.web("#22303A"));
 
 		HBox row = new HBox(10, iconNode, text);
@@ -1824,7 +1858,7 @@ public class PlayGamePage {
 		}
 
 		Text fallback = new Text(fallbackSymbol);
-		fallback.setFont(Font.font("Arial", FontWeight.BOLD, 18));
+		fallback.setFont(AppFonts.vt323(18));
 		fallback.setFill(fallbackColor);
 		return fallback;
 	}
@@ -1854,23 +1888,25 @@ public class PlayGamePage {
 		VBox panel = new VBox(14);
 		panel.setAlignment(Pos.TOP_LEFT);
 		panel.setPadding(new Insets(22));
-		panel.setPrefWidth(620);
-		panel.setMaxWidth(620);
+		panel.setPrefWidth(720);
+		panel.setPrefHeight(520);
+		panel.setMaxWidth(720);
+		panel.setMaxHeight(520);
 		panel.setStyle(
-			"-fx-background-color: rgba(255,255,255,0.98);" +
-			"-fx-border-color: rgba(0,0,0,0.12);" +
+			"-fx-background-color: rgba(30, 41, 59, 0.95);" +
+			"-fx-border-color: rgba(255,255,255,0.20);" +
 			"-fx-border-width: 1.8;" +
 			"-fx-border-radius: 12;" +
 			"-fx-background-radius: 12;"
 		);
 
 		Text title = new Text("OPTIONS");
-		title.setFont(Font.font("Orbitron", FontWeight.BOLD, 32));
-		title.setFill(Color.web("#1F2D3A"));
+		title.setFont(AppFonts.vt323(48));
+		title.setFill(Color.WHITE);
 
 		Text subtitle = new Text("Audio + controls");
-		subtitle.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
-		subtitle.setFill(Color.web("#4F5B62"));
+		subtitle.setFont(AppFonts.vt323(14));
+		subtitle.setFill(Color.web("#B0BEC5"));
 
 		Slider master = createOptionsSlider(masterVolume[0]);
 		Slider music = createOptionsSlider(musicVolume[0]);
@@ -1910,8 +1946,8 @@ public class PlayGamePage {
 		motionToggle.selectedProperty().addListener((obs, ov, nv) -> reducedMotion[0] = nv);
 
 		Label gameplayLabel = new Label("Gameplay / Accessibility");
-		gameplayLabel.setTextFill(Color.web("#546E7A"));
-		gameplayLabel.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+		gameplayLabel.setTextFill(Color.web("#B0BEC5"));
+		gameplayLabel.setFont(AppFonts.vt323(13));
 
 		HBox actions = new HBox(10);
 		actions.setAlignment(Pos.CENTER_RIGHT);
@@ -1985,7 +2021,7 @@ public class PlayGamePage {
 		VBox row = new VBox(6);
 		Label title = new Label(label + "  " + String.format(java.util.Locale.US, "%.0f%%", slider.getValue()));
 		title.setTextFill(Color.web("#455A64"));
-		title.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+		title.setFont(AppFonts.vt323(14));
 		slider.valueProperty().addListener((obs, ov, nv) -> {
 			title.setText(label + "  " + String.format(java.util.Locale.US, "%.0f%%", nv.doubleValue()));
 		});
@@ -1997,7 +2033,7 @@ public class PlayGamePage {
 		CheckBox box = new CheckBox(text);
 		box.setSelected(selected);
 		box.setTextFill(Color.web("#455A64"));
-		box.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
+		box.setFont(AppFonts.vt323(14));
 		box.setStyle(
 			"-fx-mark-color: #2F80ED;" +
 			"-fx-focus-color: transparent;" +
@@ -2009,20 +2045,17 @@ public class PlayGamePage {
 	// ── Power-up runtime state ────────────────────────────────────────────────
 	static final class PowerUpState {
 		// 1-use protective flags
-		boolean shield      = false;  // absorb next bomb
+		boolean shield      = false;  long shieldUntil     = 0L;
 		boolean wallRemoval = false;  // destroy next wall hit
-		boolean safeStep    = false;  // neutralise next bomb cell
-
-		// Timed: bomb protection
-		boolean bombImmune  = false;  long immuneUntil    = 0L;
 
 		// Timed: score doubler
 		boolean doubleScore = false;  long dblScoreUntil  = 0L;
 
 		// Timed: visual overlays
 		boolean revealPath  = false;  long revealPathUntil = 0L;
-		boolean revealMap   = false;  long revealMapUntil  = 0L;
 		boolean bombDetect  = false;  long detectUntil     = 0L;
+		boolean visionBoost = false;  long visionUntil     = 0L;
+		boolean freezeTime  = false;  long freezeUntil     = 0L;
 
 		// Speed modifier  (default = PLAYER_STEP_NANOS, set externally)
 		long effectiveStepNs = PLAYER_STEP_NANOS;
@@ -2036,29 +2069,161 @@ public class PlayGamePage {
 		/** Call every frame to expire timed effects. */
 		void tickExpiry() {
 			long now = System.currentTimeMillis();
-			if (bombImmune  && now > immuneUntil)     bombImmune  = false;
 			if (doubleScore && now > dblScoreUntil)   doubleScore = false;
+			if (shield      && now > shieldUntil)     shield      = false;
 			if (revealPath  && now > revealPathUntil) revealPath  = false;
-			if (revealMap   && now > revealMapUntil)  revealMap   = false;
 			if (bombDetect  && now > detectUntil)     bombDetect  = false;
+			if (freezeTime  && now > freezeUntil)     freezeTime  = false;
+			if (visionBoost && now > visionUntil)     visionBoost = false;
 			if (effectiveStepNs != PLAYER_STEP_NANOS && now > speedUntil)
 				effectiveStepNs = PLAYER_STEP_NANOS;
 		}
 
-		boolean isBombSafe() {
-			return bombImmune && System.currentTimeMillis() < immuneUntil;
-		}
 		boolean isScoreDoubled() {
 			return doubleScore && System.currentTimeMillis() < dblScoreUntil;
 		}
 		boolean isRevealingPath() {
 			return revealPath && System.currentTimeMillis() < revealPathUntil;
 		}
-		boolean isRevealingMap() {
-			return revealMap && System.currentTimeMillis() < revealMapUntil;
-		}
 		boolean isDetectingBombs() {
 			return bombDetect && System.currentTimeMillis() < detectUntil;
+		}
+		boolean isFrozen() {
+			return freezeTime && System.currentTimeMillis() < freezeUntil;
+		}
+		boolean isVisionBoostActive() {
+			return visionBoost && System.currentTimeMillis() < visionUntil;
+		}
+		boolean isSpeedBoostActive() {
+			return System.currentTimeMillis() < speedUntil;
+		}
+	}
+
+	private static void handlePowerUpActivation(
+			PowerUp type, PowerUpState pw, int[] playerScore, int[] playerLives, State[] playerPos,
+			Text stateLabel, Text scoreLabel, Text pathLabel, Text exploredLabel, Text statusText,
+			long[] countdownEndMs, Maze maze, double[] playerRenderX, double[] playerRenderY,
+			double[] playerFromX, double[] playerFromY, double[] playerToX, double[] playerToY,
+			Text currentPosText, long[] playerAccumulatorNanos, InventoryPanel inventory,
+			StackPane root, Scene[] gameScene, boolean[] selectingPowerUp,
+			long[] teleportAnimStartMs, int[] teleportGx, int[] teleportGy, State[] pendingTeleportPos) {
+
+		long NOW = System.currentTimeMillis();
+		switch (type) {
+			case EXTRA_LIFE -> {
+				playerLives[0] = Math.min(playerLives[0] + 1, 9);
+				statusText.setFill(Color.web("#00FF9C"));
+				statusText.setText("EXTRA LIFE! Lives remaining: " + playerLives[0]);
+				refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
+			}
+			case SHIELD -> {
+				pw.shield = true;
+				pw.shieldUntil = Math.max(NOW, pw.shieldUntil) + 10_000;
+				statusText.setFill(Color.web("#64B5F6"));
+				statusText.setText("SHIELD active — protected from bombs!");
+			}
+			case FREEZE_TIME -> {
+				pw.freezeTime = true; 
+				pw.freezeUntil = Math.max(NOW, pw.freezeUntil) + 6_000;
+				statusText.setFill(Color.web("#B3E5FC"));
+				statusText.setText("BOMBS FROZEN!");
+			}
+			case DOUBLE_SCORE -> {
+				playerScore[0] *= 2;
+				statusText.setFill(Color.web("#FFD54F"));
+				statusText.setText("DOUBLE SCORE! Current score doubled!");
+				refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
+			}
+			case REVEAL_PATH, SHORTEST_PATH_MODE -> {
+				pw.revealPath = true; 
+				pw.revealPathUntil = Math.max(NOW, pw.revealPathUntil) + 20_000;
+				statusText.setFill(Color.web("#A5D6A7"));
+				statusText.setText("PATH REVEALED!");
+			}
+			case BOMB_DETECTOR -> {
+				pw.bombDetect = true; 
+				pw.detectUntil = Math.max(NOW, pw.detectUntil) + 15_000;
+				statusText.setFill(Color.web("#EF6C00"));
+				statusText.setText("BOMB DETECTOR active!");
+			}
+			case SPEED_BOOST -> {
+				pw.speedUntil = Math.max(NOW, pw.speedUntil) + 8_000;
+				pw.effectiveStepNs = PLAYER_STEP_NANOS / 2; 
+				playerAccumulatorNanos[0] = pw.effectiveStepNs;
+				statusText.setFill(Color.web("#80DEEA"));
+				statusText.setText("SPEED BOOST (2-Cells)!");
+			}
+			case SPEED_SLOW -> {
+				pw.effectiveStepNs = PLAYER_STEP_NANOS * 2;
+				pw.speedUntil = Math.max(NOW, pw.speedUntil) + 8_000;
+				playerAccumulatorNanos[0] = pw.effectiveStepNs;
+				statusText.setFill(Color.web("#BCAAA4"));
+				statusText.setText("SLOW MODE — safer movement!");
+			}
+			case TELEPORT -> {
+				State newPos = findRandomSafeCell(maze, playerPos[0]);
+				if (newPos != null) {
+					// START animation first
+					teleportAnimStartMs[0] = System.currentTimeMillis();
+					teleportGx[0] = playerPos[0].getX();
+					teleportGy[0] = playerPos[0].getY();
+					pendingTeleportPos[0] = newPos;
+
+					statusText.setFill(Color.web("#CE93D8"));
+					statusText.setText("TELEPORTING...");
+				}
+			}
+			case REMOVE_WALL -> {
+				pw.wallRemoval = true;
+				statusText.setFill(Color.web("#FFAB91"));
+				statusText.setText("WALL REMOVAL ready — walk into a wall to break it!");
+			}
+			case TIME_BONUS -> {
+				countdownEndMs[0] += 15_000;
+				statusText.setFill(Color.web("#FFD54F"));
+				statusText.setText("+15 SECONDS ADDED TO CLOCK!");
+			}
+			case LUCKY_FIND -> {
+				// ADD a random beneficial power-up to inventory instead of triggering immediately
+				PowerUp[] choices = {PowerUp.SHIELD, PowerUp.SPEED_BOOST, PowerUp.FREEZE_TIME, PowerUp.DOUBLE_SCORE, PowerUp.TELEPORT};
+				PowerUp randomType = choices[new java.util.Random().nextInt(choices.length)];
+				statusText.setFill(Color.web("#FFD54F"));
+				statusText.setText("LUCKY FIND! Received a random " + randomType.getDisplayName() + "!");
+				
+				if (inventory != null) {
+					inventory.addCollectedPowerUp(randomType);
+				}
+			}
+			case AI_ASSIST -> {
+				java.util.List<State> aiPath = computePathToGoal(maze, playerPos[0]);
+				if (aiPath != null && aiPath.size() > 1) {
+					pw.aiRunning = true;
+					pw.aiPath = aiPath;
+					pw.aiPathIdx = 1; 
+					statusText.setFill(Color.web("#B388FF"));
+					statusText.setText("AI ASSIST active — automatic movement for 8 steps!");
+				}
+			}
+			case VISION_BOOST -> {
+				pw.visionBoost = true; pw.visionUntil = Math.max(NOW, pw.visionUntil) + 15_000;
+				pw.revealPath  = true; pw.revealPathUntil = Math.max(NOW, pw.revealPathUntil) + 15_000;
+				pw.doubleScore = true; pw.dblScoreUntil = Math.max(NOW, pw.dblScoreUntil) + 15_000;
+				statusText.setFill(Color.web("#80DEEA"));
+				statusText.setText("SMART SONAR active!");
+			}
+			case ANOTHER_OPTIONS -> {
+				if (gameScene != null && gameScene.length > 0 && gameScene[0] != null) {
+					selectingPowerUp[0] = true;
+					ItemCardSelectionModal.showOnScene(gameScene[0], extra -> {
+						if (extra != null) inventory.addCollectedPowerUp(extra);
+					}, () -> {
+						selectingPowerUp[0] = false;
+						root.requestFocus();
+					});
+					statusText.setFill(Color.web("#CE93D8"));
+					statusText.setText("ANOTHER OPTIONS — pick a bonus item!");
+				}
+			}
 		}
 	}
 
@@ -2072,16 +2237,6 @@ public class PlayGamePage {
 		} catch (Exception e) {
 			return null;
 		}
-	}
-
-	/** All walkable (non-wall) cells — used by REVEAL_MAP overlay. */
-	private static java.util.List<com.nhom_01.robot_pathfinding.core.State> allWalkable(Maze maze) {
-		java.util.List<com.nhom_01.robot_pathfinding.core.State> cells = new java.util.ArrayList<>();
-		for (int x = 0; x < maze.getWidth(); x++)
-			for (int y = 0; y < maze.getHeight(); y++)
-				if (maze.getCell(x, y) != CellType.WALL)
-					cells.add(new com.nhom_01.robot_pathfinding.core.State(x, y, 0));
-		return cells;
 	}
 
 	/** All bomb cell positions — used by BOMB_DETECTOR overlay. */
@@ -2224,5 +2379,13 @@ public class PlayGamePage {
 		score = Math.max(0, score - (steps / 10));
 		
 		return Math.max(0, score);
+	}
+
+	private static boolean calculateShieldVisible(PowerUpState pw) {
+		if (!pw.shield) return false;
+		long remaining = pw.shieldUntil - System.currentTimeMillis();
+		if (remaining > 2000) return true;
+		if (remaining <= 0) return false;
+		return (System.currentTimeMillis() / 200) % 2 == 0;
 	}
 }

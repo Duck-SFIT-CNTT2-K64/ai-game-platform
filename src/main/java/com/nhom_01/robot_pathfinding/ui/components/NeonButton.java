@@ -32,12 +32,11 @@ public class NeonButton extends Button {
 			accent.getGreen() * 0.72,
 			accent.getBlue() * 0.72
 		));
-		String menuFont = AppFonts.getJerseyFamily().replace("'", "''");
+		String menuFont = AppFonts.getFamily().replace("'", "''");
 		this.baseStyle =
 			"-fx-background-color: rgba(255,255,255,0.92);" +
 			"-fx-text-fill: " + textColor + ";" +
 			"-fx-font-size: " + fontSize + "px;" +
-			"-fx-font-weight: bold;" +
 			"-fx-font-family: '" + menuFont + "';" +
 			"-fx-padding: " + padV + " " + padH + " " + padV + " " + padH + ";" +
 			"-fx-border-color: " + rgb + ";" +
@@ -50,7 +49,6 @@ public class NeonButton extends Button {
 			"-fx-background-color: " + UITheme.toRgba(accent, 0.16) + ";" +
 			"-fx-text-fill: " + textColor + ";" +
 			"-fx-font-size: " + fontSize + "px;" +
-			"-fx-font-weight: bold;" +
 			"-fx-font-family: '" + menuFont + "';" +
 			"-fx-padding: " + padV + " " + padH + " " + padV + " " + padH + ";" +
 			"-fx-border-color: " + rgb + ";" +

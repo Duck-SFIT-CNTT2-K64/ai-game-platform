@@ -61,7 +61,7 @@ public final class RankingPageJava {
         header.setAlignment(Pos.CENTER_LEFT);
 
         Text title = new Text("RANKING BOARD");
-        title.setFont(Font.font("Orbitron", FontWeight.BOLD, 48));
+        title.setFont(AppFonts.vt323(48));
         title.setFill(Color.web("#1F2D3A"));
         DropShadow glow = new DropShadow();
         glow.setColor(Color.color(0.18, 0.50, 0.93, 0.24));
@@ -70,12 +70,12 @@ public final class RankingPageJava {
 
         VBox heading = new VBox(4);
         Text subtitle = new Text("TOP SCORES");
-        subtitle.setFont(Font.font("Arial", FontWeight.BOLD, 15));
-        subtitle.setFill(Color.web("#4F5B62"));
+        subtitle.setFont(AppFonts.vt323(15));
+        subtitle.setFill(Color.WHITE);
 
         Text currentPlayer = new Text("PLAYER: " + PlayerProfile.getCurrentPlayerName());
-        currentPlayer.setFont(Font.font("Arial", FontWeight.BOLD, 13));
-        currentPlayer.setFill(Color.web("#607D8B"));
+        currentPlayer.setFont(AppFonts.vt323(13));
+        currentPlayer.setFill(Color.WHITE);
         heading.getChildren().addAll(title, subtitle, currentPlayer);
 
         Button back = new NeonButton("BACK", UITheme.SECONDARY, 14, 8, 14, 8);
@@ -135,7 +135,7 @@ public final class RankingPageJava {
 
     private static Button createTabButton(String text) {
         Button tab = new Button(text.toUpperCase());
-        tab.setFont(Font.font("Orbitron", FontWeight.BOLD, 14));
+        tab.setFont(AppFonts.vt323(14));
         tab.setMinWidth(138);
         tab.setStyle(
             "-fx-background-color: rgba(255,255,255,0.93);" +
@@ -151,7 +151,7 @@ public final class RankingPageJava {
     }
 
     private static void setActiveTab(Button[] tabs, int activeIndex) {
-        String family = AppFonts.getJerseyFamily().replace("'", "''");
+        String family = AppFonts.getFamily().replace("'", "''");
         for (int i = 0; i < tabs.length; i++) {
             Button tab = tabs[i];
             boolean active = i == activeIndex;
@@ -175,7 +175,7 @@ public final class RankingPageJava {
         panel.getChildren().clear();
 
         Text sectionTitle = new Text(("Total".equalsIgnoreCase(difficulty) ? "GLOBAL" : difficulty.toUpperCase()) + " RANKING");
-        sectionTitle.setFont(Font.font("Orbitron", FontWeight.BOLD, 26));
+        sectionTitle.setFont(AppFonts.vt323(26));
         sectionTitle.setFill(Color.web("#2D3E50"));
 
         List<RankingEntry> entries = fetchRankings(difficulty);
@@ -185,10 +185,10 @@ public final class RankingPageJava {
             empty.setPrefHeight(550);
             Label icon = new Label("NO RANKING DATA");
             icon.setTextFill(Color.web("#2D3E50"));
-            icon.setFont(Font.font("Orbitron", FontWeight.BOLD, 28));
+            icon.setFont(AppFonts.vt323(28));
             Text hint = new Text("Play a game to generate the first score entry.");
-            hint.setFill(Color.web("#546E7A"));
-            hint.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
+            hint.setFill(Color.WHITE);
+            hint.setFont(AppFonts.vt323(16));
             empty.getChildren().addAll(icon, hint);
             panel.getChildren().addAll(sectionTitle, empty);
             return;
@@ -253,7 +253,7 @@ public final class RankingPageJava {
         cols.add(scoreCol);
         cols.add(dateCol);
 
-        String family = AppFonts.getJerseyFamily().replace("'", "''");
+        String family = AppFonts.getFamily().replace("'", "''");
         for (TableColumn<RankingEntry, ?> col : cols) {
             col.setStyle("-fx-alignment: CENTER; -fx-font-family: '" + family + "'; -fx-text-fill: #2D3E50;");
         }

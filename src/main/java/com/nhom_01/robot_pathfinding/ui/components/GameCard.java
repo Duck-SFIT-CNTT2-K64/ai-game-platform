@@ -11,6 +11,7 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
+import javafx.scene.text.FontWeight;
 
 public class GameCard extends VBox {
 
@@ -46,7 +47,7 @@ public class GameCard extends VBox {
 		setEffect(normalGlow);
 
 		Text heading = new Text(icon + "  " + title);
-		heading.setFont(AppFonts.jersey(30));
+		heading.setFont(AppFonts.vt323(30));
 		heading.setFill(accent);
 
 		this.body = new VBox(10);
@@ -81,7 +82,7 @@ public class GameCard extends VBox {
 
 	public Text createBodyText(String text, double wrapWidth) {
 		Text line = new Text(text);
-		line.setFont(AppFonts.jersey(15));
+		line.setFont(AppFonts.vt323(15));
 		line.setFill(UITheme.SURFACE_TEXT);
 		line.setWrappingWidth(wrapWidth);
 		return line;

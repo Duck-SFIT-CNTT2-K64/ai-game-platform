@@ -57,10 +57,6 @@ public class PowerUpExecutor {
                 powerUp.deactivate(); // Single use
                 break;
                 
-            case SLOW_BOMBS:
-                // Delay bomb explosions
-                state.setBombDelayActive(true);
-                break;
                 
             case DOUBLE_SCORE:
                 // Apply multiplier to score
@@ -70,11 +66,6 @@ public class PowerUpExecutor {
             case FREEZE_TIME:
                 // Freeze all bombs
                 state.setFrozenBombs(true);
-                break;
-                
-            case REVEAL_MAP:
-                // Show entire maze
-                state.setMapRevealed(true);
                 break;
                 
             case AI_ASSIST:
@@ -88,12 +79,6 @@ public class PowerUpExecutor {
                 state.setShortestPathMode(true);
                 break;
                 
-            case BOMB_IMMUNITY:
-                // Ignore bombs temporarily
-                state.setBombImmune(true);
-                powerUp.setDuration(5000); // 5 seconds
-                break;
-                
             case SPEED_SLOW:
                 // Move slower but safer
                 state.setSpeedMultiplier(1.5); // 150% slower = 66% speed
@@ -105,15 +90,9 @@ public class PowerUpExecutor {
                 powerUp.deactivate();
                 break;
                 
-            case DOUBLE_CHOICE:
+            case ANOTHER_OPTIONS:
                 // Allow selecting 2 power-ups at once
-                state.setDoubleChoiceActive(true);
-                powerUp.deactivate(); // Single use
-                break;
-                
-            case SAFE_STEP:
-                // Guarantee next step has no bomb
-                state.setSafeStepActive(true);
+                state.setAnotherOptionsActive(true);
                 powerUp.deactivate(); // Single use
                 break;
                 
@@ -172,16 +151,12 @@ class GameStateContainer {
     private boolean showPath = false;
     private int livesBonus = 0;
     private boolean bombDetectorActive = false;
-    private boolean bombDelayActive = false;
     private double scoreMultiplier = 1.0;
     private boolean frozenBombs = false;
-    private boolean mapRevealed = false;
     private boolean aiAssistActive = false;
     private boolean shortestPathMode = false;
-    private boolean bombImmune = false;
     private boolean luckyFindActive = false;
-    private boolean doubleChoiceActive = false;
-    private boolean safeStepActive = false;
+    private boolean anotherOptionsActive = false;
     private int timeBonus = 0;
     private double visionRange = 1.0;
     private int wallRemovalCharge = 0;
@@ -202,8 +177,6 @@ class GameStateContainer {
     public boolean isBombDetectorActive() { return bombDetectorActive; }
     public void setBombDetectorActive(boolean value) { this.bombDetectorActive = value; }
 
-    public boolean isBombDelayActive() { return bombDelayActive; }
-    public void setBombDelayActive(boolean value) { this.bombDelayActive = value; }
 
     public double getScoreMultiplier() { return scoreMultiplier; }
     public void setScoreMultiplier(double value) { this.scoreMultiplier = value; }
@@ -211,8 +184,6 @@ class GameStateContainer {
     public boolean isFrozenBombs() { return frozenBombs; }
     public void setFrozenBombs(boolean value) { this.frozenBombs = value; }
 
-    public boolean isMapRevealed() { return mapRevealed; }
-    public void setMapRevealed(boolean value) { this.mapRevealed = value; }
 
     public boolean isAiAssistActive() { return aiAssistActive; }
     public void setAiAssistActive(boolean value) { this.aiAssistActive = value; }
@@ -220,17 +191,13 @@ class GameStateContainer {
     public boolean isShortestPathMode() { return shortestPathMode; }
     public void setShortestPathMode(boolean value) { this.shortestPathMode = value; }
 
-    public boolean isBombImmune() { return bombImmune; }
-    public void setBombImmune(boolean value) { this.bombImmune = value; }
 
     public boolean isLuckyFindActive() { return luckyFindActive; }
     public void setLuckyFindActive(boolean value) { this.luckyFindActive = value; }
 
-    public boolean isDoubleChoiceActive() { return doubleChoiceActive; }
-    public void setDoubleChoiceActive(boolean value) { this.doubleChoiceActive = value; }
+    public boolean isAnotherOptionsActive() { return anotherOptionsActive; }
+    public void setAnotherOptionsActive(boolean value) { this.anotherOptionsActive = value; }
 
-    public boolean isSafeStepActive() { return safeStepActive; }
-    public void setSafeStepActive(boolean value) { this.safeStepActive = value; }
 
     public int getTimeBonus() { return timeBonus; }
     public void setTimeBonus(int value) { this.timeBonus = value; }
