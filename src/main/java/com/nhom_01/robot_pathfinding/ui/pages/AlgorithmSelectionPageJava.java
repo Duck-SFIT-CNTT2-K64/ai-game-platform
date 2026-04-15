@@ -46,6 +46,8 @@ public final class AlgorithmSelectionPageJava {
     private static final String BTN_BACK_DIFFICULTY_PATH = "/image/assets/BackDifficulty.jpg";
     private static final String FRAME_BIG_PATH = "/image/assets/frame_big.png";
     private static final String FRAME_LONG_PATH = "/image/assets/frame_long.jpg";
+    private static final String TITLE = "CHỌN VỊT ĐIII";
+    private static final String SUBTITLE = "Chọn thuật toán để Vịt tự động tìm đường tới đích";
     private static final String LEAF_PATH = "/image/assets/la.jpg";
     private static final String DUCK_PATH = "/image/assets/vit.jpg";
     private static final Map<String, Image> IMAGE_CACHE = new ConcurrentHashMap<>();
@@ -91,7 +93,7 @@ public final class AlgorithmSelectionPageJava {
         titleGlow.setRadius(20);
         title.setEffect(titleGlow);
 
-        Text subtitle = new Text("DIFFICULTY: " + difficulty + "  |  CHOOSE HOW THE ROBOT WILL SEARCH");
+        Text subtitle = new Text("DIFFICULTY: " + difficulty + "  |  CHOOSE HOW THE DUCK WILL SEARCH");
         subtitle.setFont(AppFonts.vt323(13));
         subtitle.setFill(Color.web("#F5E7C4"));
 
@@ -113,7 +115,6 @@ public final class AlgorithmSelectionPageJava {
             Color.web("#00FF9C"),
             BTN_BFS_PATH,
             () -> {
-                PlayerProfile.setCurrentPlayerName("BFS");
                 PlayGamePage.showOnStage(stage, stage.getScene(), difficulty, "BFS");
             }
         );
@@ -127,7 +128,6 @@ public final class AlgorithmSelectionPageJava {
             Color.web("#FFB800"),
             BTN_DFS_PATH,
             () -> {
-                PlayerProfile.setCurrentPlayerName("DFS");
                 PlayGamePage.showOnStage(stage, stage.getScene(), difficulty, "DFS");
             }
         );
@@ -141,7 +141,6 @@ public final class AlgorithmSelectionPageJava {
             Color.web("#FF5B5B"),
             BTN_ASTAR_PATH,
             () -> {
-                PlayerProfile.setCurrentPlayerName("A*");
                 PlayGamePage.showOnStage(stage, stage.getScene(), difficulty, "A*");
             }
         );

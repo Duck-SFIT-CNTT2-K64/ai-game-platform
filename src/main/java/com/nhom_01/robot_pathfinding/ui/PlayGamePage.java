@@ -78,14 +78,22 @@ public class PlayGamePage {
 	}
 
 	public static void showBotOnStage(Stage stage, Scene previousScene, String difficulty, String algorithmName) {
-		stage.setScene(buildScene(stage, previousScene, difficulty, algorithmName, PlayMode.BOT));
+		stage.setScene(buildScene(stage, previousScene, difficulty, algorithmName, PlayMode.BOT, null, false));
+	}
+
+	public static void showBotOnStage(Stage stage, Scene previousScene, String difficulty, String algorithmName, Maze maze) {
+		stage.setScene(buildScene(stage, previousScene, difficulty, algorithmName, PlayMode.BOT, maze, true));
 	}
 
 	public static void showPlayerOnStage(Stage stage, Scene previousScene, String difficulty) {
-		stage.setScene(buildScene(stage, previousScene, difficulty, null, PlayMode.PLAYER));
+		stage.setScene(buildScene(stage, previousScene, difficulty, null, PlayMode.PLAYER, null, false));
 	}
 
-	private static Scene buildScene(Stage stage, Scene previousScene, String difficulty, String algorithmName, PlayMode mode) {
+	public static void showPlayerOnStage(Stage stage, Scene previousScene, String difficulty, Maze maze) {
+		stage.setScene(buildScene(stage, previousScene, difficulty, null, PlayMode.PLAYER, maze, false));
+	}
+
+	private static Scene buildScene(Stage stage, Scene previousScene, String difficulty, String algorithmName, PlayMode mode, Maze existingMaze, boolean isReplay) {
 		MazeRenderer.clearState();
 		MenuAudioManager.stopTheme();
 		javafx.geometry.Rectangle2D screenBounds = javafx.stage.Screen.getPrimary().getVisualBounds();
@@ -94,10 +102,18 @@ public class PlayGamePage {
 		GameSettings settings = GameSettings.getInstance();
 
 		// Generate maze with mode-aware configuration (BOT mode excludes items/bombs)
-		MazeGenerator.GameMode generatorMode = mode == PlayMode.BOT 
-			? MazeGenerator.GameMode.BOT 
-			: MazeGenerator.GameMode.PLAYER;
-		Maze maze = MazeGenerator.generate(difficulty, generatorMode);
+		Maze maze;
+		if (existingMaze != null) {
+			maze = existingMaze;
+		} else {
+			MazeGenerator.GameMode generatorMode = mode == PlayMode.BOT 
+				? MazeGenerator.GameMode.BOT 
+				: MazeGenerator.GameMode.PLAYER;
+			maze = MazeGenerator.generate(difficulty, generatorMode);
+		}
+		
+		// Preserve a pristine copy for See Bot Path replay (restores items/bombs)
+		final Maze pristineMaze = maze.copy();
 
 		GameEngine engine = null;
 		if (mode == PlayMode.BOT) {
@@ -630,7 +646,8 @@ public class PlayGamePage {
 								gameStartTime[0],
 								algorithmName,
 								botEngine.getScore(),
-								botEngine.getState() == GameState.FINISHED
+								botEngine.getState() == GameState.FINISHED,
+								mode
 							);
 							rankingRecorded[0] = true;
 						}
@@ -676,11 +693,13 @@ public class PlayGamePage {
 						botWon, false,
 						botScore, botSteps, botElapse,
 						-(botExplrd + 1), // negative = bot mode; abs()-1 = explored count
-						() -> showBotOnStage(stage, previousScene, difficulty, algorithmName),
+						isReplay ? () -> showPlayerOnStage(stage, previousScene, difficulty) 
+								 : () -> showBotOnStage(stage, previousScene, difficulty, algorithmName),
 						() -> {
 							stage.setScene(previousScene);
 							MenuAudioManager.startTheme();
-						}
+						},
+						null // No "See Bot" button when already in bot mode
 					);
 				}
 			}
@@ -729,7 +748,7 @@ public class PlayGamePage {
 						playerTimedOut[0] = true;
 						pendingKey[0]     = null;
 						if (!rankingRecorded[0]) {
-							recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], false);
+							recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], false, mode);
 							rankingRecorded[0] = true;
 						}
 						showNotif.accept("⏰  TIME UP! Game over.", Color.web("#FF8F00"));
@@ -818,7 +837,8 @@ public class PlayGamePage {
 							mysteryPickupAnimStartMs, mysteryPickupGx, mysteryPickupGy, mysteryPickupNeedsModal,
 							openItemAfterMysteryHold, bombTouchAnimStartMs, bombTouchGx, bombTouchGy,
 							moveCommitAtMs, moveCommitX, moveCommitY, duckFacing,
-							playerFromX, playerFromY, playerToX, playerToY, playerRenderX, playerRenderY);
+							playerFromX, playerFromY, playerToX, playerToY, playerRenderX, playerRenderY,
+							mode);
 					}
 
 					// Use dynamic step duration (affected by SPEED_BOOST / SPEED_SLOW)
@@ -860,7 +880,8 @@ public class PlayGamePage {
 								bombTouchAnimStartMs, bombTouchGx, bombTouchGy,
 								moveCommitAtMs, moveCommitX, moveCommitY,
 								duckFacing,
-								playerFromX, playerFromY, playerToX, playerToY, playerRenderX, playerRenderY
+								playerFromX, playerFromY, playerToX, playerToY, playerRenderX, playerRenderY,
+								mode
 							);
 
 							playerToX[0] = playerPos[0].getX();
@@ -924,7 +945,8 @@ public class PlayGamePage {
 								bombTouchAnimStartMs, bombTouchGx, bombTouchGy,
 								moveCommitAtMs, moveCommitX, moveCommitY,
 								duckFacing,
-								playerFromX, playerFromY, playerToX, playerToY, playerRenderX, playerRenderY
+								playerFromX, playerFromY, playerToX, playerToY, playerRenderX, playerRenderY,
+								mode
 							);
 
 							// ── SPEED BOOST: Handle double step ─────────────────────
@@ -1012,7 +1034,8 @@ public class PlayGamePage {
 							() -> {
 								stage.setScene(previousScene);
 								MenuAudioManager.startTheme();
-							}
+							},
+							() -> showBotOnStage(stage, previousScene, difficulty, "A*", pristineMaze.copy())
 						);
 					}
 				}
@@ -1220,7 +1243,7 @@ public class PlayGamePage {
 			State pos = engine.getRobotPosition();
 			if (pos != null) {
 				statusText.setFill(Color.web("#C9DCEA"));
-				statusText.setText("ROBOT POSITION: (" + pos.getX() + ", " + pos.getY() + ")");
+				statusText.setText("DUCK POSITION: (" + pos.getX() + ", " + pos.getY() + ")");
 			}
 		} else {
 			statusText.setFill(Color.web("#C9DCEA"));
@@ -1278,7 +1301,8 @@ public class PlayGamePage {
 		MazeRenderer.DuckFacing[] duckFacing,
 		double[] playerFromX, double[] playerFromY,
 		double[] playerToX, double[] playerToY,
-		double[] playerRenderX, double[] playerRenderY
+		double[] playerRenderX, double[] playerRenderY,
+		PlayMode mode
 	) {
 		if (playerFinished[0] || (selectingPowerUp != null && selectingPowerUp[0])) {
 			return false;
@@ -1332,7 +1356,8 @@ public class PlayGamePage {
 			mysteryPickupAnimStartMs, mysteryPickupGx, mysteryPickupGy, mysteryPickupNeedsModal,
 			openItemAfterMysteryHold, bombTouchAnimStartMs, bombTouchGx, bombTouchGy,
 			moveCommitAtMs, moveCommitX, moveCommitY, duckFacing,
-			playerFromX, playerFromY, playerToX, playerToY, playerRenderX, playerRenderY);
+			playerFromX, playerFromY, playerToX, playerToY, playerRenderX, playerRenderY,
+			mode);
 
 		return true;
 	}
@@ -1373,7 +1398,8 @@ public class PlayGamePage {
 		MazeRenderer.DuckFacing[] duckFacing,
 		double[] playerFromX, double[] playerFromY,
 		double[] playerToX, double[] playerToY,
-		double[] playerRenderX, double[] playerRenderY
+		double[] playerRenderX, double[] playerRenderY,
+		PlayMode mode
 	) {
 		CellType cell = maze.getCell(nx, ny);
 
@@ -1394,7 +1420,7 @@ public class PlayGamePage {
 					statusText.setFill(Color.web("#FF6B6B"));
 					statusText.setText("GAME OVER — Out of lives!");
 					if (!rankingRecorded[0]) {
-						recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], false);
+						recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], false, mode);
 						rankingRecorded[0] = true;
 					}
 				}
@@ -1441,7 +1467,7 @@ public class PlayGamePage {
 			statusText.setFill(Color.web("#00FF9C"));
 			statusText.setText("GOAL REACHED! Final score: " + Math.max(0, playerScore[0]));
 			if (!rankingRecorded[0]) {
-				recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], true);
+				recordGameRanking(difficulty, stepCounter[0], gameStartTime[0], algorithmName, playerScore[0], true, mode);
 				rankingRecorded[0] = true;
 			}
 		} else {
@@ -1583,7 +1609,8 @@ public class PlayGamePage {
 		long elapsedMs,
 		int livesLeft,
 		Runnable onRestart,
-		Runnable onMenu
+		Runnable onMenu,
+		Runnable onSeeBot
 	) {
 		if (root.lookup("#result-overlay") != null) return;
 
@@ -1605,6 +1632,25 @@ public class PlayGamePage {
 		shadow.setRadius(30);
 		shadow.setOffsetY(8);
 		card.setEffect(shadow);
+
+		// ── Close Button (X) ────────────────────────────────────────────────
+		Button closeX = new Button("×");
+		closeX.setStyle(
+			"-fx-background-color: rgba(255,255,255,0.2);" +
+			"-fx-text-fill: white;" +
+			"-fx-font-size: 22;" +
+			"-fx-font-weight: bold;" +
+			"-fx-background-radius: 20;" +
+			"-fx-padding: 0 8 2 8;" +
+			"-fx-cursor: hand;"
+		);
+		closeX.setOnAction(e -> {
+			root.getChildren().remove(overlay);
+			root.requestFocus();
+		});
+		
+		StackPane.setAlignment(closeX, Pos.TOP_RIGHT);
+		StackPane.setMargin(closeX, new Insets(10));
 
 		// ── Colored header ───────────────────────────────────────────────────
 		String headerHex   = won ? "#2E7D32" : timedOut ? "#E65100" : "#C62828";
@@ -1705,6 +1751,17 @@ public class PlayGamePage {
 			root.getChildren().remove(overlay);
 			onRestart.run();
 		});
+
+		if (won && onSeeBot != null) {
+			Button seeBotBtn = new NeonButton("🤖 BOT PLAY", Color.web("#7E57C2"), 14, 10, 16, 8);
+			seeBotBtn.setPrefWidth(180);
+			seeBotBtn.setOnAction(ev -> {
+				root.getChildren().remove(overlay);
+				onSeeBot.run();
+			});
+			actions.getChildren().add(seeBotBtn);
+		}
+
 		menuBtn.setOnAction(ev -> {
 			root.getChildren().remove(overlay);
 			onMenu.run();
@@ -1713,7 +1770,7 @@ public class PlayGamePage {
 
 		card.getChildren().addAll(header, statsSection, rankSection, actions);
 
-		overlay.getChildren().add(card);
+		overlay.getChildren().addAll(card, closeX);
 		AppFonts.applyTo(overlay);
 		root.getChildren().add(overlay);
 
@@ -2431,7 +2488,8 @@ public class PlayGamePage {
 		long gameStartTimeMs,
 		String algorithmName,
 		int finalScore,
-		boolean won
+		boolean won,
+		PlayMode mode
 	) {
 		try {
 			long currentTimeMs = System.currentTimeMillis();
@@ -2440,8 +2498,13 @@ public class PlayGamePage {
 			// Calculate final score based on performance
 			int calculatedScore = calculateFinalScore(finalScore, steps, elapsedTimeMs, won);
 			
+			// Decide which name to display on ranking (if Bot, use algorithm name, else player profile)
+			String nameToRecord = (mode == PlayMode.BOT && algorithmName != null) 
+				? algorithmName 
+				: PlayerProfile.getCurrentPlayerName();
+
 			RankingEntry entry = new RankingEntry(
-				PlayerProfile.getCurrentPlayerName(),
+				nameToRecord,
 				difficulty,
 				steps,
 				elapsedTimeMs,

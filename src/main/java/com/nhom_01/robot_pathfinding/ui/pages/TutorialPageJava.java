@@ -62,7 +62,7 @@ public final class TutorialPageJava {
         header.setAlignment(Pos.CENTER_LEFT);
 
         VBox titleBox = new VBox(2);
-        Text title = new Text("TRUNG TÂM HUẤN LUYỆN");
+        Text title = new Text("HƯỚNG DẪN GIẢI CỨU VỊT");
         title.setFont(AppFonts.vt323(28));
         title.setFill(Color.WHITE);
         
@@ -332,8 +332,8 @@ public final class TutorialPageJava {
         // 1. MOVEMENT - Redesigned to show Water path vs Grass walls
         list.add(new TutorialSection(
             "DI CHUYỂN", "Cách đi lại cơ bản trong mê cung.",
-            "Sử dụng các phím mũi tên hoặc W-A-S-D để điều khiển robot. " +
-            "Mỗi lần nhấn phím tương ứng với một bước đi. Robot chỉ có thể di chuyển trên " +
+            "Sử dụng các phím mũi tên để điều khiển Vịt. " +
+            "Mỗi lần nhấn phím tương ứng với một bước đi. Vịt chỉ có thể di chuyển trên " +
             "NƯỚC (ô màu xanh) và không thể đi vào CỎ (ô màu xanh lá). " +
             "Hãy giữ nhịp độ ổn định để tránh va vào tường.",
             "Hãy tập trung di chuyển trên những vùng nước rộng để rẽ hướng dễ dàng nhất!",
@@ -390,7 +390,7 @@ public final class TutorialPageJava {
 
         // 3. ITEM - Redesigned to show Mystery Opening -> Card Selection
         list.add(new TutorialSection(
-            "VẬT PHẨM", "Sức mạnh hỗ trợ robot vượt khó.",
+            "VẬT PHẨM", "Sức mạnh hỗ trợ Vịt vượt khó.",
             "Hộp bí ẩn chứa đựng những vật phẩm mạnh mẽ. Khi nhặt được, bạn sẽ được chọn " +
             "một trong các kỹ năng ngẫu nhiên. Hãy tận dụng chúng để vượt qua " +
             "các thách thức khó khăn nhất hoặc tối ưu hóa điểm số.",
@@ -427,10 +427,11 @@ public final class TutorialPageJava {
         // 4. BOT
         list.add(new TutorialSection(
             "CHẾ ĐỘ BOT", "Tìm hiểu về sức mạnh của AI.",
-            "Trong chế độ BOT, robot sẽ tự động tìm đường dựa trên các thuật toán thông minh: " +
+            "Trong chế độ BOT, Vịt sẽ được giải cứu bởi các thuật toán thông minh: " +
             "BFS (Tìm theo chiều rộng) đảm bảo đường đi ngắn nhất, " +
             "DFS (Tìm theo chiều sâu) khám phá mê cung táo bạo hơn, " +
-            "A* là thuật toán tối ưu nhất kết hợp cả hai yếu tố trên.",
+            "A* là thuật toán tối ưu nhất kết hợp cả hai yếu tố trên. " +
+            "Vịt là nhân vật chính cần được bạn hoặc thuật toán giải cứu khỏi mê cung.",
             "Hãy quan sát cách Bot di chuyển để học hỏi lộ trình tối ưu nhất nhé!",
             createMaze(new int[][]{{0,0,0,0,0,0},{0,1,1,1,1,0},{0,1,0,0,1,0},{0,1,0,0,1,0},{0,1,1,1,1,0},{0,0,0,0,0,0}}),
             ms -> {
