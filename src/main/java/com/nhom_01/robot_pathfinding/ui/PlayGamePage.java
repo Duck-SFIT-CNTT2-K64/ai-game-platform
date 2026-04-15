@@ -480,7 +480,7 @@ public class PlayGamePage {
 					bombTouchGy[0],
 					botDuckFacing[0],
 					!botPastIntroIdle[0],
-					false, false, 1.0, false, -1L, false, 0L, -1, -1
+					false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L
 				);
 			} else {
 				// ── Determine visual overlays from active power-ups ──────────
@@ -491,7 +491,7 @@ public class PlayGamePage {
 					exploredOverlay = bombPositions(maze);
 				}
 				if (pw.isRevealingPath() || pw.aiRunning) {
-					pathOverlay = computePathToGoal(maze, playerPos[0]);
+					pathOverlay = computePathToGoal(maze, playerPos[0], pw);
 				}
 
 				long now = System.currentTimeMillis();
@@ -534,7 +534,8 @@ public class PlayGamePage {
 					pw.isVisionBoostActive(),
 					teleportAnimStartMs[0],
 					teleportGx[0],
-					teleportGy[0]
+					teleportGy[0],
+					pw.lifeVfxUntil
 				);
 			}
 		};
@@ -1297,16 +1298,21 @@ public class PlayGamePage {
 		CellType nextCell = maze.getCell(nx, ny);
 
 		// ── Wall check: REMOVE_WALL powerup can demolish 1 wall ───────────────
-		if (nextCell == CellType.WALL) {
-			if (pw.wallRemoval) {
+		if (nextCell == CellType.WALL || (nextCell == CellType.BOMB && pw.isFrozen())) {
+			if (nextCell == CellType.WALL && pw.wallRemoval) {
 				pw.wallRemoval = false;
 				maze.setCell(nx, ny, CellType.EMPTY);
 				nextCell = CellType.EMPTY;
 				statusText.setFill(Color.web("#FFAB91"));
 				statusText.setText("WALL DESTROYED!");
 			} else {
-				statusText.setFill(Color.web("#FFD59A"));
-				statusText.setText("BLOCKED BY WALL — try another direction");
+				if (nextCell == CellType.BOMB) {
+					statusText.setFill(Color.web("#81D4FA"));
+					statusText.setText("FROZEN BOMB BLOCKED — wait for it to melt!");
+				} else {
+					statusText.setFill(Color.web("#FFD59A"));
+					statusText.setText("BLOCKED BY WALL — try another direction");
+				}
 				return false;
 			}
 		}
@@ -1369,10 +1375,7 @@ public class PlayGamePage {
 
 		// ── Bomb ──────────────────────────────────────────────────────────────
 		if (cell == CellType.BOMB) {
-			if (pw.freezeTime) {
-				statusText.setFill(Color.web("#B3E5FC"));
-				statusText.setText("PASSING through frozen bomb...");
-			} else if (pw.shield) {
+			if (pw.shield) {
 				pw.shield = false;
 				pw.shieldUntil = 0;
 				statusText.setFill(Color.web("#64B5F6"));
@@ -2094,6 +2097,7 @@ public class PlayGamePage {
 		boolean bombDetect  = false;  long detectUntil     = 0L;
 		boolean visionBoost = false;  long visionUntil     = 0L;
 		boolean freezeTime  = false;  long freezeUntil     = 0L;
+		long lifeVfxUntil = 0L; // heart animation
 
 		// Speed modifiers
 		long speedBoostUntil = 0L;
@@ -2140,6 +2144,7 @@ public class PlayGamePage {
 			if (visionUntil > 0)     visionUntil     += deltaMs;
 			if (speedBoostUntil > 0) speedBoostUntil += deltaMs;
 			if (speedSlowUntil > 0)  speedSlowUntil  += deltaMs;
+			if (lifeVfxUntil > 0)   lifeVfxUntil    += deltaMs;
 		}
 
 		boolean isScoreDoubled() {
@@ -2178,6 +2183,7 @@ public class PlayGamePage {
 		switch (type) {
 			case EXTRA_LIFE -> {
 				playerLives[0] = Math.min(playerLives[0] + 1, 9);
+				pw.lifeVfxUntil = NOW + 1000;
 				statusText.setFill(Color.web("#00FF9C"));
 				statusText.setText("EXTRA LIFE! Lives remaining: " + playerLives[0]);
 				refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0], stateLabel, scoreLabel, pathLabel, exploredLabel);
@@ -2192,7 +2198,7 @@ public class PlayGamePage {
 				pw.freezeTime = true; 
 				pw.freezeUntil = Math.max(NOW, pw.freezeUntil) + 6_000;
 				statusText.setFill(Color.web("#B3E5FC"));
-				statusText.setText("BOMBS FROZEN!");
+				statusText.setText("BOMBS FROZEN — path blocked!");
 			}
 			case DOUBLE_SCORE -> {
 				playerScore[0] *= 2;
@@ -2261,7 +2267,7 @@ public class PlayGamePage {
 				}
 			}
 			case AI_ASSIST -> {
-				java.util.List<State> aiPath = computePathToGoal(maze, playerPos[0]);
+				java.util.List<State> aiPath = computePathToGoal(maze, playerPos[0], pw);
 				if (aiPath != null && aiPath.size() > 1) {
 					pw.aiRunning = true;
 					pw.aiPath = aiPath;
@@ -2296,9 +2302,22 @@ public class PlayGamePage {
 	/** BFS path from current player position to maze goal (used by REVEAL_PATH, AI_ASSIST). */
 	private static java.util.List<com.nhom_01.robot_pathfinding.core.State> computePathToGoal(
 			Maze maze,
-			com.nhom_01.robot_pathfinding.core.State from) {
+			com.nhom_01.robot_pathfinding.core.State from,
+			PowerUpState pw) {
 		try {
-			SearchResult result = new com.nhom_01.robot_pathfinding.ai.BFS().findPath(maze, from, maze.getGoal());
+			Maze targetMaze = maze;
+			if (pw != null && pw.isFrozen()) {
+				// Redesign: Treat bombs as walls if frozen
+				targetMaze = maze.copy();
+				for (int x = 0; x < targetMaze.getWidth(); x++) {
+					for (int y = 0; y < targetMaze.getHeight(); y++) {
+						if (targetMaze.getCell(x, y) == CellType.BOMB) {
+							targetMaze.setCell(x, y, CellType.WALL);
+						}
+					}
+				}
+			}
+			SearchResult result = new com.nhom_01.robot_pathfinding.ai.BFS().findPath(targetMaze, from, maze.getGoal());
 			return (result != null) ? result.getPath() : null;
 		} catch (Exception e) {
 			return null;
