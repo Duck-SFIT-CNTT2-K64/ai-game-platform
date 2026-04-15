@@ -480,7 +480,7 @@ public class PlayGamePage {
 					bombTouchGy[0],
 					botDuckFacing[0],
 					!botPastIntroIdle[0],
-					false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L
+					false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L, 0L, 0, 0L
 				);
 			} else {
 				// ── Determine visual overlays from active power-ups ──────────
@@ -535,7 +535,10 @@ public class PlayGamePage {
 					teleportAnimStartMs[0],
 					teleportGx[0],
 					teleportGy[0],
-					pw.lifeVfxUntil
+					pw.lifeVfxUntil,
+					pw.scoreVfxUntil,
+					pw.scoreVfxValue,
+					pw.timeVfxUntil
 				);
 			}
 		};
@@ -2098,6 +2101,9 @@ public class PlayGamePage {
 		boolean visionBoost = false;  long visionUntil     = 0L;
 		boolean freezeTime  = false;  long freezeUntil     = 0L;
 		long lifeVfxUntil = 0L; // heart animation
+		long scoreVfxUntil  = 0L; // +score animation
+		int  scoreVfxValue  = 0;
+		long timeVfxUntil   = 0L; // +15s animation
 
 		// Speed modifiers
 		long speedBoostUntil = 0L;
@@ -2201,6 +2207,8 @@ public class PlayGamePage {
 				statusText.setText("BOMBS FROZEN — path blocked!");
 			}
 			case DOUBLE_SCORE -> {
+				pw.scoreVfxValue = playerScore[0];
+				pw.scoreVfxUntil = NOW + 1000;
 				playerScore[0] *= 2;
 				statusText.setFill(Color.web("#FFD54F"));
 				statusText.setText("DOUBLE SCORE! Current score doubled!");
@@ -2252,6 +2260,7 @@ public class PlayGamePage {
 			}
 			case TIME_BONUS -> {
 				countdownEndMs[0] += 15_000;
+				pw.timeVfxUntil = NOW + 1000;
 				statusText.setFill(Color.web("#FFD54F"));
 				statusText.setText("+15 SECONDS ADDED TO CLOCK!");
 			}

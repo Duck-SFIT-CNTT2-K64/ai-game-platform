@@ -132,7 +132,7 @@ public class MazeRenderer {
 		double robotGridX = robotPosition == null ? Double.NaN : robotPosition.getX();
 		double robotGridY = robotPosition == null ? Double.NaN : robotPosition.getY();
 		render(gc, maze, explored, path, robotGridX, robotGridY, width, height,
-			0L, -1, -1, 0L, -1, -1, DuckFacing.RIGHT, true, false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L);
+			0L, -1, -1, 0L, -1, -1, DuckFacing.RIGHT, true, false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L, 0L, 0, 0L);
 	}
 
 	public static void render(
@@ -148,7 +148,7 @@ public class MazeRenderer {
 		boolean duckIntroRightIdle
 	) {
 		render(gc, maze, explored, path, robotGridX, robotGridY, width, height,
-			0L, -1, -1, 0L, -1, -1, duckFacing, duckIntroRightIdle, false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L);
+			0L, -1, -1, 0L, -1, -1, duckFacing, duckIntroRightIdle, false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L, 0L, 0, 0L);
 	}
 
 	/**
@@ -184,7 +184,10 @@ public class MazeRenderer {
 		long teleportStartMs,
 		int teleportGx,
 		int teleportGy,
-		long lifeVfxUntil
+		long lifeVfxUntil,
+		long scoreVfxUntil,
+		int  scoreVfxValue,
+		long timeVfxUntil
 	) {
 		gc.setFill(BG);
 		gc.fillRect(0, 0, width, height);
@@ -321,7 +324,7 @@ public class MazeRenderer {
 			drawRobot(
 				gc, offsetX + robotGridX * cellSize, offsetY + robotGridY * cellSize, cellSize,
 				isMoving, duckFacing, duckIntroRightIdle, shieldVisible, activeTimerMs, speedMultiplier, isTeleporting,
-				lifeVfxUntil, maze.getWidth()
+				lifeVfxUntil, scoreVfxUntil, scoreVfxValue, timeVfxUntil, maze.getWidth()
 			);
 		}
 
@@ -520,7 +523,9 @@ public class MazeRenderer {
 		GraphicsContext gc, double x, double y, double size,
 		boolean isMoving, DuckFacing facing, boolean introRightIdle,
 		boolean shieldVisible, long activeTimerMs, double speedMultiplier,
-		boolean isTeleporting, long lifeVfxUntil, int mazeW
+		boolean isTeleporting, 
+		long lifeVfxUntil, long scoreVfxUntil, int scoreVfxValue, long timeVfxUntil, 
+		int mazeW
 	) {
 		if (isTeleporting) return; // Skip duck rendering during teleport animation
 		DuckFacing useFacing = facing;
@@ -622,37 +627,12 @@ public class MazeRenderer {
 				gc.fillText(txt, duckX + duckW / 2 - size * 0.2, duckY - size * 0.1);
 			}
 
-			// 5. Draw Extra Life VFX (+ Heart)
-			long remainingVfx = lifeVfxUntil - System.currentTimeMillis();
-			if (remainingVfx > 0) {
-				if (HEART_IMAGE != null && !HEART_IMAGE.isError()) {
-					double progress = 1.0 - (remainingVfx / 1000.0); // 0.0 -> 1.0
-					double alpha = 1.0 - progress;
-					double floatY = progress * size * 1.2; // Float up by 1.2 cells
-					
-					gc.save();
-					gc.setGlobalAlpha(alpha);
-					
-					double hSize = size * 0.7;
-					double centerX = duckX + duckW / 2;
-					double vfxY = duckY - hSize * 0.5 - floatY; 
-					
-					// Draw "+" text
-					gc.setFont(AppFonts.vt323(size * 0.6));
-					gc.setFill(Color.WHITE);
-					gc.setStroke(Color.BLACK);
-					gc.setLineWidth(1);
-					String plus = "+";
-					double plusW = size * 0.2;
-					gc.strokeText(plus, centerX - plusW - hSize/2, vfxY + hSize * 0.7);
-					gc.fillText(plus, centerX - plusW - hSize/2, vfxY + hSize * 0.7);
-					
-					// Draw Heart
-					gc.drawImage(HEART_IMAGE, centerX - hSize/2 + plusW/2, vfxY, hSize, hSize);
-					
-					gc.restore();
-				}
-			}
+			// 5. Draw Floating VFX Messages (+Heart, +Score, +15s)
+			long now = System.currentTimeMillis();
+			double vfxHSize = size * 0.7;
+			renderFloatingMessage(gc, "heart", lifeVfxUntil, -1, now, duckX, duckY, duckW, vfxHSize, size);
+			renderFloatingMessage(gc, "score", scoreVfxUntil, scoreVfxValue, now, duckX, duckY, duckW, vfxHSize, size);
+			renderFloatingMessage(gc, "time", timeVfxUntil, 15, now, duckX, duckY, duckW, vfxHSize, size);
 
 			return;
 		}
@@ -672,6 +652,51 @@ public class MazeRenderer {
 		gc.setFill(Color.web("#9EDCFF"));
 		gc.fillOval(x + size * 0.32, y + size * 0.38, size * 0.12, size * 0.12);
 		gc.fillOval(x + size * 0.56, y + size * 0.38, size * 0.12, size * 0.12);
+	}
+
+	private static void renderFloatingMessage(
+		GraphicsContext gc, String type, long untilMs, int value, long now,
+		double duckX, double duckY, double duckW, double hSize, double size
+	) {
+		long remaining = untilMs - now;
+		if (remaining <= 0) return;
+
+		double progress = 1.0 - (remaining / 1000.0); // 0.0 -> 1.0
+		double alpha = 1.0 - progress;
+		double floatY = progress * size * 1.5; // Slightly more float for text
+
+		gc.save();
+		gc.setGlobalAlpha(alpha);
+
+		double centerX = duckX + duckW / 2;
+		double vfxY = duckY - hSize * 0.5 - floatY;
+
+		gc.setStroke(Color.BLACK);
+		gc.setLineWidth(1);
+
+		if ("heart".equals(type)) {
+			gc.setFont(AppFonts.vt323(size * 0.6));
+			gc.setFill(Color.WHITE);
+			String plus = "+";
+			double plusW = size * 0.2;
+			gc.strokeText(plus, centerX - plusW - hSize/2, vfxY + hSize * 0.7);
+			gc.fillText(plus, centerX - plusW - hSize/2, vfxY + hSize * 0.7);
+			gc.drawImage(HEART_IMAGE, centerX - hSize/2 + plusW/2, vfxY, hSize, hSize);
+		} else if ("score".equals(type)) {
+			gc.setFont(AppFonts.vt323(size * 0.7));
+			gc.setFill(Color.GOLD);
+			String txt = "+" + value;
+			gc.strokeText(txt, centerX - size * 0.2, vfxY + size * 0.3);
+			gc.fillText(txt, centerX - size * 0.2, vfxY + size * 0.3);
+		} else if ("time".equals(type)) {
+			gc.setFont(AppFonts.vt323(size * 0.7));
+			gc.setFill(Color.CYAN);
+			String txt = "+" + value + "s";
+			gc.strokeText(txt, centerX - size * 0.2, vfxY + size * 0.3);
+			gc.fillText(txt, centerX - size * 0.2, vfxY + size * 0.3);
+		}
+
+		gc.restore();
 	}
 
 	private static Color colorFor(CellType type) {
