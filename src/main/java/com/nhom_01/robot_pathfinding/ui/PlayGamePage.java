@@ -86,6 +86,7 @@ public class PlayGamePage {
 	}
 
 	private static Scene buildScene(Stage stage, Scene previousScene, String difficulty, String algorithmName, PlayMode mode) {
+		MazeRenderer.clearState();
 		MenuAudioManager.stopTheme();
 		javafx.geometry.Rectangle2D screenBounds = javafx.stage.Screen.getPrimary().getVisualBounds();
 		double W = screenBounds.getWidth();
