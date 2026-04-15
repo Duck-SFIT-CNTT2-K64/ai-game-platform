@@ -448,11 +448,14 @@ public class PlayGamePage {
 				skillChipsBox.getChildren().add(makeSkillChip("🗺 Path Reveal: "        + ((pw.revealPathUntil - nowMs + 999) / 1000) + "s", "#43A047"));
 			if (pw.bombDetect  && nowMs < pw.detectUntil)
 				skillChipsBox.getChildren().add(makeSkillChip("🔍 Bomb Detector: "        + ((pw.detectUntil   - nowMs + 999) / 1000) + "s", "#EF6C00"));
-			if (pw.effectiveStepNs != PLAYER_STEP_NANOS && nowMs < pw.speedUntil) {
-				boolean fast = pw.effectiveStepNs < PLAYER_STEP_NANOS;
+			if (nowMs < pw.speedBoostUntil) {
 				skillChipsBox.getChildren().add(makeSkillChip(
-					(fast ? "⚡ Speed Boost: " : "🐢 Slow Mode: ") + ((pw.speedUntil - nowMs + 999) / 1000) + "s",
-					fast ? "#0097A7" : "#78909C"
+					"⚡ Speed Boost: " + ((pw.speedBoostUntil - nowMs + 999) / 1000) + "s", "#0097A7"
+				));
+			}
+			if (nowMs < pw.speedSlowUntil) {
+				skillChipsBox.getChildren().add(makeSkillChip(
+					"🐢 Slow Mode: " + ((pw.speedSlowUntil - nowMs + 999) / 1000) + "s", "#78909C"
 				));
 			}
 			if (pw.visionBoost && nowMs < pw.visionUntil)
@@ -496,7 +499,7 @@ public class PlayGamePage {
 				long[] timers = {
 					pw.shield ? pw.shieldUntil : 0,
 					pw.freezeTime ? pw.freezeUntil : 0,
-					pw.speedUntil,
+					Math.max(pw.speedBoostUntil, pw.speedSlowUntil),
 					pw.revealPath ? pw.revealPathUntil : 0,
 					pw.bombDetect ? pw.detectUntil : 0,
 					pw.visionBoost ? pw.visionUntil : 0
@@ -727,20 +730,33 @@ public class PlayGamePage {
 						showNotif.accept("⏰  TIME UP! Game over.", Color.web("#FF8F00"));
 					}
 
+					long frameDeltaMs = frameDelta / 1_000_000;
+
 					// ── Detect skill expirations → show toast ─────────────────────────
 					boolean wasDbl     = pw.doubleScore;
 					boolean wasPath    = pw.revealPath;
 					boolean wasDetect  = pw.bombDetect;
-					boolean wasSpeed   = pw.effectiveStepNs != PLAYER_STEP_NANOS;
-					pw.tickExpiry();
-					if (wasDbl     && !pw.doubleScore)
-						showNotif.accept("✨ Double Score has ended.", Color.web("#FFD54F"));
-					if (wasPath    && !pw.revealPath)
-						showNotif.accept("🗺 Path Reveal has ended.", Color.web("#A5D6A7"));
-					if (wasDetect  && !pw.bombDetect)
-						showNotif.accept("🔍 Bomb Detector has ended.", Color.web("#FFCC80"));
-					if (wasSpeed   && pw.effectiveStepNs == PLAYER_STEP_NANOS)
-						showNotif.accept("⏱ Speed effect has ended.", Color.web("#B3E5FC"));
+					boolean wasSpeed   = pw.isSpeedBoostActive() || pw.isSpeedSlowActive();
+
+					if (selectingPowerUp[0]) {
+						// Freeze all clocks by shifting their end-points forward by the frame duration
+						countdownEndMs[0] += frameDeltaMs;
+						gameStartTime[0]  += frameDeltaMs; // offset start time so elapsed stats are correct
+						pw.pauseTimers(frameDeltaMs);
+					} else {
+						pw.tickExpiry();
+					}
+
+					if (!selectingPowerUp[0]) {
+						if (wasDbl     && !pw.doubleScore)
+							showNotif.accept("✨ Double Score has ended.", Color.web("#FFD54F"));
+						if (wasPath    && !pw.revealPath)
+							showNotif.accept("🗺 Path Reveal has ended.", Color.web("#A5D6A7"));
+						if (wasDetect  && !pw.bombDetect)
+							showNotif.accept("🔍 Bomb Detector has ended.", Color.web("#FFCC80"));
+						if (wasSpeed   && !pw.isSpeedBoostActive() && !pw.isSpeedSlowActive())
+							showNotif.accept("⏱ Speed effect has ended.", Color.web("#B3E5FC"));
+					}
 
 					// ── Update active-skill chips bar ─────────────────────────────────
 					updateSkillChips.run();
@@ -817,29 +833,48 @@ public class PlayGamePage {
 								&& mysteryPickupAnimStartMs[0] == 0
 								&& bombTouchAnimStartMs[0] == 0
 								&& moveCommitAtMs[0] == 0) {
+							
 							playerAccumulatorNanos[0] -= stepNs;
 							State nextAi = pw.aiPath.get(pw.aiPathIdx++);
+							
 							playerFromX[0] = playerRenderX[0];
 							playerFromY[0] = playerRenderY[0];
 							int prevGx = playerPos[0].getX();
 							int prevGy = playerPos[0].getY();
-							playerPos[0] = new State(nextAi.getX(), nextAi.getY(), playerLives[0]);
-							playerToX[0] = nextAi.getX();
-							playerToY[0] = nextAi.getY();
+							
+							// Trigger core landing logic (Items, Bombs, Goal)
+							processCellLanding(
+								nextAi.getX(), nextAi.getY(),
+								maze, playerPos, playerScore, playerLives, playerFinished,
+								statusText, audio, masterVolume, sfxVolume,
+								inventory, gameScene, selectingPowerUp, renderFrame,
+								gameStartTime, stepCounter, rankingRecorded,
+								difficulty, algorithmName, pw,
+								mysteryPickupAnimStartMs, mysteryPickupGx, mysteryPickupGy,
+								mysteryPickupNeedsModal, openItemAfterMysteryHold,
+								bombTouchAnimStartMs, bombTouchGx, bombTouchGy,
+								moveCommitAtMs, moveCommitX, moveCommitY,
+								duckFacing,
+								playerFromX, playerFromY, playerToX, playerToY, playerRenderX, playerRenderY
+							);
+
+							playerToX[0] = playerPos[0].getX();
+							playerToY[0] = playerPos[0].getY();
 							duckFacing[0] = MazeRenderer.facingFromGridDelta(
 								nextAi.getX() - prevGx, nextAi.getY() - prevGy);
-							stepCounter[0]++;
-							playerScore[0] = Math.max(0, playerScore[0] - 3);
-							audio.playFootstep(masterVolume[0], sfxVolume[0]);
+							
 							refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0],
 								stateLabel, scoreLabel, pathLabel, exploredLabel);
 							currentPosText.setText("Position: ("
-								+ nextAi.getX() + ", " + nextAi.getY() + ")");
-							if (pw.aiPathIdx >= pw.aiPath.size() || pw.aiPathIdx > 8) {
+								+ playerPos[0].getX() + ", " + playerPos[0].getY() + ")");
+
+							if (pw.aiPathIdx >= pw.aiPath.size() || pw.aiPathIdx > 8 || playerFinished[0]) {
 								pw.aiRunning = false;
 								pw.aiPath = null;
-								statusText.setFill(Color.web("#A5D6A7"));
-								statusText.setText("AI ASSIST complete — resume moving!");
+								if (!playerFinished[0]) {
+									statusText.setFill(Color.web("#A5D6A7"));
+									statusText.setText("AI ASSIST complete — resume moving!");
+								}
 							}
 
 							// ── Check if AI reached the GOAL ─────────────────────────
@@ -888,10 +923,7 @@ public class PlayGamePage {
 							);
 
 							// ── SPEED BOOST: Handle double step ─────────────────────
-							if (moved && pw.speedUntil > System.currentTimeMillis() && pw.effectiveStepNs < PLAYER_STEP_NANOS) {
-								// Small delay before second step to make it visible
-								moveCommitAtMs[0] = System.currentTimeMillis() + (stepNs / 1_000_000 / 2);
-								
+							if (moved && pw.speedBoostUntil > System.currentTimeMillis() && pw.effectiveStepNs < PLAYER_STEP_NANOS) {
 								// Calculate second position based on direction
 								int dx = 0, dy = 0;
 								if (pendingKey[0] == KeyCode.UP || pendingKey[0] == KeyCode.W) dy = -1;
@@ -905,11 +937,9 @@ public class PlayGamePage {
 								// Validate second step
 								if (nextX >= 0 && nextX < maze.getWidth() && nextY >= 0 && nextY < maze.getHeight() 
 										&& maze.getCell(nextX, nextY) != CellType.WALL) {
+									moveCommitAtMs[0] = System.currentTimeMillis() + (stepNs / 1_000_000 / 2);
 									moveCommitX[0] = nextX;
 									moveCommitY[0] = nextY;
-									// The actual handlePlayerMove processing for the 2nd cell will happen 
-									// when moveCommitAtMs is reached in the loop, or we can just call it now
-									// with a small cheat to make it follow path logic.
 								}
 							}
 
@@ -1008,6 +1038,7 @@ public class PlayGamePage {
 			if (finalLoop != null) {
 				finalLoop.stop();
 			}
+			long optionsOpenAtMs = System.currentTimeMillis();
 			showInGameOptions(
 				root,
 				masterVolume,
@@ -1019,6 +1050,11 @@ public class PlayGamePage {
 				reducedMotion,
 				() -> {
 					optionsOpen[0] = false;
+					long pausedMs = System.currentTimeMillis() - optionsOpenAtMs;
+					countdownEndMs[0] += pausedMs;
+					gameStartTime[0]  += pausedMs;
+					pw.pauseTimers(pausedMs);
+
 					audio.updateVolumes(masterVolume[0], musicVolume[0], sfxVolume[0]);
 					if (finalLoop != null) {
 						if (mode == PlayMode.BOT) {
@@ -1337,8 +1373,10 @@ public class PlayGamePage {
 				statusText.setFill(Color.web("#B3E5FC"));
 				statusText.setText("PASSING through frozen bomb...");
 			} else if (pw.shield) {
+				pw.shield = false;
+				pw.shieldUntil = 0;
 				statusText.setFill(Color.web("#64B5F6"));
-				statusText.setText("SHIELD active — passing through bomb safely!");
+				statusText.setText("SHIELD BROKEN — bomb neutralized!");
 			} else {
 				playerLives[0]--;
 				playerScore[0] = Math.max(0, playerScore[0] - 120);
@@ -2057,9 +2095,10 @@ public class PlayGamePage {
 		boolean visionBoost = false;  long visionUntil     = 0L;
 		boolean freezeTime  = false;  long freezeUntil     = 0L;
 
-		// Speed modifier  (default = PLAYER_STEP_NANOS, set externally)
+		// Speed modifiers
+		long speedBoostUntil = 0L;
+		long speedSlowUntil  = 0L;
 		long effectiveStepNs = PLAYER_STEP_NANOS;
-		long speedUntil      = 0L;
 
 		// AI assist – follows BFS path for a few steps
 		boolean             aiRunning = false;
@@ -2075,8 +2114,32 @@ public class PlayGamePage {
 			if (bombDetect  && now > detectUntil)     bombDetect  = false;
 			if (freezeTime  && now > freezeUntil)     freezeTime  = false;
 			if (visionBoost && now > visionUntil)     visionBoost = false;
-			if (effectiveStepNs != PLAYER_STEP_NANOS && now > speedUntil)
-				effectiveStepNs = PLAYER_STEP_NANOS;
+
+			// Dynamic Speed calculation
+			boolean boostActive = now < speedBoostUntil;
+			boolean slowActive  = now < speedSlowUntil;
+
+			if (boostActive && slowActive) {
+				effectiveStepNs = PLAYER_STEP_NANOS; // Cancel out to normal
+			} else if (boostActive) {
+				effectiveStepNs = PLAYER_STEP_NANOS / 2; // Fast
+			} else if (slowActive) {
+				effectiveStepNs = PLAYER_STEP_NANOS * 2; // Slow
+			} else {
+				effectiveStepNs = PLAYER_STEP_NANOS; // Default
+			}
+		}
+
+		public void pauseTimers(long deltaMs) {
+			if (deltaMs <= 0) return;
+			if (dblScoreUntil > 0)   dblScoreUntil   += deltaMs;
+			if (shieldUntil > 0)     shieldUntil     += deltaMs;
+			if (revealPathUntil > 0) revealPathUntil += deltaMs;
+			if (detectUntil > 0)     detectUntil     += deltaMs;
+			if (freezeUntil > 0)     freezeUntil     += deltaMs;
+			if (visionUntil > 0)     visionUntil     += deltaMs;
+			if (speedBoostUntil > 0) speedBoostUntil += deltaMs;
+			if (speedSlowUntil > 0)  speedSlowUntil  += deltaMs;
 		}
 
 		boolean isScoreDoubled() {
@@ -2095,7 +2158,10 @@ public class PlayGamePage {
 			return visionBoost && System.currentTimeMillis() < visionUntil;
 		}
 		boolean isSpeedBoostActive() {
-			return System.currentTimeMillis() < speedUntil;
+			return System.currentTimeMillis() < speedBoostUntil;
+		}
+		boolean isSpeedSlowActive() {
+			return System.currentTimeMillis() < speedSlowUntil;
 		}
 	}
 
@@ -2147,15 +2213,15 @@ public class PlayGamePage {
 				statusText.setText("BOMB DETECTOR active!");
 			}
 			case SPEED_BOOST -> {
-				pw.speedUntil = Math.max(NOW, pw.speedUntil) + 8_000;
-				pw.effectiveStepNs = PLAYER_STEP_NANOS / 2; 
+				pw.speedBoostUntil = Math.max(NOW, pw.speedBoostUntil) + 8_000;
+				pw.tickExpiry(); // Update effectiveStepNs immediately
 				playerAccumulatorNanos[0] = pw.effectiveStepNs;
 				statusText.setFill(Color.web("#80DEEA"));
 				statusText.setText("SPEED BOOST (2-Cells)!");
 			}
 			case SPEED_SLOW -> {
-				pw.effectiveStepNs = PLAYER_STEP_NANOS * 2;
-				pw.speedUntil = Math.max(NOW, pw.speedUntil) + 8_000;
+				pw.speedSlowUntil = Math.max(NOW, pw.speedSlowUntil) + 8_000;
+				pw.tickExpiry(); // Update effectiveStepNs immediately
 				playerAccumulatorNanos[0] = pw.effectiveStepNs;
 				statusText.setFill(Color.web("#BCAAA4"));
 				statusText.setText("SLOW MODE — safer movement!");
@@ -2257,7 +2323,7 @@ public class PlayGamePage {
 		for (int x = 1; x < maze.getWidth() - 1; x++)
 			for (int y = 1; y < maze.getHeight() - 1; y++) {
 				CellType c = maze.getCell(x, y);
-				if (c != CellType.WALL && c != CellType.BOMB
+				if (c == CellType.EMPTY
 						&& !(x == exclude.getX() && y == exclude.getY()))
 					candidates.add(new int[]{x, y});
 			}

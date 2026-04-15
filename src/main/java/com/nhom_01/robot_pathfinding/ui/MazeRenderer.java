@@ -317,7 +317,8 @@ public class MazeRenderer {
 
 			drawRobot(
 				gc, offsetX + robotGridX * cellSize, offsetY + robotGridY * cellSize, cellSize,
-				isMoving, duckFacing, duckIntroRightIdle, shieldVisible, activeTimerMs, speedMultiplier, isTeleporting
+				isMoving, duckFacing, duckIntroRightIdle, shieldVisible, activeTimerMs, speedMultiplier, isTeleporting,
+				maze.getWidth()
 			);
 		}
 
@@ -511,7 +512,7 @@ public class MazeRenderer {
 		GraphicsContext gc, double x, double y, double size,
 		boolean isMoving, DuckFacing facing, boolean introRightIdle,
 		boolean shieldVisible, long activeTimerMs, double speedMultiplier,
-		boolean isTeleporting
+		boolean isTeleporting, int mazeW
 	) {
 		if (isTeleporting) return; // Skip duck rendering during teleport animation
 		DuckFacing useFacing = facing;
@@ -529,11 +530,53 @@ public class MazeRenderer {
 		}
 
 		if (duckFrame != null && !duckFrame.isError()) {
-			// make the duck sprite larger than the cell
-			double duckW = size * 1.5;
-			double duckH = size * 1.65;
-			double duckX = x - size * 0.25;
-			double duckY = y - size * 0.65;
+			boolean isYellow = "YELLOW".equals(com.nhom_01.robot_pathfinding.core.PlayerProfile.getCurrentDuckType());
+
+			// Dynamic Scaling: adjust based on maze width to stay consistent across difficulties
+			// Easy (15), Medium (25), Hard (35)
+			// Reference width is 35 (Hard)
+			double mazeResRatio = Math.max(0.4, Math.min(1.0, mazeW / 35.0));
+			
+			// Base multipliers that scale linearly with the ratio
+			double scaleW = 1.15 + (0.65 * mazeResRatio); // ~1.42 on Easy, ~1.61 on Medium, 1.8 on Hard
+			double scaleH = 1.35 + (0.60 * mazeResRatio); // ~1.60 on Easy, ~1.78 on Medium, 1.95 on Hard
+
+			// Boost if facing Lên/Xuống (Up/Down)
+			if (useFacing == DuckFacing.UP || useFacing == DuckFacing.DOWN) {
+				if (isYellow) {
+					// Yellow Duck vertical frames are visually short and need more boost
+					scaleH = 1.60 + (0.70 * mazeResRatio); // ~1.90 on Easy, ~2.10 on Medium, 2.3 on Hard
+					scaleW = 1.25 + (0.85 * mazeResRatio); // ~1.61 on Easy, ~1.85 on Medium, 2.1 on Hard
+				} else {
+					// Purple Duck vertical frames only need a subtler boost to match its Side views
+					scaleH = 1.45 + (0.50 * mazeResRatio); // ~1.65 on Easy, ~1.85 on Medium, 1.95 on Hard
+					scaleW = 1.20 + (0.60 * mazeResRatio); // ~1.44 on Easy, ~1.65 on Medium, 1.80 on Hard
+				}
+			}
+
+			// Subtle extra overall boost for Yellow Duck to match Purple Duck's visual weight
+			if (isYellow) {
+				scaleW *= 1.08;
+				scaleH *= 1.08;
+			}
+
+			double duckW = size * scaleW;
+			double duckH = size * scaleH;
+			double duckX = x - (duckW - size) / 2;
+			
+			// Base vertical offset to "sink" the duck more into the current cell (reduces floating)
+			double sinkOffset = size * 0.12; 
+			// Extra push for DOWN view to make beak touch/overlap the wall below
+			if (useFacing == DuckFacing.DOWN) {
+				// Yellow duck needs a very aggressive sink due to its sprite proportions
+				sinkOffset += isYellow ? (size * 0.28) : (size * 0.10);
+			}
+			// Slight push up for UP to keep feet grounded in the current cell
+			if (useFacing == DuckFacing.UP) {
+				sinkOffset -= size * 0.05;
+			}
+
+			double duckY = y - (duckH - size) + sinkOffset;
 
 			if (shieldVisible) {
 				long now = System.currentTimeMillis();
