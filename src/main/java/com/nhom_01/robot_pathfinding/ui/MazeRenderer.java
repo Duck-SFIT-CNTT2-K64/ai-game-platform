@@ -699,6 +699,11 @@ public class MazeRenderer {
 		gc.restore();
 	}
 
+	public static void clearState() {
+		LAST_BOMB_POS.clear();
+		BOMB_EXPLODE_TS.clear();
+	}
+
 	private static Color colorFor(CellType type) {
 		return switch (type) {
 			case WALL -> WALL;
