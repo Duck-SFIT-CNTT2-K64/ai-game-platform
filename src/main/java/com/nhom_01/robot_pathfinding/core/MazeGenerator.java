@@ -1,5 +1,6 @@
 package com.nhom_01.robot_pathfinding.core;
 
+import com.nhom_01.robot_pathfinding.ai.BFS;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -29,10 +30,8 @@ public class MazeGenerator {
 
     public static Maze generate(String difficulty, GameMode mode) {
         int width, height, bombCount, itemCount;
-        int startingLives = 5; // Robot co 3 mang
+        int startingLives = 5;
 
-
-        // 1. Cau hinh theo do kho (Kich thuoc luon phai la so le de DFS chay chuan)
         switch (difficulty.toUpperCase()) {
             case "EASY":
                 width = 15; height = 11; bombCount = 3; itemCount = 3; break;
@@ -44,38 +43,42 @@ public class MazeGenerator {
                 width = 21; height = 15; bombCount = 5; itemCount = 5; break;
         }
 
-        Maze maze = new Maze(width, height);
+        Maze maze;
+        int attempts = 0;
+        BFS validator = new BFS();
 
-        // 2. Sinh duong di (Recursive Backtracking)
-        carvePassagesFrom(1, 1, maze);
+        do {
+            attempts++;
+            maze = new Maze(width, height);
 
-        // 3. Dat Start va Goal
-        placeStartAndGoal(maze, startingLives);
+            // 2. Sinh duong di (Recursive Backtracking)
+            carvePassagesFrom(1, 1, maze);
 
-        // 4. Get the guaranteed safe path BEFORE we punch holes and place random stuff
-        currentSafePath = findPath(maze, maze.getStart().getX(), maze.getStart().getY(), maze.getGoal().getX(), maze.getGoal().getY());
+            // 3. Dat Start va Goal
+            placeStartAndGoal(maze, startingLives);
 
-        if (mode == GameMode.PLAYER || mode == GameMode.BOT) {
-            // First random bomb and items (using placeEntities) - they will now respect currentSafePath
-            placeEntities(maze, CellType.BOMB, bombCount);
-            placeEntities(maze, CellType.ITEM, itemCount);
+            // 4. Get the guaranteed safe path BEFORE we punch holes and place random stuff
+            currentSafePath = findPath(maze, maze.getStart().getX(), maze.getStart().getY(), maze.getGoal().getX(), maze.getGoal().getY());
 
-            // 5. Them mot so o trong ngau nhien (Duc bot tuong) de tao ra nhieu duong di phu (Multiple paths)
-            openRandomWalls(maze, (width * height) / 15);
+            if (mode == GameMode.PLAYER || mode == GameMode.BOT) {
+                placeEntities(maze, CellType.BOMB, bombCount);
+                placeEntities(maze, CellType.ITEM, itemCount);
+                openRandomWalls(maze, (width * height) / 15);
+                placeBombsOnMainPath(maze, startingLives);
+                placeBombInDeadEnds(maze, bombCount / 3);
+                placeEntities(maze, CellType.BOMB, bombCount / 3);
+                placeEntities(maze, CellType.ITEM, itemCount);
+            }
+            
+            currentSafePath = null;
 
-            /* bom tren duong chinh nhung khong giet nguoi choi (Bombs strictly < lives) */
-            placeBombsOnMainPath(maze, startingLives);
+            // Final Validation: Use BFS to ensure it's actually survivable with current bombs
+            SearchResult result = validator.findPath(maze, maze.getStart(), maze.getGoal());
+            if (!result.getPath().isEmpty()) {
+                break; // Found a valid path!
+            }
+        } while (attempts < 20);
 
-            /* bom phu */
-            placeBombInDeadEnds(maze, bombCount / 3);
-            placeEntities(maze, CellType.BOMB, bombCount / 3);
-
-            /* vat pham */
-            placeEntities(maze, CellType.ITEM, itemCount);
-        }
-        
-        // Reset 
-        currentSafePath = null;
         return maze;
     }
     private static List<int[]> findPath(Maze maze, int sx, int sy, int gx, int gy) {

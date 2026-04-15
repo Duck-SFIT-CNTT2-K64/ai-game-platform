@@ -80,7 +80,7 @@ public class MazeRenderer {
 	private static final Image STOP_IMAGE = loadImage("/image/pixel_animation/Stop.png");
 	private static final Image ITEM_IMAGE = loadImage("/image/pixel_animation/mysterybox_fr1.png");
 	private static final Image[] MYSTERY_FRAMES = new Image[3];
-	private static final Image FLAG_IMAGE = loadImage("/image/pixel_animation/flag.png");
+	private static final Image FLAG_IMAGE = loadImage("/image/vit/Flag.png");
 	private static final Image BUBBLE1_IMAGE = loadImage("/image/pixel_animation/bubble1.png");
 	private static final Image BUBBLE2_IMAGE = loadImage("/image/pixel_animation/bubble2.png");
 	private static final Image HEART_IMAGE = loadImage("/image/pixel_animation/heart.png");
@@ -244,14 +244,30 @@ public class MazeRenderer {
 		}
 		LAST_BOMB_POS.clear(); LAST_BOMB_POS.addAll(currentBombs);
 
+		// Convert path to Set for efficient lookup during exploration/path rendering
+		Set<String> pathSet = new HashSet<>();
+		if (path != null) {
+			for (State s : path) pathSet.add(s.getX() + "," + s.getY());
+		}
+
 		if (explored != null) {
 			gc.setFill(EXPLORED);
 			for (State s : explored) {
 				double cellX = offsetX + s.getX() * cellSize;
 				double cellY = offsetY + s.getY() * cellSize;
 				gc.fillRect(cellX, cellY, cellSize, cellSize);
-				if (FLAG_IMAGE != null && !FLAG_IMAGE.isError() && maze.getCell(s.getX(), s.getY()) != CellType.WALL) {
-					gc.drawImage(FLAG_IMAGE, cellX + cellSize * 0.14, cellY + cellSize * 0.14, cellSize * 0.72, cellSize * 0.72);
+
+				if (FLAG_IMAGE != null && !FLAG_IMAGE.isError()) {
+					CellType cellType = maze.getCell(s.getX(), s.getY());
+					if (cellType == CellType.EMPTY || cellType == CellType.START || cellType == CellType.GOAL) {
+						boolean isFinalPath = pathSet.contains(s.getX() + "," + s.getY());
+						if (!isFinalPath) {
+							// Area explored by bot but not on final path -> dimmed flag
+							gc.setGlobalAlpha(0.40);
+							gc.drawImage(FLAG_IMAGE, cellX + cellSize * 0.14, cellY + cellSize * 0.14, cellSize * 0.72, cellSize * 0.72);
+							gc.setGlobalAlpha(1.0);
+						}
+					}
 				}
 			}
 		}
@@ -259,12 +275,24 @@ public class MazeRenderer {
 		if (path != null) {
 			gc.setFill(PATH);
 			for (State s : path) {
+				double cellX = offsetX + s.getX() * cellSize;
+				double cellY = offsetY + s.getY() * cellSize;
+				
+				// Keep the tint "hover"
 				gc.fillRect(
-					offsetX + s.getX() * cellSize + cellSize * 0.16,
-					offsetY + s.getY() * cellSize + cellSize * 0.16,
+					cellX + cellSize * 0.16,
+					cellY + cellSize * 0.16,
 					cellSize * 0.68,
 					cellSize * 0.68
 				);
+
+				// Draw final path flags with full opacity (only on empty/start/goal)
+				if (FLAG_IMAGE != null && !FLAG_IMAGE.isError()) {
+					CellType cellType = maze.getCell(s.getX(), s.getY());
+					if (cellType == CellType.EMPTY || cellType == CellType.START || cellType == CellType.GOAL) {
+						gc.drawImage(FLAG_IMAGE, cellX + cellSize * 0.14, cellY + cellSize * 0.14, cellSize * 0.72, cellSize * 0.72);
+					}
+				}
 			}
 		}
 

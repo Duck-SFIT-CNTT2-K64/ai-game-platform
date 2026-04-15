@@ -91,7 +91,7 @@ public final class PlayModeSelectionPageJava {
         StackPane playerCard = createModeCard(
                 "PLAYER",
                 "🕹",
-                "Control robot manually with arrow keys.",
+                "Control Duck manually with arrow keys.",
                 "Great for learning maze patterns and reacting to bombs.",
                 "Use keyboard: UP / DOWN / LEFT / RIGHT",
                 BTN_PLAYER_PATH,
@@ -105,7 +105,7 @@ public final class PlayModeSelectionPageJava {
         StackPane botCard = createModeCard(
                 "BOT",
                 "🦆",
-                "AI solves maze automatically based on algorithm.",
+                "AI solves maze automatically for Duck.",
                 "Useful to observe path quality and compare strategies.",
                 "Next step: choose BFS / DFS / A*",
                 BTN_BOT_PATH,
@@ -262,7 +262,7 @@ public final class PlayModeSelectionPageJava {
                 "-fx-background-color: linear-gradient(to right, #1565C0, #2F80ED);" +
                         "-fx-background-radius: 16 16 0 0;"
         );
-        Text headerTag = new Text("🦆  ROBOT MAZE");
+        Text headerTag = new Text("🦆  DUCK MAZE");
         headerTag.setFont(AppFonts.vt323(11));
         headerTag.setFill(Color.color(1, 1, 1, 0.60));
         Text headerTitle = new Text("Nhap ten nguoi choi");

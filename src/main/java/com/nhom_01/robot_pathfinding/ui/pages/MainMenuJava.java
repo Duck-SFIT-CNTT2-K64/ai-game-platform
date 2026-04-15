@@ -86,7 +86,7 @@ public class MainMenuJava extends Application {
 		AppFonts.applyTo(root);
 		MenuAudioManager.wireScene(scene);
 		MenuAudioManager.startTheme();
-		stage.setTitle("Robot Maze");
+		stage.setTitle("Duck Maze");
 		stage.setMaximized(true);
 		stage.setScene(scene);
 		stage.show();
