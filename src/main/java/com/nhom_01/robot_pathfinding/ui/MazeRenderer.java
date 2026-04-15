@@ -83,6 +83,8 @@ public class MazeRenderer {
 	private static final Image FLAG_IMAGE = loadImage("/image/pixel_animation/flag.png");
 	private static final Image BUBBLE1_IMAGE = loadImage("/image/pixel_animation/bubble1.png");
 	private static final Image BUBBLE2_IMAGE = loadImage("/image/pixel_animation/bubble2.png");
+	private static final Image HEART_IMAGE = loadImage("/image/pixel_animation/heart.png");
+	private static final Image FREEZE_BOMB_IMAGE = loadImage("/image/pixel_animation/freeze_bomb.png");
 	private static final Image[] TELEPORT_FRAMES = new Image[3];
 
 	static {
@@ -130,7 +132,7 @@ public class MazeRenderer {
 		double robotGridX = robotPosition == null ? Double.NaN : robotPosition.getX();
 		double robotGridY = robotPosition == null ? Double.NaN : robotPosition.getY();
 		render(gc, maze, explored, path, robotGridX, robotGridY, width, height,
-			0L, -1, -1, 0L, -1, -1, DuckFacing.RIGHT, true, false, false, 1.0, false, -1L, false, 0L, -1, -1);
+			0L, -1, -1, 0L, -1, -1, DuckFacing.RIGHT, true, false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L);
 	}
 
 	public static void render(
@@ -146,7 +148,7 @@ public class MazeRenderer {
 		boolean duckIntroRightIdle
 	) {
 		render(gc, maze, explored, path, robotGridX, robotGridY, width, height,
-			0L, -1, -1, 0L, -1, -1, duckFacing, duckIntroRightIdle, false, false, 1.0, false, -1L, false, 0L, -1, -1);
+			0L, -1, -1, 0L, -1, -1, duckFacing, duckIntroRightIdle, false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L);
 	}
 
 	/**
@@ -181,7 +183,8 @@ public class MazeRenderer {
 		boolean visionBoostActive,
 		long teleportStartMs,
 		int teleportGx,
-		int teleportGy
+		int teleportGy,
+		long lifeVfxUntil
 	) {
 		gc.setFill(BG);
 		gc.fillRect(0, 0, width, height);
@@ -318,7 +321,7 @@ public class MazeRenderer {
 			drawRobot(
 				gc, offsetX + robotGridX * cellSize, offsetY + robotGridY * cellSize, cellSize,
 				isMoving, duckFacing, duckIntroRightIdle, shieldVisible, activeTimerMs, speedMultiplier, isTeleporting,
-				maze.getWidth()
+				lifeVfxUntil, maze.getWidth()
 			);
 		}
 
@@ -342,6 +345,13 @@ public class MazeRenderer {
 	) {
 		switch (type) {
 			case BOMB -> {
+				if (freezeTimeActive) {
+					if (FREEZE_BOMB_IMAGE != null && !FREEZE_BOMB_IMAGE.isError()) {
+						gc.drawImage(FREEZE_BOMB_IMAGE, x, y, size, size);
+						return;
+					}
+				}
+
 				int idx = 0;
 				if (bombTouchStartMs > 0 && gx == bombTouchGx && gy == bombTouchGy) {
 					long elapsed = System.currentTimeMillis() - bombTouchStartMs;
@@ -361,13 +371,11 @@ public class MazeRenderer {
 					y -= (drawSize - size) / 2;
 				}
 
-				if (freezeTimeActive) gc.setGlobalAlpha(0.55);
 				if (BOMB_FRAMES[idx] != null && !BOMB_FRAMES[idx].isError()) {
 					gc.drawImage(BOMB_FRAMES[idx], x + drawSize * 0.10, y + drawSize * 0.10, drawSize * 0.80, drawSize * 0.80);
 				} else {
 					drawBomb(gc, x, y, drawSize);
 				}
-				if (freezeTimeActive) gc.setGlobalAlpha(1.0);
 			}
 			case ITEM -> {
 				if (visionBoostActive) {
@@ -512,7 +520,7 @@ public class MazeRenderer {
 		GraphicsContext gc, double x, double y, double size,
 		boolean isMoving, DuckFacing facing, boolean introRightIdle,
 		boolean shieldVisible, long activeTimerMs, double speedMultiplier,
-		boolean isTeleporting, int mazeW
+		boolean isTeleporting, long lifeVfxUntil, int mazeW
 	) {
 		if (isTeleporting) return; // Skip duck rendering during teleport animation
 		DuckFacing useFacing = facing;
@@ -578,6 +586,18 @@ public class MazeRenderer {
 
 			double duckY = y - (duckH - size) + sinkOffset;
 
+			// 1. Draw the actual Duck first
+			gc.drawImage(duckFrame, duckX, duckY, duckW, duckH);
+
+			// 2. Add speed trail if speed is high (re-drawn over duck but with transparency)
+			if (speedMultiplier > 1.1) {
+				gc.setGlobalAlpha(0.3);
+				double trailOff = size * 0.15;
+				gc.drawImage(duckFrame, duckX - trailOff, duckY + trailOff * 0.5, duckW, duckH);
+				gc.setGlobalAlpha(1.0);
+			}
+
+			// 3. Draw Shield/Bubble OVER the duck
 			if (shieldVisible) {
 				long now = System.currentTimeMillis();
 				long switchTime = (activeTimerMs > 0 && activeTimerMs < 2000) ? 100 : 300;
@@ -590,7 +610,7 @@ public class MazeRenderer {
 				}
 			}
 
-			// Render shared countdown timer for any active powerup
+			// 4. Draw Countdown Timer
 			if (activeTimerMs > 0) {
 				int secs = (int)((activeTimerMs + 999) / 1000);
 				gc.setFont(AppFonts.vt323(Math.max(12, size * 0.5)));
@@ -602,16 +622,38 @@ public class MazeRenderer {
 				gc.fillText(txt, duckX + duckW / 2 - size * 0.2, duckY - size * 0.1);
 			}
 
-			// Add speed trail if speed is high
-			if (speedMultiplier > 1.1) {
-				gc.setGlobalAlpha(0.3);
-				// Draw a faint ghost behind the current position
-				double trailOff = size * 0.15;
-				gc.drawImage(duckFrame, duckX - trailOff, duckY + trailOff * 0.5, duckW, duckH);
-				gc.setGlobalAlpha(1.0);
+			// 5. Draw Extra Life VFX (+ Heart)
+			long remainingVfx = lifeVfxUntil - System.currentTimeMillis();
+			if (remainingVfx > 0) {
+				if (HEART_IMAGE != null && !HEART_IMAGE.isError()) {
+					double progress = 1.0 - (remainingVfx / 1000.0); // 0.0 -> 1.0
+					double alpha = 1.0 - progress;
+					double floatY = progress * size * 1.2; // Float up by 1.2 cells
+					
+					gc.save();
+					gc.setGlobalAlpha(alpha);
+					
+					double hSize = size * 0.7;
+					double centerX = duckX + duckW / 2;
+					double vfxY = duckY - hSize * 0.5 - floatY; 
+					
+					// Draw "+" text
+					gc.setFont(AppFonts.vt323(size * 0.6));
+					gc.setFill(Color.WHITE);
+					gc.setStroke(Color.BLACK);
+					gc.setLineWidth(1);
+					String plus = "+";
+					double plusW = size * 0.2;
+					gc.strokeText(plus, centerX - plusW - hSize/2, vfxY + hSize * 0.7);
+					gc.fillText(plus, centerX - plusW - hSize/2, vfxY + hSize * 0.7);
+					
+					// Draw Heart
+					gc.drawImage(HEART_IMAGE, centerX - hSize/2 + plusW/2, vfxY, hSize, hSize);
+					
+					gc.restore();
+				}
 			}
 
-			gc.drawImage(duckFrame, duckX, duckY, duckW, duckH);
 			return;
 		}
 

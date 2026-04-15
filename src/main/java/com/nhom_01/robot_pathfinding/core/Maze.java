@@ -42,5 +42,15 @@ public class Maze {
     public State getGoal() { return goal; }
     public void setGoal(State goal) { this.goal = goal; }
 
-
+    public Maze copy() {
+        Maze other = new Maze(width, height);
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                other.setCell(x, y, this.getCell(x, y));
+            }
+        }
+        other.setStart(this.start);
+        other.setGoal(this.goal);
+        return other;
+    }
 }

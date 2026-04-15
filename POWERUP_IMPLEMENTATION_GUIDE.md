@@ -34,7 +34,7 @@ Maze botMaze = MazeGenerator.generate("EASY", MazeGenerator.GameMode.BOT);
 | 6 | Teleport | Dịch chuyển tức thời | Teleport ngẫu nhiên | Medium |
 | 7 | Remove Wall | Xóa 1 bức tường | Phá tường 1 lần | Medium |
 | 8 | Double Score | Nhân đôi điểm số hiện tại | x2 score ngay lập tức | Easy |
-| 9 | Freeze Time | Đóng băng bom (Đi xuyên) | Đi qua bom mà không nổ | Medium |
+| 9 | Freeze Time | Đóng băng bom | Không đi qua được bom | Medium |
 | 10 | AI Assist | Trợ giúp AI | Auto solve đoạn | Medium |
 | 11 | Shortest Path Mode | Ưu tiên đường ngắn | BFS/A* priority | Medium |
 | 12 | Speed Slow | Chậm nhưng an toàn | Robot chậm | Easy |
