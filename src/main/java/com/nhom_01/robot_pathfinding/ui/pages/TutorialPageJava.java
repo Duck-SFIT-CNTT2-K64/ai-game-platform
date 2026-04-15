@@ -239,7 +239,7 @@ public final class TutorialPageJava {
                     state.x, state.y, canvas.getWidth(), canvas.getHeight(), 
                     state.mysteryOpenStartMs, state.mysteryOpenGx, state.mysteryOpenGy,
                     state.bombTouchStartMs, state.bombTouchGx, state.bombTouchGy, 
-                    state.facing, false, false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L);
+                    state.facing, false, false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L, 0L, 0, 0L);
 
                 if (state.showPowerUps) {
                     renderPowerUpCards(gc, canvas.getWidth(), canvas.getHeight());
