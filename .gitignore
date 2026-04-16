@@ -16,7 +16,8 @@
 .DS_Store
 Thumbs.db
 
-# ===== Scripts & Logs =====
+
 *.txt
 *.py
 rankings.dat
+
