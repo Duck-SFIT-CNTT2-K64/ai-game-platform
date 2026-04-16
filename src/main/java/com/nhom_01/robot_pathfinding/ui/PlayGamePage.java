@@ -455,10 +455,14 @@ public class PlayGamePage {
 			toastTL[0].play();
 		};
 
-		// ── Skill chips updater (called every timer frame) ───────────────────
+		// ── Skill chips updater (Throttled for performance) ───────────────────
+		long[] lastSkillUpdateMs = {0L};
 		Runnable updateSkillChips = () -> {
-			skillChipsBox.getChildren().clear();
 			long nowMs = System.currentTimeMillis();
+			if (nowMs - lastSkillUpdateMs[0] < 250) return; // Only update ~4 times per second
+			lastSkillUpdateMs[0] = nowMs;
+
+			skillChipsBox.getChildren().clear();
 			if (pw.doubleScore && nowMs < pw.dblScoreUntil)
 				skillChipsBox.getChildren().add(makeSkillChip("✨ Double Score: "    + ((pw.dblScoreUntil  - nowMs + 999) / 1000) + "s", "#F9A825"));
 			if (pw.revealPath  && nowMs < pw.revealPathUntil)
@@ -485,10 +489,14 @@ public class PlayGamePage {
 		Runnable renderFrame = () -> {
 			if (mode == PlayMode.BOT) {
 				MazeRenderer.render(
-					gc, maze,
-					botEngine.getExplored(), botEngine.getPath(),
-					botRenderX[0], botRenderY[0],
-					mazeCanvas.getWidth(), mazeCanvas.getHeight(),
+					gc,
+					maze,
+					botEngine.getExplored(),
+					botEngine.getPath(),
+					botRenderX[0],
+					botRenderY[0],
+					mazeCanvas.getWidth(),
+					mazeCanvas.getHeight(),
 					mysteryPickupAnimStartMs[0],
 					mysteryPickupGx[0],
 					mysteryPickupGy[0],
@@ -497,7 +505,25 @@ public class PlayGamePage {
 					bombTouchGy[0],
 					botDuckFacing[0],
 					!botPastIntroIdle[0],
-					false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L, 0L, 0, 0L
+					pw.isFrozen(),
+					pw.isDetectingBombs(),
+					1.0,
+					calculateShieldVisible(pw),
+					-1L,
+					pw.isVisionBoostActive(),
+					teleportAnimStartMs[0],
+					(int)teleportGx[0],
+					(int)teleportGy[0],
+					-1,
+					-1,
+					pw.flyingItems,
+					new MazeRenderer.RenderVfx(
+						pw.lifeVfxUntil,
+						pw.scoreVfxUntil,
+						pw.scoreVfxValue,
+						pw.timeVfxUntil,
+						pw.iFramesUntil
+					)
 				);
 			} else {
 				// ── Determine visual overlays from active power-ups ──────────
@@ -505,10 +531,29 @@ public class PlayGamePage {
 				java.util.List<State> exploredOverlay = null;
 
 				if (pw.isDetectingBombs()) {
-					exploredOverlay = bombPositions(maze);
+					if (pw.cachedBombs == null) {
+						pw.cachedBombs = bombPositions(maze);
+					}
+					exploredOverlay = pw.cachedBombs;
+				} else {
+					pw.cachedBombs = null; // Clear cache when not in use
 				}
+
 				if (pw.isRevealingPath() || pw.aiRunning) {
-					pathOverlay = computePathToGoal(maze, playerPos[0], pw);
+					boolean frozen = pw.isFrozen();
+					if (pw.cachedPathToGoal == null || 
+					    pw.lastPathSourceX != playerPos[0].getX() || 
+					    pw.lastPathSourceY != playerPos[0].getY() ||
+					    pw.lastPathFrozen != frozen) {
+						
+						pw.cachedPathToGoal = computePathToGoal(maze, playerPos[0], pw);
+						pw.lastPathSourceX = playerPos[0].getX();
+						pw.lastPathSourceY = playerPos[0].getY();
+						pw.lastPathFrozen = frozen;
+					}
+					pathOverlay = pw.cachedPathToGoal;
+				} else {
+					pw.cachedPathToGoal = null;
 				}
 
 				long now = System.currentTimeMillis();
@@ -532,10 +577,14 @@ public class PlayGamePage {
 				long finalHeadTimer = anyActive ? minTimer : -1L;
 
 				MazeRenderer.render(
-					gc, maze,
-					exploredOverlay, pathOverlay,
-					playerRenderX[0], playerRenderY[0],
-					mazeCanvas.getWidth(), mazeCanvas.getHeight(),
+					gc,
+					maze,
+					exploredOverlay,
+					pathOverlay,
+					playerRenderX[0],
+					playerRenderY[0],
+					mazeCanvas.getWidth(),
+					mazeCanvas.getHeight(),
 					mysteryPickupAnimStartMs[0],
 					mysteryPickupGx[0],
 					mysteryPickupGy[0],
@@ -544,18 +593,25 @@ public class PlayGamePage {
 					bombTouchGy[0],
 					duckFacing[0],
 					stepCounter[0] == 0,
-					pw.isFrozen(), pw.isDetectingBombs(),
+					pw.isFrozen(),
+					pw.isDetectingBombs(),
 					(double)pw.effectiveStepNs / (double)PLAYER_STEP_NANOS,
 					calculateShieldVisible(pw),
 					finalHeadTimer,
 					pw.isVisionBoostActive(),
 					teleportAnimStartMs[0],
-					teleportGx[0],
-					teleportGy[0],
-					pw.lifeVfxUntil,
-					pw.scoreVfxUntil,
-					pw.scoreVfxValue,
-					pw.timeVfxUntil
+					(int)teleportGx[0],
+					(int)teleportGy[0],
+					(pendingTeleportPos[0] != null) ? pendingTeleportPos[0].getX() : -1,
+					(pendingTeleportPos[0] != null) ? pendingTeleportPos[0].getY() : -1,
+					pw.flyingItems,
+					new MazeRenderer.RenderVfx(
+						pw.lifeVfxUntil,
+						pw.scoreVfxUntil,
+						pw.scoreVfxValue,
+						pw.timeVfxUntil,
+						pw.iFramesUntil
+					)
 				);
 			}
 		};
@@ -595,25 +651,39 @@ public class PlayGamePage {
 
 					// Advance engine one step per completed interval
 					while (botAccumulatorNanos[0] >= stepDurationNanos
-							&& botEngine.getState() == GameState.MOVING) {
+							&& botEngine.getState() == GameState.MOVING
+							&& bombTouchAnimStartMs[0] == 0) {
 						botAccumulatorNanos[0] -= stepDurationNanos;
 
 						State prevPos = botEngine.getRobotPosition();
 						int prevLives = botEngine.getLives();
+						int prevScore = botEngine.getScore();
 						botEngine.update();
 						State nextPos = botEngine.getRobotPosition();
 						int nextLives = botEngine.getLives();
+						int nextScore = botEngine.getScore();
+
+						// (Mystery box removal is handled directly by engine.update() without delay)
 
 						if (nextLives < prevLives) {
-							bombTouchAnimStartMs[0] = System.currentTimeMillis();
-							if (nextPos != null) {
-								bombTouchGx[0] = nextPos.getX();
-								bombTouchGy[0] = nextPos.getY();
-							} else if (prevPos != null) {
-								bombTouchGx[0] = prevPos.getX();
-								bombTouchGy[0] = prevPos.getY();
+							// Check iFrames for bot (though botEngine doesn't know iFrames, we override visually)
+							if (System.currentTimeMillis() < pw.iFramesUntil) {
+								// Revert life loss visually if botEngine somehow hit a bomb while we think it's invincible
+								// (In practice, botEngine is a simple pathfinder, but for visual parity):
+								botEngine.setLives(prevLives); 
+							} else {
+								bombTouchAnimStartMs[0] = System.currentTimeMillis();
+								if (nextPos != null) {
+									bombTouchGx[0] = nextPos.getX();
+									bombTouchGy[0] = nextPos.getY();
+								} else if (prevPos != null) {
+									bombTouchGx[0] = prevPos.getX();
+									bombTouchGy[0] = prevPos.getY();
+								}
+								// Set invincibility period for bot
+								pw.iFramesUntil = System.currentTimeMillis() + 2000;
+								showNotif.accept("HIT A BOMB — -1 LIFE!", Color.web("#FF8DA6"));
 							}
-							showNotif.accept("HIT A BOMB \u2014 -1 LIFE!", Color.web("#FF8DA6"));
 						}
 
 						if (nextPos != null) {
@@ -674,6 +744,7 @@ public class PlayGamePage {
 						? 1.0
 						: Math.min(1.0, Math.max(0.0,
 							(double) botAccumulatorNanos[0] / (double) stepDurationNanos));
+				if (bombTouchAnimStartMs[0] > 0 || mysteryPickupAnimStartMs[0] > 0) progress = 0;
 				botRenderX[0] = botFromX[0] + (botToX[0] - botFromX[0]) * progress;
 				botRenderY[0] = botFromY[0] + (botToY[0] - botFromY[0]) * progress;
 
@@ -985,8 +1056,34 @@ public class PlayGamePage {
 					// ── Linear interpolation — constant-velocity glide ───────────────
 					double progress = Math.min(1.0, Math.max(0.0,
 						(double) playerAccumulatorNanos[0] / (double) stepNs));
+					
+					// BOM ANIMATION DELAY: If a bomb was touched, stay at 'from' until explosion finishes
+					if (bombTouchAnimStartMs[0] > 0) {
+						long elapsedBomb = System.currentTimeMillis() - bombTouchAnimStartMs[0];
+						if (elapsedBomb < MazeRenderer.BOMB_HIT_TOTAL_MS) {
+							progress = 0;
+						}
+					}
+
 					playerRenderX[0] = playerFromX[0] + (playerToX[0] - playerFromX[0]) * progress;
 					playerRenderY[0] = playerFromY[0] + (playerToY[0] - playerFromY[0]) * progress;
+
+					// --- UPDATE FLYING ITEMS (Magnetic Pull) ---
+					java.util.Iterator<FlyingItem> it = pw.flyingItems.iterator();
+					while (it.hasNext()) {
+						FlyingItem fi = it.next();
+						fi.update(playerRenderX[0], playerRenderY[0]);
+						if (fi.isArrived()) {
+							playerScore[0] += fi.getReward();
+							statusText.setFill(Color.web("#9FFFD8"));
+							statusText.setText("RADAR VACUUM: Item collected! (+" + fi.getReward() + ")");
+							if (openItemAfterMysteryHold[0] != null) {
+								if (selectingPowerUp[0]) pw.pendingChoices++;
+								else openItemAfterMysteryHold[0].run();
+							}
+							it.remove();
+						}
+					}
 
 					renderFrame.run();
 
@@ -1000,19 +1097,34 @@ public class PlayGamePage {
 								int tx = px + dx; int ty = py + dy;
 								if (tx >= 0 && tx < maze.getWidth() && ty >= 0 && ty < maze.getHeight()) {
 									if (maze.getCell(tx, ty) == com.nhom_01.robot_pathfinding.core.CellType.ITEM) {
-										// Magnetic pull!
+										// Magnetic pull! Remove from grid, add to flying list
 										maze.setCell(tx, ty, com.nhom_01.robot_pathfinding.core.CellType.EMPTY);
-										int rwd = pw.doubleScore ? 360 : 180;
-										playerScore[0] += rwd;
-										statusText.setFill(Color.web("#9FFFD8"));
-										statusText.setText("RADAR VACUUM: Item collected! (+" + rwd + ")");
-										// Open mystery modal
-										if (openItemAfterMysteryHold[0] != null) {
-											openItemAfterMysteryHold[0].run();
-										}
+										int rwd = (pw.doubleScore) ? 360 : 180;
+										pw.flyingItems.add(new FlyingItem(tx, ty, rwd));
 									}
 								}
 							}
+						}
+					}
+
+					// --- TELEPORT STATE TRANSITION ---
+					if (teleportAnimStartMs[0] > 0) {
+						long elapsed = System.currentTimeMillis() - teleportAnimStartMs[0];
+						if (elapsed >= MazeRenderer.TELEPORT_TOTAL_MS) {
+							// Finish teleport movement
+							State newPos = pendingTeleportPos[0];
+							if (newPos != null) {
+								playerPos[0] = newPos;
+								playerFromX[0] = newPos.getX(); playerFromY[0] = newPos.getY();
+								playerToX[0] = newPos.getX(); playerToY[0] = newPos.getY();
+								playerRenderX[0] = newPos.getX(); playerRenderY[0] = newPos.getY();
+								stepCounter[0]++;
+								refreshPlayerStats(playerPos[0], playerScore[0], playerLives[0],
+									stateLabel, scoreLabel, pathLabel, exploredLabel);
+								currentPosText.setText("Position: (" + newPos.getX() + ", " + newPos.getY() + ")");
+							}
+							teleportAnimStartMs[0] = 0;
+							pendingTeleportPos[0] = null;
 						}
 					}
 
@@ -1405,6 +1517,10 @@ public class PlayGamePage {
 
 		// ── Bomb ──────────────────────────────────────────────────────────────
 		if (cell == CellType.BOMB) {
+			// IFRAMES: No damage or score loss if invincible
+			if (System.currentTimeMillis() < pw.iFramesUntil) {
+				return;
+			}
 			if (pw.shield) {
 				pw.shield = false;
 				pw.shieldUntil = 0;
@@ -1413,6 +1529,9 @@ public class PlayGamePage {
 			} else {
 				playerLives[0]--;
 				playerScore[0] = Math.max(0, playerScore[0] - 120);
+				// SET IFRAMES (2s)
+				pw.iFramesUntil = System.currentTimeMillis() + 2000;
+				
 				statusText.setFill(Color.web("#FF8DA6"));
 				statusText.setText("HIT A BOMB — -1 LIFE!");
 				if (playerLives[0] <= 0) {
@@ -1436,15 +1555,23 @@ public class PlayGamePage {
 		} else if (cell == CellType.ITEM) {
 			int reward = pw.doubleScore ? 360 : 180;
 			playerScore[0] += reward;
-			statusText.setFill(Color.web("#9FFFD8"));
-			statusText.setText("ITEM COLLECTED (+" + reward + ") — opening mystery box...");
-			mysteryPickupAnimStartMs[0] = System.currentTimeMillis();
-			mysteryPickupGx[0] = nx;
-			mysteryPickupGy[0] = ny;
-			moveCommitAtMs[0] = mysteryPickupAnimStartMs[0] + MazeRenderer.MYSTERY_OPEN_TOTAL_MS;
-			moveCommitX[0] = nx;
-			moveCommitY[0] = ny;
-			mysteryPickupNeedsModal[0] = inventory != null && gameScene != null && gameScene.length > 0 && gameScene[0] != null;
+			
+			if (mode == PlayMode.PLAYER) {
+				statusText.setFill(Color.web("#9FFFD8"));
+				statusText.setText("ITEM COLLECTED (+" + reward + ") — opening mystery box...");
+				mysteryPickupAnimStartMs[0] = System.currentTimeMillis();
+				mysteryPickupGx[0] = nx;
+				mysteryPickupGy[0] = ny;
+				moveCommitAtMs[0] = mysteryPickupAnimStartMs[0] + MazeRenderer.MYSTERY_OPEN_TOTAL_MS;
+				moveCommitX[0] = nx;
+				moveCommitY[0] = ny;
+				mysteryPickupNeedsModal[0] = inventory != null && gameScene != null && gameScene.length > 0 && gameScene[0] != null;
+			} else {
+				// AI ASSIST / BOT mode (Replay): Item vanishes immediately, no delay, no modal
+				maze.setCell(nx, ny, CellType.EMPTY);
+				statusText.setFill(Color.web("#9FFFD8"));
+				statusText.setText("ITEM COLLECTED (+" + reward + ")");
+			}
 			openItemAfterMysteryHold[0] = () -> {
 				if (inventory == null || gameScene == null || gameScene.length == 0 || gameScene[0] == null) return;
 				boolean shown = ItemCardSelectionModal.showOnScene(gameScene[0], selectedPowerUp -> {
@@ -1452,9 +1579,14 @@ public class PlayGamePage {
 					if (renderFrame != null) renderFrame.run();
 				}, () -> {
 					if (selectingPowerUp != null) selectingPowerUp[0] = false;
-					gameScene[0].getRoot().requestFocus();
+					if (pw.pendingChoices > 0) {
+						pw.pendingChoices--;
+						if (openItemAfterMysteryHold[0] != null) openItemAfterMysteryHold[0].run();
+					} else {
+						gameScene[0].getRoot().requestFocus();
+					}
 				});
-				if (selectingPowerUp != null) selectingPowerUp[0] = shown;
+				if (shown && selectingPowerUp != null) selectingPowerUp[0] = true;
 				if (!shown) {
 					statusText.setFill(Color.web("#FFD59A"));
 					statusText.setText("ITEM COLLECTED — continue moving");
@@ -2145,6 +2277,7 @@ public class PlayGamePage {
 	}
 
 	// ── Power-up runtime state ────────────────────────────────────────────────
+
 	static final class PowerUpState {
 		// 1-use protective flags
 		boolean shield      = false;  long shieldUntil     = 0L;
@@ -2163,6 +2296,9 @@ public class PlayGamePage {
 		int  scoreVfxValue  = 0;
 		long timeVfxUntil   = 0L; // +15s animation
 
+		// Magnetic pull effects
+		java.util.List<FlyingItem> flyingItems = new java.util.ArrayList<>();
+
 		// Speed modifiers
 		long speedBoostUntil = 0L;
 		long speedSlowUntil  = 0L;
@@ -2172,6 +2308,14 @@ public class PlayGamePage {
 		boolean             aiRunning = false;
 		java.util.List<com.nhom_01.robot_pathfinding.core.State> aiPath = null;
 		int                 aiPathIdx = 0;
+		int                 pendingChoices = 0;
+		long                iFramesUntil = 0L;
+
+		// --- PERFORMANCE CACHE ---
+		java.util.List<com.nhom_01.robot_pathfinding.core.State> cachedPathToGoal = null;
+		int lastPathSourceX = -1, lastPathSourceY = -1;
+		boolean lastPathFrozen = false;
+		java.util.List<com.nhom_01.robot_pathfinding.core.State> cachedBombs = null;
 
 		/** Call every frame to expire timed effects. */
 		void tickExpiry() {
@@ -2352,18 +2496,22 @@ public class PlayGamePage {
 			}
 			case ANOTHER_OPTIONS -> {
 				if (gameScene != null && gameScene.length > 0 && gameScene[0] != null) {
-					selectingPowerUp[0] = true;
-					ItemCardSelectionModal.showOnScene(gameScene[0], extra -> {
+					boolean shown = ItemCardSelectionModal.showOnScene(gameScene[0], extra -> {
 						if (extra != null) inventory.addCollectedPowerUp(extra);
 					}, () -> {
 						selectingPowerUp[0] = false;
 						root.requestFocus();
 					});
-					statusText.setFill(Color.web("#CE93D8"));
-					statusText.setText("ANOTHER OPTIONS — pick a bonus item!");
+					if (shown) {
+						selectingPowerUp[0] = true;
+						statusText.setFill(Color.web("#CE93D8"));
+						statusText.setText("ANOTHER OPTIONS — pick a bonus item!");
+					}
 				}
 			}
 		}
+		// Always return focus to the main container so arrow keys work immediately
+		root.requestFocus();
 	}
 
 	/** BFS path from current player position to maze goal (used by REVEAL_PATH, AI_ASSIST). */
