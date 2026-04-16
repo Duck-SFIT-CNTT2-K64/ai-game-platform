@@ -52,7 +52,8 @@ public class MazeRenderer {
 
 	/** Visible time per teleport frame (1, 2, 3). */
 	public static final long TELEPORT_FRAME_MS = 150L;
-	public static final long TELEPORT_TOTAL_MS = TELEPORT_FRAME_MS * 3;
+	/** Increased to handle 5-frame sequence: 3 at start, 2 at target. */
+	public static final long TELEPORT_TOTAL_MS = TELEPORT_FRAME_MS * 5;
 
 	private static final Color BG = Color.web("#88E3F3");
 	private static final Color WALL = Color.web("#BDE86E");
@@ -132,7 +133,8 @@ public class MazeRenderer {
 		double robotGridX = robotPosition == null ? Double.NaN : robotPosition.getX();
 		double robotGridY = robotPosition == null ? Double.NaN : robotPosition.getY();
 		render(gc, maze, explored, path, robotGridX, robotGridY, width, height,
-			0L, -1, -1, 0L, -1, -1, DuckFacing.RIGHT, true, false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L, 0L, 0, 0L);
+			0L, -1, -1, 0L, -1, -1, DuckFacing.RIGHT, true, false, false, 1.0,
+			false, -1L, false, 0L, -1, -1, -1, -1, null, new RenderVfx(0L, 0L, 0, 0L, 0L));
 	}
 
 	public static void render(
@@ -148,7 +150,8 @@ public class MazeRenderer {
 		boolean duckIntroRightIdle
 	) {
 		render(gc, maze, explored, path, robotGridX, robotGridY, width, height,
-			0L, -1, -1, 0L, -1, -1, duckFacing, duckIntroRightIdle, false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L, 0L, 0, 0L);
+			0L, -1, -1, 0L, -1, -1, duckFacing, duckIntroRightIdle, false, false, 1.0,
+			false, -1L, false, 0L, -1, -1, -1, -1, null, new RenderVfx(0L, 0L, 0, 0L, 0L));
 	}
 
 	/**
@@ -158,6 +161,15 @@ public class MazeRenderer {
 	 * @param duckFacing         current heading (after first move, idle uses this)
 	 * @param duckIntroRightIdle when true and duck is idle, force right-facing idle (start of level)
 	 */
+	/** Helper for VFX timers/values to keep render signature manageable. */
+	public record RenderVfx(
+		long lifeUntil,
+		long scoreUntil,
+		int scoreValue,
+		long timeUntil,
+		long iFramesUntil
+	) {}
+
 	public static void render(
 		GraphicsContext gc,
 		Maze maze,
@@ -184,10 +196,10 @@ public class MazeRenderer {
 		long teleportStartMs,
 		int teleportGx,
 		int teleportGy,
-		long lifeVfxUntil,
-		long scoreVfxUntil,
-		int  scoreVfxValue,
-		long timeVfxUntil
+		int teleportDestX,
+		int teleportDestY,
+		List<FlyingItem> flyingItems,
+		RenderVfx vfx
 	) {
 		gc.setFill(BG);
 		gc.fillRect(0, 0, width, height);
@@ -326,25 +338,59 @@ public class MazeRenderer {
 		}
 
 		// --- Draw Teleport Animation if active ---
-		if (teleportStartMs > 0 && teleportGx >= 0 && teleportGy >= 0) {
-			long elapsedTP = now - teleportStartMs;
-			if (elapsedTP < TELEPORT_TOTAL_MS) {
-				int frameTP = (int)(elapsedTP / TELEPORT_FRAME_MS);
-				if (frameTP >= 0 && frameTP < 3) {
-					gc.drawImage(TELEPORT_FRAMES[frameTP],
-						offsetX + teleportGx * cellSize, offsetY + teleportGy * cellSize, cellSize, cellSize);
+		long teleportTotal = TELEPORT_TOTAL_MS; // 1200ms
+		long teleportHalf = teleportTotal / 2;     // 600ms
+		int teleportFrame;
+		if (teleportStartMs > 0) {
+			long elapsed = now - teleportStartMs;
+			if (elapsed < teleportHalf) {
+				// Departure (0-50%): Portal grows 1 -> 2 -> 3
+				teleportFrame = 1 + (int)(elapsed / (teleportHalf / 3));
+				if (teleportFrame > 3) teleportFrame = 3;
+				gc.drawImage(TELEPORT_FRAMES[teleportFrame - 1],
+					offsetX + teleportGx * cellSize, offsetY + teleportGy * cellSize, cellSize, cellSize);
+			} else {
+				// Arrival (50-100%): Portal shrinks 2 -> 1
+				long arrivalElapsed = elapsed - teleportHalf;
+				teleportFrame = 2 - (int)(arrivalElapsed / (teleportHalf / 2));
+				if (teleportFrame > 0) {
+					gc.drawImage(TELEPORT_FRAMES[teleportFrame - 1],
+						offsetX + teleportDestX * cellSize, offsetY + teleportDestY * cellSize, cellSize, cellSize);
 				}
 			}
 		}
 
+		// Draw flying items (Sonar Radar magnetic pull)
+		if (flyingItems != null && !flyingItems.isEmpty()) {
+			for (FlyingItem fi : flyingItems) {
+				gc.drawImage(ITEM_IMAGE, 
+					offsetX + fi.currentX() * cellSize, 
+					offsetY + fi.currentY() * cellSize, 
+					cellSize * 0.85, cellSize * 0.85);
+			}
+		}
+
 		if (!Double.isNaN(robotGridX) && !Double.isNaN(robotGridY)) {
+			// --- Draw VFX (Score, Time) ---
+			// Heart (+life) is already handled by renderFloatingMessage in drawRobot
+			if (now < vfx.scoreUntil()) {
+				gc.setFill(Color.GOLD);
+				gc.setFont(AppFonts.vt323(20));
+				gc.fillText("+" + vfx.scoreValue(), offsetX + robotGridX * cellSize + cellSize * 0.5, offsetY + robotGridY * cellSize);
+			}
+			if (now < vfx.timeUntil()) {
+				gc.setFill(Color.AQUA);
+				gc.setFont(AppFonts.vt323(20));
+				gc.fillText("+15s", offsetX + robotGridX * cellSize, offsetY + robotGridY * cellSize - 10);
+			}
+
 			// determine if walking or idle based on fractional position
 			boolean isMoving = (robotGridX % 1.0 != 0) || (robotGridY % 1.0 != 0);
 
 			boolean isTeleporting = false;
 			if (teleportStartMs > 0) {
-				long elapsed = now - teleportStartMs;
-				if (elapsed < TELEPORT_TOTAL_MS) {
+				long elapsedTP = now - teleportStartMs;
+				if (elapsedTP < TELEPORT_TOTAL_MS) {
 					isTeleporting = true;
 				}
 			}
@@ -352,7 +398,7 @@ public class MazeRenderer {
 			drawRobot(
 				gc, offsetX + robotGridX * cellSize, offsetY + robotGridY * cellSize, cellSize,
 				isMoving, duckFacing, duckIntroRightIdle, shieldVisible, activeTimerMs, speedMultiplier, isTeleporting,
-				lifeVfxUntil, scoreVfxUntil, scoreVfxValue, timeVfxUntil, maze.getWidth()
+				vfx, maze.getWidth()
 			);
 		}
 
@@ -552,10 +598,13 @@ public class MazeRenderer {
 		boolean isMoving, DuckFacing facing, boolean introRightIdle,
 		boolean shieldVisible, long activeTimerMs, double speedMultiplier,
 		boolean isTeleporting, 
-		long lifeVfxUntil, long scoreVfxUntil, int scoreVfxValue, long timeVfxUntil, 
+		RenderVfx vfx, 
 		int mazeW
 	) {
 		if (isTeleporting) return; // Skip duck rendering during teleport animation
+		long now = System.currentTimeMillis();
+		// IFRAMES FLASHING EFFECT: skip drawing some frames to flicker
+		if (vfx != null && vfx.iFramesUntil() > now && (now / 100) % 2 == 0) return;
 		DuckFacing useFacing = facing;
 		if (!isMoving && introRightIdle) {
 			useFacing = DuckFacing.RIGHT;
@@ -632,13 +681,12 @@ public class MazeRenderer {
 
 			// 3. Draw Shield/Bubble OVER the duck
 			if (shieldVisible) {
-				long now = System.currentTimeMillis();
 				long switchTime = (activeTimerMs > 0 && activeTimerMs < 2000) ? 100 : 300;
 				boolean frameIndex = (now / switchTime) % 2 == 0;
 				Image bubble = frameIndex ? BUBBLE1_IMAGE : BUBBLE2_IMAGE;
 				
 				if (bubble != null && !bubble.isError()) {
-					double bSize = duckW * 1.35;
+					double bSize = duckW * 1.7;
 					gc.drawImage(bubble, duckX - (bSize - duckW) / 2, duckY - (bSize - duckH) / 2 + size * 0.1, bSize, bSize);
 				}
 			}
@@ -656,11 +704,11 @@ public class MazeRenderer {
 			}
 
 			// 5. Draw Floating VFX Messages (+Heart, +Score, +15s)
-			long now = System.currentTimeMillis();
+			long cur = System.currentTimeMillis();
 			double vfxHSize = size * 0.7;
-			renderFloatingMessage(gc, "heart", lifeVfxUntil, -1, now, duckX, duckY, duckW, vfxHSize, size);
-			renderFloatingMessage(gc, "score", scoreVfxUntil, scoreVfxValue, now, duckX, duckY, duckW, vfxHSize, size);
-			renderFloatingMessage(gc, "time", timeVfxUntil, 15, now, duckX, duckY, duckW, vfxHSize, size);
+			renderFloatingMessage(gc, "heart", vfx.lifeUntil(), -1, cur, duckX, duckY, duckW, vfxHSize, size);
+			renderFloatingMessage(gc, "score", vfx.scoreUntil(), vfx.scoreValue(), cur, duckX, duckY, duckW, vfxHSize, size);
+			renderFloatingMessage(gc, "time", vfx.timeUntil(), 15, cur, duckX, duckY, duckW, vfxHSize, size);
 
 			return;
 		}

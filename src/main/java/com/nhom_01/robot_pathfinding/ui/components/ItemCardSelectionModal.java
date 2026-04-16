@@ -39,7 +39,10 @@ public class ItemCardSelectionModal {
         }
 
         StackPane gameRoot = (StackPane) gameScene.getRoot();
-        if (gameRoot.lookup("#" + MODAL_OVERLAY_ID) != null) return false;
+        if (gameRoot.lookup("#" + MODAL_OVERLAY_ID) != null) {
+            safeRun(onClosed);
+            return false;
+        }
 
         List<PowerUp> powerUps = generateRandomPowerUps(3);
         if (powerUps.isEmpty()) { safeRun(onClosed); return false; }

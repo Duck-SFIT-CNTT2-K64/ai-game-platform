@@ -17,6 +17,7 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -118,10 +119,10 @@ public final class TutorialPageJava {
 
         // Description Box
         VBox descBox = new VBox(10);
-        descBox.setPadding(new Insets(20));
-        descBox.setPrefHeight(280);
-        descBox.setMinHeight(280);
-        descBox.setMaxHeight(280);
+        descBox.setPadding(new Insets(15));
+        descBox.setPrefHeight(180);
+        descBox.setMinHeight(180);
+        descBox.setMaxHeight(180);
         descBox.setPrefWidth(800);
         descBox.setMaxWidth(800);
         descBox.setStyle("-fx-background-color: rgba(15, 23, 42, 0.9); -fx-background-radius: 15; -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 15;");
@@ -137,7 +138,27 @@ public final class TutorialPageJava {
         
         descBox.getChildren().addAll(descTitle, descText);
 
-        rightPane.getChildren().addAll(previewFrame, descBox);
+        // --- POWER-UP LAB SELECTOR (Hidden by default) ---
+        VBox labsPane = new VBox(15);
+        labsPane.setAlignment(Pos.CENTER);
+        labsPane.setPadding(new Insets(10, 0, 10, 0));
+        labsPane.setManaged(false);
+        labsPane.setVisible(false);
+
+        ScrollPane labsScroll = new ScrollPane();
+        labsScroll.setFitToHeight(true);
+        labsScroll.setPrefHeight(100);
+        labsScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-border-color: transparent;");
+        labsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        labsScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+
+        HBox labsBox = new HBox(15);
+        labsBox.setAlignment(Pos.CENTER);
+        labsBox.setPadding(new Insets(5, 20, 5, 20));
+        labsScroll.setContent(labsBox);
+        labsPane.getChildren().add(labsScroll);
+
+        rightPane.getChildren().addAll(previewFrame, labsPane, descBox);
 
 
         // Build Sections
@@ -145,8 +166,16 @@ public final class TutorialPageJava {
         for (TutorialSection section : sections) {
             cardsList.getChildren().add(createInstructionCard(section, isSelected -> {
                 if (isSelected) {
-                    startPreview(section, previewCanvas);
-                    animateText(descText, section.description());
+                    if (section.isSkillAcademy()) {
+                        labsPane.setManaged(true);
+                        labsPane.setVisible(true);
+                        setupSkillAcademy(labsBox, previewCanvas, descText, section);
+                    } else {
+                        labsPane.setManaged(false);
+                        labsPane.setVisible(false);
+                        startPreview(section, previewCanvas);
+                        animateText(descText, section.description());
+                    }
                 }
             }, cardsList));
         }
@@ -235,11 +264,37 @@ public final class TutorialPageJava {
                 gc.setFill(Color.web("#1E293B"));
                 gc.fillRect(0, 0, canvas.getWidth(), canvas.getHeight());
 
-                MazeRenderer.render(gc, maze, new ArrayList<>(), new ArrayList<>(), 
-                    state.x, state.y, canvas.getWidth(), canvas.getHeight(), 
-                    state.mysteryOpenStartMs, state.mysteryOpenGx, state.mysteryOpenGy,
-                    state.bombTouchStartMs, state.bombTouchGx, state.bombTouchGy, 
-                    state.facing, false, false, false, 1.0, false, -1L, false, 0L, -1, -1, 0L, 0L, 0, 0L);
+                MazeRenderer.render(
+                    gc,
+                    maze,
+                    new ArrayList<com.nhom_01.robot_pathfinding.core.State>(),
+                    state.path, 
+                    state.x,
+                    state.y,
+                    canvas.getWidth(),
+                    canvas.getHeight(), 
+                    state.mysteryOpenStartMs,
+                    state.mysteryOpenGx,
+                    state.mysteryOpenGy,
+                    state.bombTouchStartMs,
+                    state.bombTouchGx,
+                    state.bombTouchGy, 
+                    state.facing,
+                    true,
+                    state.freezeTimeActive,
+                    state.bombDetectorActive,
+                    state.speedMultiplier,
+                    state.shieldVisible,
+                    state.activeTimerMs,
+                    state.visionActive,
+                    state.teleportStartMs,
+                    (int)state.teleportGx,
+                    (int)state.teleportGy,
+                    state.teleportDestX,
+                    state.teleportDestY,
+                    state.flyingItems,
+                    state.vfx
+                );
 
                 if (state.showPowerUps) {
                     renderPowerUpCards(gc, canvas.getWidth(), canvas.getHeight());
@@ -257,7 +312,7 @@ public final class TutorialPageJava {
         double startX = (w - totalW) / 2;
         double startY = (h - cardH) / 2;
 
-        String[] titles = {"SPEED", "SHIELD", "X2 SCORE"};
+        String[] titles = {"TỐC ĐỘ", "KHIÊN", "X2 ĐIỂM"};
         Color[] colors = {Color.web("#00ACC1"), Color.web("#1E88E5"), Color.web("#F9A825")};
 
         for (int i = 0; i < 3; i++) {
@@ -363,7 +418,7 @@ public final class TutorialPageJava {
                     x = 1.0; y = 3.0 - p * 2.0; f = MazeRenderer.DuckFacing.UP;
                 }
                 return new PreviewState(x, y, f);
-            }
+            }, false
         ));
 
         // 2. BOMB
@@ -385,7 +440,7 @@ public final class TutorialPageJava {
                     bStart = System.currentTimeMillis() - (long)(ms % 3000 - 1200);
                 }
                 return new PreviewState(x, y, MazeRenderer.DuckFacing.RIGHT).withBomb(bStart, 1, 2);
-            }
+            }, false
         ));
 
         // 3. ITEM - Redesigned to show Mystery Opening -> Card Selection
@@ -421,7 +476,7 @@ public final class TutorialPageJava {
                 return new PreviewState(x, 1.0, MazeRenderer.DuckFacing.RIGHT)
                     .withItem(iStart, 1, 1)
                     .withPowerUps(showCards);
-            }
+            }, false
         ));
 
         // 4. BOT
@@ -444,15 +499,121 @@ public final class TutorialPageJava {
                 else if (t < 0.8) { x = 0.0; y = 5.0 - (t-0.6)*5*5.0; f = MazeRenderer.DuckFacing.UP; }
                 else { x = 0.0; y = 0.0; f = MazeRenderer.DuckFacing.DOWN; }
                 return new PreviewState(x, y, f);
-            }
+            }, false
+        ));
+
+        // 5. SKILL ACADEMY
+        list.add(new TutorialSection(
+            "HỌC VIỆN KỸ NĂNG", "Trải nghiệm sức mạnh đặc biệt.",
+            "Chào mừng đến với Học viện Kỹ năng! Tại đây bạn có thể thử nghiệm mọi loại Power-up " +
+            "trước khi bước vào mê cung thực sự. Hãy chọn một kỹ năng bên dưới để xem cách nó hoạt động.",
+            "Nắm vững kỹ năng là chìa khóa để giành điểm cao nhất!",
+            createMaze(new int[][]{{0,0,0,0,0},{0,0,0,0,0},{0,0,0,0,0}}),
+            ms -> new PreviewState(2.0, 1.0, MazeRenderer.DuckFacing.DOWN),
+            true
         ));
 
         return list;
     }
 
+    private static void setupSkillAcademy(HBox container, Canvas canvas, Text desc, TutorialSection rootSection) {
+        container.getChildren().clear();
+        String[] powers = {"Shield", "Speed Boost", "Teleport", "Sonar Radar", "Wall Removal", "Freeze Time"};
+        Color[] colors = {Color.web("#1E88E5"), Color.web("#00ACC1"), Color.web("#CE93D8"), Color.web("#00B8D4"), Color.web("#FFAB91"), Color.web("#81D4FA")};
+        
+        for (int i = 0; i < powers.length; i++) {
+            final int idx = i;
+            Button btn = new NeonButton(powers[i], colors[i], 12, 6, 12, 6);
+            btn.setMinWidth(140);
+            btn.setOnAction(e -> {
+                runSubDemo(idx, canvas, desc);
+            });
+            container.getChildren().add(btn);
+        }
+        
+        // Pick first by default
+        if (!container.getChildren().isEmpty()) {
+            ((Button)container.getChildren().get(0)).fire();
+        }
+    }
+
+    private static void runSubDemo(int type, Canvas canvas, Text desc) {
+        TutorialSection demo;
+        Maze maze = createMaze(new int[][]{{0,0,0,0,0},{0,0,0,0,0},{0,0,0,0,0}});
+        
+        switch (type) {
+            case 0 -> demo = new TutorialSection("Shield", "", "Bảo vệ Vịt khỏi 1 lần va chạm với bom mà không bị mất mạng. Có một hào quang màu xanh bao quanh bạn.", "", maze, 
+                ms -> new PreviewState(2.0, 1.0, MazeRenderer.DuckFacing.DOWN).withShield(true), true);
+            case 1 -> demo = new TutorialSection("Speed Boost", "", "Tăng đáng kể tốc độ di chuyển trong một khoảng thời gian ngắn. Rất hữu ích khi cần thoát khỏi khu vực nguy hiểm.", "", maze, 
+                ms -> {
+                    double t = (ms % 1000) / 1000.0;
+                    return new PreviewState(0.5 + t * 3.0, 1.0, MazeRenderer.DuckFacing.RIGHT).withSpeedMultiplier(0.5);
+                }, true);
+            case 2 -> demo = new TutorialSection("Teleport", "", "Ngay lập tức dịch chuyển Vịt đến một vị trí an toàn ngẫu nhiên trong mê cung.", "", maze, 
+                ms -> {
+                    long cycle = ms % 2500;
+                    if (cycle < 800) return new PreviewState(1.0, 1.0, MazeRenderer.DuckFacing.DOWN);
+                    else if (cycle < 1600) return new PreviewState(1.0, 1.0, MazeRenderer.DuckFacing.DOWN).withTeleport(System.currentTimeMillis() - (cycle - 800), 1, 1, 3, 1);
+                    else return new PreviewState(3.0, 1.0, MazeRenderer.DuckFacing.DOWN);
+                }, true);
+            case 3 -> {
+                Maze radarMaze = createMaze(new int[][]{{0,0,3,0,0}});
+                java.util.List<com.nhom_01.robot_pathfinding.ui.FlyingItem> tutFlying = new java.util.ArrayList<>();
+                demo = new TutorialSection("Sonar Radar", "", "Sử dụng sóng âm tầm xa để phát hiện và tự động hút tất cả các hộp quà bí ẩn ở gần về phía Vịt.", "", radarMaze, 
+                ms -> {
+                    double t = (ms % 3000) / 3000.0;
+                    PreviewState ps = new PreviewState(0.5, 0.0, MazeRenderer.DuckFacing.RIGHT).withVision(true, 5000L);
+                    if (t < 0.1) {
+                        radarMaze.setCell(2, 0, CellType.ITEM);
+                        tutFlying.clear();
+                    } else if (t > 0.4 && radarMaze.getCell(2,0) == CellType.ITEM) {
+                        radarMaze.setCell(2, 0, CellType.EMPTY);
+                        tutFlying.add(new com.nhom_01.robot_pathfinding.ui.FlyingItem(2, 0, 180));
+                        ps.withItem(System.currentTimeMillis(), 2, 0);
+                    }
+                    for (com.nhom_01.robot_pathfinding.ui.FlyingItem fi : tutFlying) {
+                        fi.update(ps.x, ps.y);
+                    }
+                    ps.flyingItems.addAll(tutFlying);
+                    return ps;
+                }, true);
+            }
+            case 4 -> {
+                Maze wallMaze = createMaze(new int[][]{{0,0,1,0,0}});
+                demo = new TutorialSection("Wall Removal", "", "Một luồng năng lượng đặc biệt cho phép Vịt phá hủy tường khi chạm vào, tạo ra những con đường tắt mới.", "", wallMaze, 
+                ms -> {
+                    double t = (ms % 2500) / 2500.0;
+                    double x = 0.5 + t * 4.0;
+                    if (x >= 1.5) wallMaze.setCell(2, 0, CellType.EMPTY); // Vanish as soon as touched
+                    if (t < 0.1) wallMaze.setCell(2, 0, CellType.WALL);
+                    return new PreviewState(x, 0.0, MazeRenderer.DuckFacing.RIGHT);
+                }, true);
+            }
+            case 5 -> {
+                Maze bombMaze = createMaze(new int[][]{{0,0,2,0,0},{0,0,0,0,0}});
+                demo = new TutorialSection("Freeze Time", "", "Đóng băng tất cả bom và bẫy trong mê cung. Bom bị đóng băng sẽ đóng vai trò như những bức tường kiên cố mà bạn không thể đi xuyên qua.", "", bombMaze, 
+                ms -> {
+                    double t = (ms % 3000) / 3000.0;
+                    double x, y;
+                    MazeRenderer.DuckFacing f;
+                    if (t < 0.3) { x = 0.5 + t*3.0; y = 0.0; f = MazeRenderer.DuckFacing.RIGHT; }
+                    else if (t < 0.6) { x = 1.4; y = (t-0.3)*3.0; f = MazeRenderer.DuckFacing.DOWN; } // Turn away
+                    else { x = 1.4 + (t-0.6)*4.0; y = 1.0; f = MazeRenderer.DuckFacing.RIGHT; }
+                    return new PreviewState(x, y, f).withFreeze(true);
+                }, true);
+            }
+            default -> demo = new TutorialSection("Welcome", "", "Chào mừng đến với Học viện Kỹ năng! Hãy chọn một kỹ năng để bắt đầu.", "", maze, 
+                ms -> new PreviewState(2.0, 1.0, MazeRenderer.DuckFacing.DOWN), false);
+        }
+        
+        startPreview(demo, canvas);
+        animateText(desc, demo.description());
+    }
+
     private record TutorialSection(
         String title, String subtitle, String description, String tip,
-        Maze scenarioMaze, java.util.function.Function<Long, PreviewState> animator
+        Maze scenarioMaze, java.util.function.Function<Long, PreviewState> animator,
+        boolean isSkillAcademy
     ) {
         public PreviewState animate(long ms) { return animator.apply(ms); }
     }
@@ -467,7 +628,21 @@ public final class TutorialPageJava {
         int bombTouchGx = -1;
         int bombTouchGy = -1;
         boolean showPowerUps = false;
-        
+
+        // New Power-Up Effects
+        boolean shieldVisible = false;
+        boolean visionActive = false;
+        boolean freezeTimeActive = false;
+        boolean bombDetectorActive = false;
+        double speedMultiplier = 1.0;
+        long activeTimerMs = -1L;
+        long teleportStartMs = 0;
+        double teleportGx = -1, teleportGy = -1;
+        int teleportDestX = -1, teleportDestY = -1;
+        List<State> path = new ArrayList<>();
+        java.util.List<com.nhom_01.robot_pathfinding.ui.FlyingItem> flyingItems = new java.util.ArrayList<>();
+        MazeRenderer.RenderVfx vfx = new MazeRenderer.RenderVfx(0L, 0L, 0, 0L, 0L);
+
         PreviewState(double x, double y, MazeRenderer.DuckFacing f) {
             this.x = x; this.y = y; this.facing = f;
         }
@@ -481,6 +656,18 @@ public final class TutorialPageJava {
         }
         PreviewState withPowerUps(boolean show) {
             this.showPowerUps = show;
+            return this;
+        }
+        PreviewState withShield(boolean v) { this.shieldVisible = v; return this; }
+        PreviewState withVision(boolean v, long timer) { this.visionActive = v; this.activeTimerMs = timer; return this; }
+        PreviewState withFreeze(boolean v) { this.freezeTimeActive = v; return this; }
+        PreviewState withDetector(boolean v) { this.bombDetectorActive = v; return this; }
+        PreviewState withSpeedMultiplier(double v) { this.speedMultiplier = v; return this; }
+        PreviewState withPath(List<State> p) { this.path = p; return this; }
+        PreviewState withVfx(long l, long s, int sv, long t, long ifr) { this.vfx = new MazeRenderer.RenderVfx(l, s, sv, t, ifr); return this; }
+        PreviewState withTeleport(long start, double sx, double sy, int dx, int dy) {
+            this.teleportStartMs = start; this.teleportGx = sx; this.teleportGy = sy;
+            this.teleportDestX = dx; this.teleportDestY = dy;
             return this;
         }
     }

@@ -16,5 +16,8 @@
 .DS_Store
 Thumbs.db
 
-*.py
+
 *.txt
+*.py
+rankings.dat
+

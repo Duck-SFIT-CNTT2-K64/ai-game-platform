@@ -90,6 +90,7 @@ public class GameEngine {
     }
     public int getScore() { return Math.max(0, score); }
     public int getLives() { return Math.max(0, lives); }
+    public void setLives(int lives) { this.lives = lives; }
     public GameState getState() { return state; }
     public RobotController getRobot() { return robot; }
     public List<State> getExplored() { return explored; }
