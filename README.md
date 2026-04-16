@@ -24,7 +24,6 @@ The robot wins if it reaches the goal with at least one remaining life.
 The following classical AI search algorithms are implemented and compared:
 - Breadth-First Search (BFS)
 - Depth-First Search (DFS)
-- Best First Search
 - A* Search
 
 ## Tech Stack

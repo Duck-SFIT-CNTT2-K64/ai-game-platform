@@ -19,11 +19,8 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.effect.DropShadow;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
-import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -50,21 +47,50 @@ public final class TutorialPageJava {
     }
 
     private static Scene buildScene(Stage stage, Scene menuScene) {
+        double widthScale = clamp(VIEW_WIDTH / 1536.0, 0.85, 1.25);
+        double heightScale = clamp(VIEW_HEIGHT / 864.0, 0.82, 1.25);
+        double uiScale = Math.min(widthScale, heightScale);
+
+        double pageSpacing = clamp(24 * uiScale, 16, 30);
+        double hPadding = clamp(VIEW_WIDTH * 0.04, 28, 72);
+        double vPadding = clamp(VIEW_HEIGHT * 0.045, 24, 60);
+
+        double headerGap = clamp(18 * uiScale, 12, 24);
+        double titleFont = clamp(34 * uiScale, 30, 44);
+        double subtitleFont = clamp(16 * uiScale, 14, 20);
+        double backFont = clamp(16 * uiScale, 14, 20);
+        double backButtonW = clamp(170 * uiScale, 150, 210);
+
+        double contentGap = clamp(28 * uiScale, 18, 36);
+        double cardColumnW = clamp(VIEW_WIDTH * 0.27, 320, 440);
+        double cardW = cardColumnW - 24;
+        double cardTitleFont = clamp(22 * uiScale, 18, 28);
+        double cardSubtitleFont = clamp(15 * uiScale, 13, 18);
+
+        double rightSpacing = clamp(16 * uiScale, 12, 24);
+        double previewW = clamp(VIEW_WIDTH * 0.55, 620, 980);
+        double previewH = clamp(VIEW_HEIGHT * 0.47, 320, 500);
+        double previewInnerPadding = clamp(20 * uiScale, 14, 24);
+
+        double descH = clamp(VIEW_HEIGHT * 0.24, 170, 240);
+        double descTitleFont = clamp(21 * uiScale, 18, 26);
+        double descTextFont = clamp(30 * uiScale, 24, 36);
+
         StackPane root = new StackPane();
         root.setPrefSize(VIEW_WIDTH, VIEW_HEIGHT);
         root.getChildren().add(PlayToneBackground.create(VIEW_WIDTH, VIEW_HEIGHT, TutorialPageJava.class));
 
-        VBox page = new VBox(32);
-        page.setPadding(new Insets(80, 60, 80, 60));
+        VBox page = new VBox(pageSpacing);
+        page.setPadding(new Insets(vPadding, hPadding, vPadding, hPadding));
         page.setAlignment(Pos.TOP_CENTER);
 
         // --- Header ---
-        HBox header = new HBox(20);
+        HBox header = new HBox(headerGap);
         header.setAlignment(Pos.CENTER_LEFT);
 
         VBox titleBox = new VBox(2);
         Text title = new Text("HƯỚNG DẪN GIẢI CỨU VỊT");
-        title.setFont(AppFonts.vt323(28));
+        title.setFont(AppFonts.vt323(titleFont));
         title.setFill(Color.WHITE);
         
         DropShadow titleGlow = new DropShadow();
@@ -73,15 +99,15 @@ public final class TutorialPageJava {
         title.setEffect(titleGlow);
 
         Text subtitle = new Text("HƯỚNG DẪN CƠ BẢN VÀ NÂNG CAO");
-        subtitle.setFont(AppFonts.vt323(14));
+        subtitle.setFont(AppFonts.vt323(subtitleFont));
         subtitle.setFill(Color.WHITE);
         titleBox.getChildren().addAll(title, subtitle);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button backBtn = new NeonButton("QUAY LẠI", Color.web("#455A64"), 14, 8, 16, 8);
-        backBtn.setPrefWidth(140);
+        Button backBtn = new NeonButton("QUAY LẠI", Color.web("#455A64"), (int)Math.round(backFont), 10, 18, 8);
+        backBtn.setPrefWidth(backButtonW);
         backBtn.setOnAction(e -> {
             stopAnimations();
             stage.setScene(menuScene);
@@ -90,26 +116,37 @@ public final class TutorialPageJava {
         header.getChildren().addAll(titleBox, spacer, backBtn);
 
         // --- Main Content Area (Cards + Preview) ---
-        HBox contentLayout = new HBox(30);
-        contentLayout.setAlignment(Pos.CENTER);
+        HBox contentLayout = new HBox(contentGap);
+        contentLayout.setAlignment(Pos.TOP_CENTER);
         VBox.setVgrow(contentLayout, Priority.ALWAYS);
 
         // Left: Instruction Cards
-        VBox cardsList = new VBox(15);
-        cardsList.setPrefWidth(380);
-        cardsList.setAlignment(Pos.CENTER);
+        VBox cardsList = new VBox(clamp(14 * uiScale, 12, 20));
+        cardsList.setPrefWidth(cardColumnW);
+        cardsList.setAlignment(Pos.TOP_CENTER);
+
+        ScrollPane cardsScroll = new ScrollPane(cardsList);
+        cardsScroll.setFitToWidth(true);
+        cardsScroll.setPannable(true);
+        cardsScroll.setPrefWidth(cardColumnW);
+        cardsScroll.setMinWidth(cardColumnW);
+        cardsScroll.setMaxWidth(cardColumnW);
+        cardsScroll.setPrefHeight(previewH + descH + rightSpacing * 4);
+        cardsScroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-border-color: transparent;");
+        cardsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        cardsScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
         // Right: Dynamic Preview & Description
-        VBox rightPane = new VBox(20);
+        VBox rightPane = new VBox(rightSpacing);
         rightPane.setAlignment(Pos.TOP_CENTER);
         HBox.setHgrow(rightPane, Priority.ALWAYS);
 
         StackPane previewFrame = new StackPane();
-        previewFrame.setPrefSize(800, 400);
-        previewFrame.setMaxSize(800, 400);
+        previewFrame.setPrefSize(previewW, previewH);
+        previewFrame.setMaxSize(previewW, previewH);
         previewFrame.setStyle("-fx-background-color: #0F172A; -fx-background-radius: 20; -fx-border-color: #334155; -fx-border-width: 2; -fx-border-radius: 20;");
         
-        Canvas previewCanvas = new Canvas(760, 360);
+        Canvas previewCanvas = new Canvas(previewW - previewInnerPadding * 2, previewH - previewInnerPadding * 2);
         previewFrame.getChildren().add(previewCanvas);
         
         DropShadow frameShadow = new DropShadow();
@@ -119,44 +156,39 @@ public final class TutorialPageJava {
 
         // Description Box
         VBox descBox = new VBox(10);
-        descBox.setPadding(new Insets(15));
-        descBox.setPrefHeight(180);
-        descBox.setMinHeight(180);
-        descBox.setMaxHeight(180);
-        descBox.setPrefWidth(800);
-        descBox.setMaxWidth(800);
+        descBox.setPadding(new Insets(clamp(14 * uiScale, 12, 20)));
+        descBox.setPrefHeight(descH);
+        descBox.setMinHeight(descH);
+        descBox.setMaxHeight(descH);
+        descBox.setPrefWidth(previewW);
+        descBox.setMaxWidth(previewW);
         descBox.setStyle("-fx-background-color: rgba(15, 23, 42, 0.9); -fx-background-radius: 15; -fx-border-color: rgba(255,255,255,0.1); -fx-border-radius: 15;");
         
         Text descTitle = new Text("CHI TIẾT HƯỚNG DẪN");
-        descTitle.setFont(AppFonts.vt323(18));
+        descTitle.setFont(AppFonts.vt323(descTitleFont));
         descTitle.setFill(Color.WHITE);
         
         Text descText = new Text("");
-        descText.setFont(AppFonts.vt323(26));
+        descText.setFont(AppFonts.vt323(descTextFont));
         descText.setFill(Color.web("#F1F5F9"));
-        descText.setWrappingWidth(770);
+        descText.setWrappingWidth(previewW - 36);
         
         descBox.getChildren().addAll(descTitle, descText);
 
         // --- POWER-UP LAB SELECTOR (Hidden by default) ---
-        VBox labsPane = new VBox(15);
+        VBox labsPane = new VBox(clamp(10 * uiScale, 8, 14));
         labsPane.setAlignment(Pos.CENTER);
-        labsPane.setPadding(new Insets(10, 0, 10, 0));
+        labsPane.setPadding(new Insets(clamp(8 * uiScale, 6, 12), 0, clamp(8 * uiScale, 6, 12), 0));
         labsPane.setManaged(false);
         labsPane.setVisible(false);
 
-        ScrollPane labsScroll = new ScrollPane();
-        labsScroll.setFitToHeight(true);
-        labsScroll.setPrefHeight(100);
-        labsScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-border-color: transparent;");
-        labsScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        labsScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-
-        HBox labsBox = new HBox(15);
+        FlowPane labsBox = new FlowPane();
+        labsBox.setHgap(clamp(10 * uiScale, 8, 14));
+        labsBox.setVgap(clamp(10 * uiScale, 8, 14));
         labsBox.setAlignment(Pos.CENTER);
-        labsBox.setPadding(new Insets(5, 20, 5, 20));
-        labsScroll.setContent(labsBox);
-        labsPane.getChildren().add(labsScroll);
+        labsBox.setPrefWrapLength(previewW - 20);
+        labsBox.setPadding(new Insets(6, 8, 6, 8));
+        labsPane.getChildren().add(labsBox);
 
         rightPane.getChildren().addAll(previewFrame, labsPane, descBox);
 
@@ -169,7 +201,7 @@ public final class TutorialPageJava {
                     if (section.isSkillAcademy()) {
                         labsPane.setManaged(true);
                         labsPane.setVisible(true);
-                        setupSkillAcademy(labsBox, previewCanvas, descText, section);
+                        setupSkillAcademy(labsBox, previewCanvas, descText);
                     } else {
                         labsPane.setManaged(false);
                         labsPane.setVisible(false);
@@ -177,10 +209,10 @@ public final class TutorialPageJava {
                         animateText(descText, section.description());
                     }
                 }
-            }, cardsList));
+            }, cardsList, cardW, cardTitleFont, cardSubtitleFont));
         }
 
-        contentLayout.getChildren().addAll(cardsList, rightPane);
+        contentLayout.getChildren().addAll(cardsScroll, rightPane);
         page.getChildren().addAll(header, contentLayout);
 
         root.getChildren().add(page);
@@ -194,20 +226,29 @@ public final class TutorialPageJava {
         return new Scene(root, VIEW_WIDTH, VIEW_HEIGHT);
     }
 
-    private static StackPane createInstructionCard(TutorialSection section, java.util.function.Consumer<Boolean> onSelect, VBox container) {
+    private static StackPane createInstructionCard(
+            TutorialSection section,
+            java.util.function.Consumer<Boolean> onSelect,
+            VBox container,
+            double cardWidth,
+            double titleFont,
+            double subtitleFont) {
         StackPane card = new StackPane();
-        card.setPadding(new Insets(15, 20, 15, 20));
-        card.setPrefWidth(350);
+        card.setPadding(new Insets(16, 20, 16, 20));
+        card.setPrefWidth(cardWidth);
+        card.setMinWidth(cardWidth);
+        card.setMaxWidth(cardWidth);
         card.setCursor(javafx.scene.Cursor.HAND);
         
-        VBox layout = new VBox(5);
+        VBox layout = new VBox(6);
         Text title = new Text(section.title());
-        title.setFont(AppFonts.vt323(18));
+        title.setFont(AppFonts.vt323(titleFont));
         title.setFill(Color.web("#334155"));
         
         Text sub = new Text(section.subtitle());
-        sub.setFont(AppFonts.vt323(12));
+        sub.setFont(AppFonts.vt323(subtitleFont));
         sub.setFill(Color.web("#E2E8F0"));
+        sub.setWrappingWidth(cardWidth - 44);
         
         layout.getChildren().addAll(title, sub);
         card.getChildren().add(layout);
@@ -220,6 +261,7 @@ public final class TutorialPageJava {
         card.setOnMouseEntered(e -> {
             if (!card.getStyle().contains("#2563EB")) {
                 card.setScaleX(1.03);
+                card.setScaleY(1.03);
                 card.setStyle("-fx-background-color: rgba(255,255,255,0.9); -fx-background-radius: 12; -fx-border-color: #94A3B8; -fx-border-width: 2; -fx-border-radius: 12;");
             }
         });
@@ -227,6 +269,7 @@ public final class TutorialPageJava {
         card.setOnMouseExited(e -> {
             if (!card.getStyle().contains("#2563EB")) {
                 card.setScaleX(1.0);
+                card.setScaleY(1.0);
                 card.setStyle(idleStyle);
             }
         });
@@ -235,6 +278,7 @@ public final class TutorialPageJava {
             for (javafx.scene.Node node : container.getChildren()) {
                 node.setStyle(idleStyle);
                 node.setScaleX(1.0);
+                node.setScaleY(1.0);
                 ((VBox)((StackPane)node).getChildren().get(0)).getChildren().forEach(t -> {
                     if (t instanceof Text txt) txt.setFill(Color.web("#334155"));
                 });
@@ -246,6 +290,10 @@ public final class TutorialPageJava {
         });
 
         return card;
+    }
+
+    private static double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
     }
 
     private static void startPreview(TutorialSection section, Canvas canvas) {
@@ -516,15 +564,21 @@ public final class TutorialPageJava {
         return list;
     }
 
-    private static void setupSkillAcademy(HBox container, Canvas canvas, Text desc, TutorialSection rootSection) {
+    private static void setupSkillAcademy(FlowPane container, Canvas canvas, Text desc) {
         container.getChildren().clear();
         String[] powers = {"Shield", "Speed Boost", "Teleport", "Sonar Radar", "Wall Removal", "Freeze Time"};
         Color[] colors = {Color.web("#1E88E5"), Color.web("#00ACC1"), Color.web("#CE93D8"), Color.web("#00B8D4"), Color.web("#FFAB91"), Color.web("#81D4FA")};
+
+        double panelWidth = canvas.getWidth() + 40;
+        double buttonWidth = clamp((panelWidth - 70) / 3.0, 150, 220);
+        int buttonFont = (int)Math.round(clamp(VIEW_HEIGHT * 0.018, 14, 18));
         
         for (int i = 0; i < powers.length; i++) {
             final int idx = i;
-            Button btn = new NeonButton(powers[i], colors[i], 12, 6, 12, 6);
-            btn.setMinWidth(140);
+            Button btn = new NeonButton(powers[i], colors[i], buttonFont, 8, 14, 6);
+            btn.setMinWidth(buttonWidth);
+            btn.setPrefWidth(buttonWidth);
+            btn.setMaxWidth(buttonWidth + 20);
             btn.setOnAction(e -> {
                 runSubDemo(idx, canvas, desc);
             });
